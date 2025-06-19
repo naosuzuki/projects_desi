@@ -23,15 +23,21 @@ class zall():
 
       def readstar(self):
           columns=['TARGETID','LASTNIGHT','Z','ZERR','ZWARN','CHI2',\
-          'SPECTYPE','SUBTYPE'=='STAR','SUBCLASS']
-
+          'SPECTYPE','SUBTYPE',\
+          'TILEID','PETAL_LOC','FIBER','TARGET_RA','TARGET_DEC']
           d=fitsio.read(self.fitstablename,columns=columns,rows=self.rows)
-          self.platelist=d['PLATE']
-          self.mjdlist=d['MJD']
-          self.fiberlist=d['FIBERID']
-          self.objtypelist=d['OBJTYPE']
-          self.classlist=d['CLASS']
-          self.subclasslist=d['SUBCLASS']
+          self.targetid=d['TARGETID']
+          self.lastnight=d['LASTNIGHT']
+          self.z=d['Z']
+          self.zerr=d['ZERR']
+          self.zwarn=d['ZWARN']
+          self.spectype=d['SPECTYPE']
+          self.subtype=d['SUBTYPE']
+          self.tileid=d['TILEID']
+          self.petal_loc=d['PETAL_LOC']
+          self.fiber=d['FIBER']
+          self.target_ra=d['TARGET_RA']
+          self.target_dec=d['TARGET_DEC']
 
       def readtest(self):
           columns=['TARGETID','SURVEY','PROGRAM',\
@@ -75,11 +81,14 @@ class zall():
           self.ref_cat=d['REF_CAT']
           self.coadd_numexp=d['COADD_NUMEXP']
           self.coadd_exptime=d['COADD_EXPTIME']
-          #self.subclass=d['SUBCLASS']
-          #self.specprimary=d['SPECPRIMARY']
 
 zall=zall()
 print(zall.nspec)
+zall.readstar()
+print(zall.targetid)
+print(len(zall.targetid))
+print(len(zall.z))
+sys.exit(1)
 zall.readtest()
 print('targetid',zall.targetid)
 print('survey',zall.survey)
