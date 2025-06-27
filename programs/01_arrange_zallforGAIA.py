@@ -7,13 +7,14 @@ def extract_stars(csvfile):
 
    dfstar1=df[(df['spectype']=='STAR') & (df['targetid']>0)]
    print(len(dfstar1))
-#   dfstar2=dfstar1[['targetid','ra','dec']]
-#   dfstar2[0:2000000].to_csv('desistar1_float32.csv',index=False)
-#   dfstar2[2000001:].to_csv('desistar2_float32.csv',index=False)
+   dfstar2=dfstar1[['targetid','ra','dec']]
+   dfstar2.to_csv('desidr2star_float32.csv',index=False)
+#   dfstar2[0:5000000].to_csv('desidr2star1_float32.csv',index=False)
+#   dfstar2[5000001:].to_csv('desidr2star2_float32.csv',index=False)
 
-# DR2
-csvfile=os.environ['DESI_REDUX']+'zall-tilecumulative-loa.csv'
 # DR1
 csvfile=os.environ['DESI_REDUX']+'zall-tilecumulative-iron.csv'
+# DR2
+csvfile=os.environ['DESI_REDUX']+'zall-tilecumulative-loa.csv'
 print(csvfile)
 extract_stars(csvfile)
