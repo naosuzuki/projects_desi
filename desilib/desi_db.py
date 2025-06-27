@@ -24,7 +24,14 @@ class zall():
       def readstar(self):
           columns=['TARGETID','LASTNIGHT','Z','ZERR','ZWARN','CHI2',\
           'SPECTYPE','SUBTYPE',\
-          'TILEID','PETAL_LOC','FIBER','TARGET_RA','TARGET_DEC']
+          'TILEID','PETAL_LOC','FIBER','TARGET_RA','TARGET_DEC',\
+          'MEAN_FIBER_RA','STD_FIBER_RA',\
+          'MEAN_FIBER_DEC','STD_FIBER_DEC',\
+          'PHOTSYS','PARALLAX',\
+          'FLUX_G','FLUX_R','FLUX_Z','FLUX_W1','FLUX_W2',\
+          'FLUX_IVAR_G','FLUX_IVAR_R','FLUX_IVAR_Z','FLUX_IVAR_W1','FLUX_IVAR_W2',\
+          'GAIA_PHOT_G_MEAN_MAG','GAIA_PHOT_BP_MEAN_MAG','GAIA_PHOT_RP_MEAN_MAG',\
+          'COADD_NUMEXP','COADD_EXPTIME']
           d=fitsio.read(self.fitstablename,columns=columns,rows=self.rows)
           self.targetid=d['TARGETID']
           self.lastnight=d['LASTNIGHT']
@@ -38,6 +45,27 @@ class zall():
           self.fiber=d['FIBER']
           self.target_ra=d['TARGET_RA']
           self.target_dec=d['TARGET_DEC']
+          self.fiber_ra=d['MEAN_FIBER_RA']
+          self.fiber_dec=d['MEAN_FIBER_DEC']
+          self.fiberstd_ra=d['STD_FIBER_RA']
+          self.fiberstd_dec=d['STD_FIBER_DEC']
+          self.photsys=d['PHOTSYS']
+          self.parallax=d['PARALLAX']
+          self.flux_g=d['FLUX_G']
+          self.flux_r=d['FLUX_R']
+          self.flux_z=d['FLUX_Z']
+          self.flux_w1=d['FLUX_W1']
+          self.flux_w2=d['FLUX_W2']
+          self.flux_ivar_g=d['FLUX_IVAR_G']
+          self.flux_ivar_r=d['FLUX_IVAR_R']
+          self.flux_ivar_z=d['FLUX_IVAR_Z']
+          self.flux_ivar_w1=d['FLUX_IVAR_W1']
+          self.flux_ivar_w2=d['FLUX_IVAR_W2']
+          self.gaia_g=d['GAIA_PHOT_G_MEAN_MAG']
+          self.gaia_bp=d['GAIA_PHOT_BP_MEAN_MAG']
+          self.gaia_rp=d['GAIA_PHOT_RP_MEAN_MAG']
+          self.coadd_numexp=d['COADD_NUMEXP']
+          self.coadd_exptime=d['COADD_EXPTIME']
 
       def readtest(self):
           columns=['TARGETID','SURVEY','PROGRAM',\
@@ -47,6 +75,8 @@ class zall():
           'TILEID','TARGET_RA','TARGET_DEC',
           'DEVICE_LOC','PETAL_LOC','LOCATION','FIBER',\
           'REF_ID','REF_CAT',\
+          'PHOTSYS','PARALLAX',\
+          'GAIA_PHOT_G_MEAN_MAG','GAIA_PHOT_BP_MEAN_MAG','GAIA_PHOT_RP_MEAN_MAG',\
           'COADD_NUMEXP','COADD_EXPTIME']
           print('Reading ',self.fitstablename)
 #          print('Number of Spectra is ',len(self.nspec))
@@ -79,17 +109,37 @@ class zall():
           self.fiber=d['FIBER']
           self.ref_id=d['REF_ID']
           self.ref_cat=d['REF_CAT']
+          self.photsys=d['PHOTSYS']
+          self.parallax=d['PARALLAX']
+          self.gaia_g=d['GAIA_PHOT_G_MEAN_MAG']
+          self.gaia_bp=d['GAIA_PHOT_BP_MEAN_MAG']
+          self.gaia_rp=d['GAIA_PHOT_RP_MEAN_MAG']
           self.coadd_numexp=d['COADD_NUMEXP']
           self.coadd_exptime=d['COADD_EXPTIME']
 
 zall=zall()
 print(zall.nspec)
 zall.readstar()
-print(zall.targetid)
-print(len(zall.targetid))
-print(len(zall.z))
+df=pd.DataFrame({'targetid':zall.targetid,\
+                 'ra':zall.target_ra,\
+                 'dec':zall.target_dec,\
+                 'spectype':zall.spectype,\
+                 'tileid':zall.tileid,\
+                 'lastnight':zall.lastnight,\
+                 'petal_loc':zall.petal_loc,\
+                 'fiber':zall.fiber,\
+                 'coadd_exptime':zall.coadd_exptime})
+df.to_csv('test.csv',index=False)
+#print(zall.targetid)
+#print(len(zall.targetid))
+#print(len(zall.z))
 sys.exit(1)
-zall.readtest()
+#zall.readtest()
+print('gaia_g',zall.gaia_g)
+print('gaia_bp',zall.gaia_bp)
+print('gaia_rp',zall.gaia_rp)
+print('photsys',zall.photsys)
+print('parallax',zall.parallax)
 print('targetid',zall.targetid)
 print('survey',zall.survey)
 print('program',zall.program) 
