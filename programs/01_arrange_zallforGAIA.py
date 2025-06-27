@@ -12,11 +12,11 @@ def extract_stars(csvfile,output):
 #   dfstar2[0:5000000].to_csv('desidr2star1_float32.csv',index=False)
 #   dfstar2[5000001:].to_csv('desidr2star2_float32.csv',index=False)
 
-# DR1
-csvfile=os.environ['DESI_REDUX']+'zall-tilecumulative-iron.csv'
-output='../csvfiles/desidr1star_float32.csv'
 # DR2
 csvfile=os.environ['DESI_REDUX']+'zall-tilecumulative-loa.csv'
 output='../csvfiles/desidr2star_float32.csv'
+# DR1
+csvfile=os.environ['DESI_REDUX']+'zall-tilecumulative-iron.csv'
+output='../csvfiles/desidr1star_float32.csv'
 print(csvfile)
 extract_stars(csvfile,output)
