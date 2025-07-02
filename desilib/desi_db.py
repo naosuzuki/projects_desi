@@ -16,12 +16,24 @@ class zall():
       def __init__(self):
           self.version='iron'
           self.dr='DR1'
-          self.fitstablename=os.environ['DESI_REDUX']+'zall-tilecumulative-'+self.version+'.fits'
+          self.fitstablename_tile=os.environ['DESI_REDUX']+'zall-tilecumulative-'+self.version+'.fits'
+          self.fitstablename_pix=os.environ['DESI_REDUX']+'zall-pix-'+self.version+'.fits'
           h=fitsio.read_header(self.fitstablename,ext=1)
           self.nspec=h['NAXIS2']
           self.rows=numpy.arange(self.nspec)
 
-      def readstar(self):
+      def read_pix(self):
+          columns=['TARGETID','SURVEY','PROGRAM','HEALPIX','SPGRPVAL',\
+          'Z','ZERR','ZWARN','CHI2',\
+          'SPECTYPE','SUBTYPE',\
+          'TARGET_RA','TARGET_DEC',\
+          'PHOTSYS','PARALLAX',\
+          'FLUX_G','FLUX_R','FLUX_Z','FLUX_W1','FLUX_W2',\
+          'FLUX_IVAR_G','FLUX_IVAR_R','FLUX_IVAR_Z','FLUX_IVAR_W1','FLUX_IVAR_W2',\
+          'GAIA_PHOT_G_MEAN_MAG','GAIA_PHOT_BP_MEAN_MAG','GAIA_PHOT_RP_MEAN_MAG',\
+          'COADD_NUMEXP','COADD_EXPTIME','COADD_NUMNIGHT','COADD_NUMTILE']
+
+      def read_tile(self):
           columns=['TARGETID','LASTNIGHT','Z','ZERR','ZWARN','CHI2',\
           'SPECTYPE','SUBTYPE',\
           'TILEID','PETAL_LOC','FIBER','TARGET_RA','TARGET_DEC',\
@@ -32,7 +44,7 @@ class zall():
           'FLUX_IVAR_G','FLUX_IVAR_R','FLUX_IVAR_Z','FLUX_IVAR_W1','FLUX_IVAR_W2',\
           'GAIA_PHOT_G_MEAN_MAG','GAIA_PHOT_BP_MEAN_MAG','GAIA_PHOT_RP_MEAN_MAG',\
           'COADD_NUMEXP','COADD_EXPTIME']
-          d=fitsio.read(self.fitstablename,columns=columns,rows=self.rows)
+          d=fitsio.read(self.fitstablename_tile,columns=columns,rows=self.rows)
           self.targetid=d['TARGETID']
           self.lastnight=d['LASTNIGHT']
           self.z=d['Z']

@@ -11,8 +11,8 @@ def extract_stars(csvfile,output):
    #dfstar2.to_csv(output,index=False)
    dfstar2[0:3000000].to_csv('desidr2star1_float32.csv',index=False)
    dfstar2[3000001:6000000].to_csv('desidr2star2_float32.csv',index=False)
-   dfstar2[6000001:900000].to_csv('desidr2star3_float32.csv',index=False)
-   dfstar2[9000001:1200000].to_csv('desidr2star4_float32.csv',index=False)
+   dfstar2[6000001:9000000].to_csv('desidr2star3_float32.csv',index=False)
+   dfstar2[9000001:12000000].to_csv('desidr2star4_float32.csv',index=False)
    dfstar2[12000001:].to_csv('desidr2star5_float32.csv',index=False)
 
 # DR1
