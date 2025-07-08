@@ -24,15 +24,14 @@ df=pd.DataFrame({'targetid':zall.targetid,\
 		 'coadd_numtile':zall.coadd_numtile,\
                  'coadd_exptime':zall.coadd_exptime})
 
-df.to_csv('zalldr2pix.csv',index=False)
-
+df.to_csv('zall-pix-loa.csv',index=False)
 del df
 
-df=pd.read_csv('zalldr2pix.csv')
-dfstar=df[df['spectype']=='STAR']
-dfstar.to_csv('dfstar.csv',index=False)
-
-sys.exit(1)
+#df=pd.read_csv('zalldr2pix.csv')
+# Selecting Stars
+#dfstar=df[(df['spectype']=='STAR') & (df['objtype']=='TGT')]
+#dfstar.to_csv('zalldr2star.csv',index=False)
+#sys.exit(1)
 
 #df['spectype'] = df['spectype'].astype(str)
 #dfstar=df[df['spectype']=='STAR']
