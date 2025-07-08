@@ -35,7 +35,8 @@ class zall():
           self.rows=numpy.arange(self.nspec)
           d=fitsio.read(self.fitstablename_pix,columns=columns,rows=self.rows)
           self.targetid=d['TARGETID']
-          self.lastnight=d['LASTNIGHT']
+          self.survey=d['SURVEY']
+          self.program=d['PROGRAM']
           self.z=d['Z']
           self.zerr=d['ZERR']
           self.zwarn=d['ZWARN']
