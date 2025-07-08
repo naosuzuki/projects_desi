@@ -15,8 +15,8 @@ import numpy
 
 class zall():
       def __init__(self):
-          self.version='iron'
-          self.dr='DR1'
+          self.version='loa'
+          self.dr='DR2'
           self.fitstablename_tile=os.environ['DESI_REDUX']+'zall-tilecumulative-'+self.version+'.fits'
           self.fitstablename_pix=os.environ['DESI_REDUX']+'zall-pix-'+self.version+'.fits'
 
