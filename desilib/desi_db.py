@@ -33,7 +33,8 @@ class zall():
           h=fitsio.read_header(self.fitstablename_pix,ext=1)
           self.nspec=h['NAXIS2']
           self.rows=numpy.arange(self.nspec)
-          d=fitsio.read(self.fitstablename_pix,columns=columns,rows=self.rows)
+          #d=fitsio.read(self.fitstablename_pix,columns=columns,rows=self.rows)
+          d=fitsio.read(self.fitstablename_pix,columns=columns,rows=1000)
           self.targetid=d['TARGETID']
           self.survey=d['SURVEY']
           self.program=d['PROGRAM']
