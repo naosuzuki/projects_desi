@@ -16,7 +16,7 @@ df=pd.DataFrame({'targetid':zall.targetid,\
                  'healpix':zall.healpix,\
                  'survey':zall.survey,\
                  'program':zall.program,\
-                 'spgrval':zall.spgrval,\
+                 'spgrpval':zall.spgrpval,\
 		 'coadd_numexp':zall.coadd_numexp,\
 		 'coadd_numnight':zall.coadd_numnight,\
 		 'coadd_numtile':zall.coadd_numtile,\
