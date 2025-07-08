@@ -18,6 +18,7 @@ df=pd.DataFrame({'targetid':zall.targetid,\
                  'program':zall.program,\
                  'spgrpval':zall.spgrpval,\
                  'objtype':zall.objtype,\
+                 'gaia_g':zall.gaia_g,\
 		 'coadd_numexp':zall.coadd_numexp,\
 		 'coadd_numnight':zall.coadd_numnight,\
 		 'coadd_numtile':zall.coadd_numtile,\
