@@ -17,11 +17,14 @@ df=pd.DataFrame({'targetid':zall.targetid,\
                  'survey':zall.survey,\
                  'program':zall.program,\
                  'spgrpval':zall.spgrpval,\
+                 'objtype':zall.objtype,\
 		 'coadd_numexp':zall.coadd_numexp,\
 		 'coadd_numnight':zall.coadd_numnight,\
 		 'coadd_numtile':zall.coadd_numtile,\
                  'coadd_exptime':zall.coadd_exptime})
 
+dfstar=df[df['spectype']=='STAR']
+dfstar.to_csv('zalldr2pixstar.csv',index=False)
 df.to_csv('zalldr2pix.csv',index=False)
 
 #spall=sdss_catalog.spall()
