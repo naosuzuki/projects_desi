@@ -117,56 +117,6 @@ class zall():
           self.coadd_numexp=d['COADD_NUMEXP']
           self.coadd_exptime=d['COADD_EXPTIME']
 
-      def readtest(self):
-          columns=['TARGETID','SURVEY','PROGRAM',\
-          'FIRSTNIGHT','LASTNIGHT',\
-          'Z','ZERR','ZWARN','CHI2','NPIXELS','LAMBDA_REF',\
-          'SPECTYPE','SUBTYPE','PRIORITY',\
-          'TILEID','TARGET_RA','TARGET_DEC',
-          'DEVICE_LOC','PETAL_LOC','LOCATION','FIBER',\
-          'REF_ID','REF_CAT',\
-          'PHOTSYS','PARALLAX',\
-          'GAIA_PHOT_G_MEAN_MAG','GAIA_PHOT_BP_MEAN_MAG','GAIA_PHOT_RP_MEAN_MAG',\
-          'COADD_NUMEXP','COADD_EXPTIME']
-          print('Reading ',self.fitstablename)
-#          print('Number of Spectra is ',len(self.nspec))
-          d=fitsio.read(self.fitstablename,columns=columns,rows=self.rows)
-#          d=fitsio.read(self.fitstablename,columns=columns,rows=1000)
-          self.targetid=d['TARGETID']
-          self.survey=d['SURVEY']
-          self.program=d['PROGRAM']
-
-          self.firstnight=d['FIRSTNIGHT']
-          self.lastnight=d['LASTNIGHT']
-
-          self.z=d['Z']
-          self.zerr=d['ZERR']
-          self.zwarn=d['ZWARN']
-          self.chisq=d['CHI2']
-          self.npix=d['NPIXELS']
-
-          self.spectype=d['SPECTYPE']
-          self.subtype=d['SUBTYPE']
-
-          self.lambda_ref=d['LAMBDA_REF']
-          self.tileid=d['TILEID']
-          self.ra=d['TARGET_RA']
-          self.dec=d['TARGET_DEC']
-          self.device_loc=d['DEVICE_LOC']
-          self.petal_loc=d['PETAL_LOC']
-          self.priority=d['PRIORITY']
-          self.location=d['LOCATION']
-          self.fiber=d['FIBER']
-          self.ref_id=d['REF_ID']
-          self.ref_cat=d['REF_CAT']
-          self.photsys=d['PHOTSYS']
-          self.parallax=d['PARALLAX']
-          self.gaia_g=d['GAIA_PHOT_G_MEAN_MAG']
-          self.gaia_bp=d['GAIA_PHOT_BP_MEAN_MAG']
-          self.gaia_rp=d['GAIA_PHOT_RP_MEAN_MAG']
-          self.coadd_numexp=d['COADD_NUMEXP']
-          self.coadd_exptime=d['COADD_EXPTIME']
-
 zall=zall()
 print(zall.nspec)
 zall.readstar()
