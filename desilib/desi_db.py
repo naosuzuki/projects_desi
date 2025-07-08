@@ -117,17 +117,16 @@ class zall():
           self.coadd_numexp=d['COADD_NUMEXP']
           self.coadd_exptime=d['COADD_EXPTIME']
 
-zall=zall()
-print(zall.nspec)
-zall.readstar()
-df=pd.DataFrame({'targetid':zall.targetid,\
-                 'ra':zall.target_ra,\
-                 'dec':zall.target_dec,\
-                 'spectype':zall.spectype,\
-                 'tileid':zall.tileid,\
-                 'lastnight':zall.lastnight,\
-                 'petal_loc':zall.petal_loc,\
-                 'fiber':zall.fiber,\
-                 'coadd_exptime':zall.coadd_exptime})
-df.to_csv('test.csv',index=False)
-sys.exit(1)
+#zall=zall()
+#zall.readstar()
+#df=pd.DataFrame({'targetid':zall.targetid,\
+#                 'ra':zall.target_ra,\
+#                 'dec':zall.target_dec,\
+#                 'spectype':zall.spectype,\
+#                 'tileid':zall.tileid,\
+#                 'lastnight':zall.lastnight,\
+#                 'petal_loc':zall.petal_loc,\
+#                 'fiber':zall.fiber,\
+#                 'coadd_exptime':zall.coadd_exptime})
+#df.to_csv('test.csv',index=False)
+#sys.exit(1)
