@@ -29,6 +29,7 @@ set -euo pipefail
 
 # --- Configuration ----------------------------------------------------------
 RELEASE="dr2"
+RELEASE_UC="$(printf '%s' "$RELEASE" | tr '[:lower:]' '[:upper:]')"
 REDUX="loa"
 FILENAME="zall-tilecumulative-${REDUX}.fits"
 
@@ -46,7 +47,7 @@ DEST="${DEST_DIR}/${FILENAME}"
 mkdir -p "${DEST_DIR}"
 
 echo "=================================================================="
-echo " DESI ${RELEASE^^} (${REDUX}) specz catalog download  (NERSC rsync)"
+echo " DESI ${RELEASE_UC} (${REDUX}) specz catalog download  (NERSC rsync)"
 echo "   file   : ${FILENAME}"
 echo "   source : ${NERSC_USER}@${NERSC_HOST}:${NERSC_PATH}"
 echo "   dest   : ${DEST}"
