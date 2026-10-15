@@ -48,3 +48,14 @@ corrupted file is transferred again over the bad copy. Started 2026-10-15 10:37,
 * Rate falls as exdisk2 fills (inner tracks + read-back for checksum): 58 MB/s empty -> ~40 MB/s at 99 %.
 * Each coadd: B/R/Z RESOLUTION HDUs are ~78 % of the bytes; FLUX+IVAR+MASK ~22 %.
 * QSO catalog / NERSC-side QSO extraction (old plan steps 5-6) not started.
+
+## State 2026-10-15 ~20:00 (second shutdown)
+* exdisk1 overflow (969): second checksum pass (task a4d70fdd…) = 969 identical, 0 re-downloaded -> verified.
+  (The first pass f0ae7289… had re-downloaded 194 while being interrupted by the first shutdown.)
+* exdisk2 (33,539): verify task ee127e23-c8a5-11f1-a3f2-0effdcd59acd still ACTIVE, deadline now 2026-10-18T23:10 UTC
+  (deadline changed outside these scripts). At 19:55: 2,133 identical, 714 re-downloaded, 23 faults (all from the
+  first shutdown / late mounts). It resumes by itself when Globus Connect Personal restarts.
+* OPEN QUESTION: 714 re-downloads (25 %) disagree with an independent check — 60 random exdisk2 files all pass
+  their FITS CHECKSUM/DATASUM (logs/fits_checksum_sample_exdisk2.txt). Find out why Globus re-transfers
+  (successful_transfers list is only available once the task finishes) before trusting the ratio.
+* If the task expires before it finishes: rerun 06_verify_redownload.sh (cancels it, resubmits, 10-day deadline).
