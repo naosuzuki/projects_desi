@@ -59,3 +59,12 @@ corrupted file is transferred again over the bad copy. Started 2026-10-15 10:37,
   their FITS CHECKSUM/DATASUM (logs/fits_checksum_sample_exdisk2.txt). Find out why Globus re-transfers
   (successful_transfers list is only available once the task finishes) before trusting the ratio.
 * If the task expires before it finishes: rerun 06_verify_redownload.sh (cancels it, resubmits, 10-day deadline).
+
+## 2026-10-15 23:00 (after the second reboot) — re-download puzzle resolved, fresh verification
+* After the reboot Globus Connect Personal had started before the disks mounted and kept failing PERMISSION_DENIED
+  on /Volumes/exdisk2 every 5 min; quitting and reopening it fixed that. (Check this after every reboot.)
+* Test: a fresh checksum-sync task on 3 files that pass their FITS checksums -> 3 skipped as identical, 0 transferred.
+  So the old task's 714+ "re-downloads" were retry re-sends after its 94 faults (two shutdowns), not corruption.
+* Old task ee127e23… cancelled; fresh tasks (10-day deadline, by 06_verify_redownload.sh):
+  exdisk2 52017f92-c90e-11f1-9802-0afff500d2cf, exdisk1 54907795-c90e-11f1-a8db-0effdcd59acd.
+  First 10 min: 507 identical, 0 re-downloaded, 0 faults. Result -> logs/verify.log ("VERIFY DONE").
