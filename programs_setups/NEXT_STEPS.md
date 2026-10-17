@@ -68,3 +68,12 @@ corrupted file is transferred again over the bad copy. Started 2026-10-15 10:37,
 * Old task ee127e23… cancelled; fresh tasks (10-day deadline, by 06_verify_redownload.sh):
   exdisk2 52017f92-c90e-11f1-9802-0afff500d2cf, exdisk1 54907795-c90e-11f1-a8db-0effdcd59acd.
   First 10 min: 507 identical, 0 re-downloaded, 0 faults. Result -> logs/verify.log ("VERIFY DONE").
+
+## 2026-10-17 15:30 — power outage, reboot
+* Disks remounted (device numbers changed: My Book = disk6s1, exdisk2 = disk4s2); /Volumes/exdisk1 link recreated.
+* exdisk2 verify task 52017f92… survived (20,416/33,539 checked, 5 re-downloaded, faults 0 -> 89 = GC_NOT_CONNECTED
+  during the outage); Globus Connect Personal restarted after the mounts; the task resumed, no re-download spike.
+* 06's waiter died with the outage; the report is now written by `07_verify_report.sh <task> exdisk2` (detached;
+  rerun it after any reboot). It appends "VERIFY DONE" + counts to logs/verify.log and writes
+  logs/verify_redownloaded_exdisk2.txt.
+* After the verification: run Disk Utility First Aid on exdisk1 (exFAT lost power while mounted, though idle).
