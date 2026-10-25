@@ -77,7 +77,7 @@ the spectra are read). Agreed with the Galaxy thread (pass C joins it by TARGETI
 
 Quasar-thread addendum (17:55): implemented in `02_passQ_desi.py --with-stars` through `S.write_star_file(...)` after the
 single `combine_cameras` read; plus `--expfibermap`: the walk dumps EXP_FIBERMAP (TARGETID, NIGHT, EXPID, MJD, TILEID,
-EXPTIME, PETAL_LOC, FIBER, FIBERSTATUS, DELTA_X/Y, FIBER_RA/DEC, PSF_TO_FIBER_SPECFLUX, IN_COADD_B/R/Z) for ALL rows of
+EXPTIME, PETAL_LOC, DEVICE_LOC, LOCATION, FIBER, FIBERSTATUS, FIBER_X/Y, DELTA_X/Y, FIBER_RA/DEC, PSF_TO_FIBER_SPECFLUX, IN_COADD_B/R/Z) for ALL rows of
 each coadd to `~/data/sdssdesi_expfibermap/<program>/hpx<N>.parquet` (≈1.4 exposures per spectrum → ≈90 M rows, a few
 GB). `after_passB.sh` runs the walk with both flags (4 shards). **Disk warning (17:55): the internal SSD has 60 GB free
 (97 % used)**; pass B (+7 GB to go), pass Q/S (+≈8 GB) and the EXP_FIBERMAP dump (+≈4 GB) fit, but nothing else large

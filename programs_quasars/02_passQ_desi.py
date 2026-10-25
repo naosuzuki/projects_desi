@@ -25,8 +25,8 @@ FM_COLS = ['TARGETID', 'TARGET_RA', 'TARGET_DEC', 'EBV', 'PHOTSYS', 'FLUX_G', 'F
 STARS = None          # programs_stars/step2_3_pass_desi module when --with-stars (Stellar thread's hook write_star_file)
 STAR_OUTDIR = os.path.expanduser('~/data/sdssdesi_passS')
 EXPFM_OUTDIR = os.path.expanduser('~/data/sdssdesi_expfibermap')
-EXPFM_COLS = ['TARGETID', 'NIGHT', 'EXPID', 'MJD', 'TILEID', 'EXPTIME', 'PETAL_LOC', 'FIBER', 'FIBERSTATUS', 'DELTA_X', 'DELTA_Y',
-              'FIBER_RA', 'FIBER_DEC', 'PSF_TO_FIBER_SPECFLUX', 'IN_COADD_B', 'IN_COADD_R', 'IN_COADD_Z']
+EXPFM_COLS = ['TARGETID', 'NIGHT', 'EXPID', 'MJD', 'TILEID', 'EXPTIME', 'PETAL_LOC', 'DEVICE_LOC', 'LOCATION', 'FIBER', 'FIBERSTATUS',
+              'FIBER_X', 'FIBER_Y', 'DELTA_X', 'DELTA_Y', 'FIBER_RA', 'FIBER_DEC', 'PSF_TO_FIBER_SPECFLUX', 'IN_COADD_B', 'IN_COADD_R', 'IN_COADD_Z']
 
 
 def rows_df(fm, rows, program, zsub, percam):
