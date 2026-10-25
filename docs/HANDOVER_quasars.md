@@ -399,3 +399,14 @@ below 300 (mostly z<0.4, z>3.5 and the bright/faint M_i edges). Stages: 152 full
 Per slice: 7–10 stacks at z<0.6, 18–26 at 0.6–1.0, 43–49 at 1.0–2.4 (12–25 full six-axis cells each), 10–36 at 2.4–3.5,
 4 at 3.5–4, none above 4. DESI (≈940k at S/N>5) will roughly triple this → the ≈1,000–1,200 expected in 8.10.
 Coordination note for all threads: `docs/COORDINATION.md` (2026-10-25); messages sent to the Galaxy and Stellar sessions.
+
+### 8.23 Internal disk nearly full (2026-10-25 18:00): 60 GB free of 1.8 TB (97 %)
+Still to land tonight: pass B +≈7 GB, pass Q DESI +≈5 GB, pass S +≈3 GB, EXP_FIBERMAP dump ≈1.5 GB → fits, but the
+stacks (pass C, quasar stacks) and any rest-frame spectrum store will not. Candidates to free (Nao decides; none deleted):
+`~/github/projects_desi/programs/zall-pix-loa.csv` 10 GB (zall extract, superseded by products/zall_loa.parquet);
+`~/github/projects_desi/csvfiles/` 7.6 GB (desidr2star float32 csvs — duplicates of projects_gaia/csvfiles 12 GB?);
+`~/desiredux/zall-pix-loa.fits` 47 GB (the source; products/zall_loa.parquet holds the used columns — keep unless desperate);
+`~/data/exdisk2_keep_tmp` 55 GB, `~/data/snana` 63 GB, `~/data/HSC` 167 GB (other projects); products/zlookup_main.parquet
+1.7 GB (approved, deleted after pass B). The 1–2 TB SSD for rest-frame spectra (programs_templates/README.md) is now needed.
+`02_passQ_desi.py --with-stars --expfibermap` (Stellar hook `write_star_file` + EXP_FIBERMAP dump, all rows) tested on one
+coadd: 112 QSO, 12 STAR, 784 exposure rows (44 KB); `after_passB.sh` relaunched with both flags.

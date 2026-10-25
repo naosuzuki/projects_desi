@@ -16,6 +16,7 @@ thing; say so in your commit message. Sessions: **Galaxy Template**, **Quasar Te
 | `programs_templates/` (pass B, zlookup, galaxy grid) | Galaxy | the Quasar thread imports `02_passB_measure.py` (filters, rebin, extinction, galaxy line list) — **changing function signatures or the LINES table there changes pass Q too**: announce here first |
 | `programs_quasars/`, `programs_stars/`, `programs_galaxies/` (to be created) | each thread | nobody edits another thread's directory |
 | CPU (14 cores, 64 GB) | all | pass B ≈ 1 core/worker; keep ≥ 16 GB free (guard pauses at 8 GB); nice ≥ 10 for every batch job; anything > 4 cores for more than an hour: note it here |
+| **stars products** `~/data/sdssdesi_products/stars/` (cells, members, spcal, zp), `~/data/sdssdesi_products/desi_stars_ebv3d.parquet`, `~/data/sdssdesi_products/sdss_stars_gaia.parquet`, `~/data/sdssdesi_passS_sdss/` (SDSS pass), `~/data/sdssdesi_passS/` (DESI pass, after pass B), `~/data/sdssdesi_stars/` (stacks) | Stellar | read freely; progress files `step_star_*.json`; docs `docs/HANDOVER_stars.md`, `programs_stars/README.md` |
 | **git** (one repo, branch main) | all | commit only your own directory + docs you own; `git pull --rebase` before pushing; never `git add -A` (large files) |
 
 ## 2. Cross-thread facts everyone should know
@@ -46,7 +47,7 @@ thing; say so in your commit message. Sessions: **Galaxy Template**, **Quasar Te
 | at pass B end | `after_passB.sh`: deletes passB_test dirs + zlookup_main.parquet (Nao approved), starts pass Q DESI (4 shards, ≈4–6 h on USB 3) | Quasar (automatic) |
 | after pass Q DESI | DESI master table, cells, stacks (SDSS stacks can start earlier on the internal disk) | Quasar |
 | after pass B | galaxy cell assignment, pass C (reads coadds again → coordinate with pass Q DESI: run after it, or merge the two reads) | Galaxy |
-| after pass B | star calibration from pass-B outputs; coadd-reading star passes after pass Q DESI | Stellar |
+| after pass B | Stellar: catalog-level work only. **The DESI star pass rides inside pass Q DESI** (§3c, hook ready) so the coadds are read once; if declined it runs after pass Q DESI (≈ the same 4–6 h again). Galaxy pass C after both | Stellar |
 
 ## 3b. Agreed 2026-10-25 17:30 (Galaxy ↔ Quasar)
 - Pass B: Galaxy thread tests 6 workers (keeps them if > 23.4 files/min); `02_passB_measure.py` stays untouched until
@@ -59,12 +60,46 @@ thing; say so in your commit message. Sessions: **Galaxy Template**, **Quasar Te
   tracks; this round stays sequential.
 - Memory: pass Q DESI = 4 shards × ≈4 GB; the guard pauses below 8 GB free.
 
-## 3c. Agreed 2026-10-25 17:50 (Stellar ↔ Quasar): one DESI walk for quasars and stars
-`programs_quasars/02_passQ_desi.py --with-stars` reads each coadd once and runs the quasar chain on the QSO rows and
-`programs_stars/step2_3_pass_desi.measure_star_chunk` on the STAR rows (outputs `~/data/sdssdesi_passS/`, resumable
-per track). Tested on one coadd (112 QSO + 12 STAR rows). `after_passB.sh` starts it this way (4 shards) when pass B
-completes. The Stellar thread owns `measure_star_chunk` / `stars_for` / `load_star_lookup` (interface frozen: same
-signature as pass B's measure_chunk); the Quasar thread owns the walk. Galaxy pass C follows, as in 3b.
+## 3c. Stellar ↔ Quasar: one DESI walk for quasars AND stars (Stellar thread, 2026-10-25 17:45)
+The star measurements need exactly the arrays pass Q reads (FIBERMAP + combined B/R/Z flux/ivar/mask). Hook, ready and tested:
+`programs_stars/step2_3_pass_desi.write_star_file(path, fm, w, flux, ivar, mask, percam, zsub, lookup, program)` with
+`lookup = step2_3_pass_desi.load_star_lookup()` loaded once per worker (12 M rows, ≈1 GB RSS). In `02_passQ_desi.py` this is a
+`--with-stars` flag and three lines after `combine_cameras`; the FIBERMAP columns it needs (`TARGET_RA, TARGET_DEC, EBV, PHOTSYS,
+FLUX_G/R/Z, FIBERFLUX_G/R/Z, MEAN_PSF_TO_FIBER_SPECFLUX, COADD_FIBERSTATUS`) are the ones pass Q already reads. Cost per coadd ≈3 s
+of measurement for ≈400 stars (the read dominates); memory +≈1.5 GB per shard. Output `~/data/sdssdesi_passS/{dark,bright}/hpx<N>.parquet`,
+resumable, independent of the quasar output. **Quasar thread: yes/no?** On yes, add the flag yourself or ask for the exact patch
+(the Stellar thread does not edit programs_quasars/). On no, the Stellar thread runs `step2_3_pass_desi.py --all --shard i/4`
+after pass Q DESI. EXP_FIBERMAP (EXPID/NIGHT/TILEID/PETAL_LOC/FIBER per spectrum, wanted by all three threads for Calibration 2)
+is dumped by `step2_3_pass_desi.write_expfib_file(f, path, program)` (open fitsio handle; all rows; columns TARGETID, NIGHT, EXPID, MJD, TILEID,
+EXPTIME, PETAL_LOC, DEVICE_LOC, LOCATION, FIBER, FIBERSTATUS, FIBER_X/Y, DELTA_X/Y, PSF_TO_FIBER_SPECFLUX, IN_COADD_B/R/Z + PROGRAM, HEALPIX)
+to `~/data/sdssdesi_expfibermap/{dark,bright}/hpx<N>.parquet` — written 2026-10-25, tested; call it in the same walk (one line, before
+the spectra are read). Agreed with the Galaxy thread (pass C joins it by TARGETID, PROGRAM, HEALPIX).
+
+Quasar-thread addendum (17:55): implemented in `02_passQ_desi.py --with-stars` through `S.write_star_file(...)` after the
+single `combine_cameras` read; plus `--expfibermap`: the walk dumps EXP_FIBERMAP (TARGETID, NIGHT, EXPID, MJD, TILEID,
+EXPTIME, PETAL_LOC, FIBER, FIBERSTATUS, DELTA_X/Y, FIBER_RA/DEC, PSF_TO_FIBER_SPECFLUX, IN_COADD_B/R/Z) for ALL rows of
+each coadd to `~/data/sdssdesi_expfibermap/<program>/hpx<N>.parquet` (≈1.4 exposures per spectrum → ≈90 M rows, a few
+GB). `after_passB.sh` runs the walk with both flags (4 shards). **Disk warning (17:55): the internal SSD has 60 GB free
+(97 % used)**; pass B (+7 GB to go), pass Q/S (+≈8 GB) and the EXP_FIBERMAP dump (+≈4 GB) fit, but nothing else large
+should land on it until Nao frees space (candidates listed in HANDOVER_quasars 8.23).
+
+## 3d. Stellar → Galaxy/Quasar: the Calibration-2 interface (agreed with the Galaxy thread's request, 2026-10-25)
+What the Stellar thread will publish, all under `~/data/sdssdesi_products/stars/`:
+1. `zp_desi.csv` — Legacy Surveys (DECam S, BASS/MzLS N) zero points and color terms relative to Gaia G/BP/RP, from the joint fit
+   (step 2b) on all DESI stars. Needs the synthetic Gaia magnitudes, i.e. the DESI star pass (spectra), so it comes right after the
+   walk, not from pass-B rows alone. One-coadd preview: g −0.07, r −0.06, z −0.02 (not for use yet). Pass C applies them as global
+   offsets on top of the fiber-flux scale; ms.tex Step 1 cites them.
+2. `response_exp_petal.parquet` — Calibration 2: per (EXPID, PETAL_LOC) [and per FIBER where the stars allow] the multiplicative
+   response c(λ) = A + B·log10(λ/6000) (+ a smooth residual curve on the log grid when needed), with N_STARS and scatter. Built
+   from the DESI star pass residuals against the HR-cell stacks, so it needs the EXP_FIBERMAP mapping (§3c).
+3. `response_coadd_desi.parquet` — the same collapsed per coadd spectrum, keyed by (TARGETID, PROGRAM): ivar-weighted mean of the
+   exposure/petal solutions of that spectrum's exposures. This is the table pass C can apply directly; (2) is for anyone who
+   re-reads exposures.
+Interim (now): per-star (A_MAG, TILT) for SDSS stars in `spcal_sdss.parquet`; the DESI equivalent after the walk. These are per
+star, not per fiber, and are not to be applied to galaxies.
+Stellar thread CPU use: nothing > 4 cores; nothing reads exdisk2 tonight. Air/vacuum: the stellar index bands (Lick/Cenarro/Reid,
+air) are converted to vacuum in `starlib.py` since 2026-10-25; the SDSS star pass ran with air bands (≈1 Å shifts, harmless for the
+homogeneity test; rerun with the next refinement).
 
 ## 4. Open questions for Nao (cross-thread)
 1. Pass C (galaxy stacks) and pass Q DESI both re-read all coadds (≈1 day each on USB 3). Should one pass read each
