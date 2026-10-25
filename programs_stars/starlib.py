@@ -184,7 +184,8 @@ AG_PER_EBV = 2.74
 def distance_columns(df):
     """Nao's steps 3b and 4: distance from the Gaia parallax, Milky Way extinction, scale to absolute flux (10 pc).
     Parallax: PLX_CORR (SDSS catalog) or PARALLAX + 0.017 mas (DESI fibermap). EBV_3D is NaN until a 3D dust map
-    (Bayestar19 / Edenhofer+24 through dustmaps) is installed; EBV_USED then falls back to the SFD value (EBV_SRC = 1)."""
+    (Bayestar19 / Edenhofer+24 through dustmaps) is installed; EBV_USED then falls back to 0.86 x SFD (EBV_SRC = 1; 2 = 3D map).
+    The dereddening itself is a per-star factor applied at stack time, so the tables can be re-dereddened without re-reading."""
     n = len(df); out = {}
     if 'PLX_CORR' in df:
         plx = df['PLX_CORR'].to_numpy(dtype=float)
@@ -201,9 +202,9 @@ def distance_columns(df):
         out['EBV_SFD'] = ebv_sfd; out['EBV_3D'] = np.full(n, np.nan)
         out['EBV_USED'] = np.where(np.isfinite(out['EBV_3D']), out['EBV_3D'], 0.86 * ebv_sfd)
         out['EBV_SRC'] = np.where(np.isfinite(out['EBV_3D']), 2, 1).astype(np.int8)
-        ag = df['GAIA_AG_GSPPHOT'].to_numpy(dtype=float) if 'GAIA_AG_GSPPHOT' in df else np.full(n, np.nan)
-        out['A_G_USED'] = np.where(np.isfinite(ag), ag, AG_PER_EBV * out['EBV_USED'])
-        out['A_G_SRC'] = np.where(np.isfinite(ag), 1, 2).astype(np.int8)
+        # A_G from the same E(B-V) as the spectrum (policy 2026-10-24: the 3D map is the correction; GSP-Phot A_G,
+        # carried in GAIA_AG_GSPPHOT where present, is a per-star cross-check only)
+        out['A_G_USED'] = AG_PER_EBV * out['EBV_USED']
     return out
 
 
