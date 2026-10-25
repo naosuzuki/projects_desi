@@ -161,7 +161,7 @@ def main():
     print(f'written {CACHE}/spcal_{tag}.parquet, zp_{tag}.csv  {time.time()-t0:.0f}s')
     try:
         import json; S = os.path.expanduser('~/data/sdssdesi_status')
-        json.dump({'done': 1, 'total': 2, 'status': 'running' if a.survey == 'sdss' else 'done', 'note': f'{a.survey}: {len(stars):,} stars, tilt scatter beyond errors {np.sqrt(max(q(stars.TILT[stars.TILT_OK])[1]**2 - np.nanmedian(stars.TILT_ERR[stars.TILT_OK])**2, 0)):.2f} mag/dex'}, open(f'{S}/step_star_spcal.json', 'w'))
+        json.dump({'done': 1 if a.survey == 'sdss' else 2, 'total': 2, 'status': 'waiting' if a.survey == 'sdss' else 'done', 'note': f'{a.survey}: {len(stars):,} stars, tilt scatter beyond errors {np.sqrt(max(q(stars.TILT[stars.TILT_OK])[1]**2 - np.nanmedian(stars.TILT_ERR[stars.TILT_OK])**2, 0)):.2f} mag/dex' + ('; DESI after pass B' if a.survey == 'sdss' else '')}, open(f'{S}/step_star_spcal.json', 'w'))
     except Exception:
         pass
 

@@ -21,13 +21,17 @@ h3{font-size:14px;margin:14px 0 8px;color:var(--fg)}h3 .sub{font-weight:400}
 .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:3px 10px;font-size:12px;color:var(--muted);margin-top:6px}.kv b{color:var(--fg);font-weight:600}
 .eta{font-size:13px;margin-top:6px}.eta b{font-size:15px}
 .pill{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
-.pill.running,.pill.sleeping{color:var(--ok);border-color:var(--ok)}.pill.stalled,.pill.paused,.pill.stopped{color:var(--warn);border-color:var(--warn)}.pill.done{color:var(--acc);border-color:var(--acc)}
+.pill.running,.pill.sleeping{color:var(--ok);border-color:var(--ok)}.pill.stalled,.pill.paused,.pill.stopped{color:var(--warn);border-color:var(--warn)}.pill.waiting{color:var(--muted);border-color:var(--muted);border-style:dashed}.pill.done{color:var(--acc);border-color:var(--acc)}
 .bar{height:8px;background:var(--track);border-radius:4px;overflow:hidden;grid-column:1/-1;margin-top:6px}.bar i{display:block;height:100%;background:var(--acc);border-radius:4px;transition:width .6s}
 table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:500}
 .cores{display:grid;grid-template-columns:repeat(auto-fill,minmax(18px,1fr));gap:3px}.cores i{display:block;height:28px;border-radius:3px;background:var(--track);position:relative;overflow:hidden}.cores i b{position:absolute;bottom:0;left:0;right:0;background:var(--acc)}
 .ev{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;white-space:pre-wrap;color:var(--muted);max-height:180px;overflow:auto}
 .stale{color:var(--bad)}
 .tracks{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}.tracks .card b{font-size:15px}
+.tsec{margin-top:30px;padding-top:12px;border-top:3px solid var(--tc,var(--line))}.tsec h3{margin:0 0 10px;font-size:14px;display:flex;align-items:center;gap:8px}
+.tsec h3 .dot{width:12px;height:12px;border-radius:50%;background:var(--tc,var(--muted));display:inline-block}
+.tsec.common{--tc:#6b7280}.tsec.galaxies{--tc:#2563eb}.tsec.quasars{--tc:#7c3aed}.tsec.stars{--tc:#d97706}
+.tracks .card.common{border-left:4px solid #6b7280}.tracks .card.galaxies{border-left:4px solid #2563eb}.tracks .card.quasars{border-left:4px solid #7c3aed}.tracks .card.stars{border-left:4px solid #d97706}
 .spark{width:100%;height:70px}
 </style>
 </head>
@@ -83,7 +87,7 @@ function render(s){const sys=s.system;$('#host').textContent='· '+s.host;
  const age=(Date.now()-new Date(s.time.replace(' ','T')).getTime())/1000;
  $('#meta').innerHTML=`updated ${s.time} ${age>3*s.interval?'<span class="stale">(stale, '+age.toFixed(0)+' s ago — is the monitor running?)</span>':''} · ${s.n_workers} worker(s)${s.n_paused?', <span class="stale">'+s.n_paused+' paused by guard</span>':''}`;
  const tr=(s.tracks||[]).slice().sort((a,b)=>TRACK_ORDER.indexOf(a.track)-TRACK_ORDER.indexOf(b.track));
- $('#tracks').innerHTML=tr.map(t=>`<div class="card"><div class="sub" style="text-transform:uppercase;letter-spacing:.04em">${t.track}</div><b>${t.n_done} / ${t.n_steps}</b> <span class="sub">steps done</span>
+ $('#tracks').innerHTML=tr.map(t=>`<div class="card ${t.track}"><div class="sub" style="text-transform:uppercase;letter-spacing:.04em">${t.track}</div><b>${t.n_done} / ${t.n_steps}</b> <span class="sub">steps done</span>
   <div style="margin-top:6px;font-size:12.5px">${t.running?`running: ${t.running}<br><span class="sub">ETA ${fmtMin(t.eta_min)}${t.eta_at?' → '+t.eta_at:''}</span>`:'<span class="sub">nothing running</span>'}</div></div>`).join('');
  const mem=sys.mem_pct, g=[gauge('CPU total',sys.cpu_total,sys.cpu_total.toFixed(0)+'%',75,92),
   gauge(`memory used of ${sys.mem_total_gb.toFixed(0)} GB`,mem,sys.mem_used_gb.toFixed(1)+' GB',75,88),
@@ -95,7 +99,7 @@ function render(s){const sys=s.system;$('#host').textContent='· '+s.host;
  $('#cores').innerHTML=sys.cpu_per_core.map(p=>`<i title="${p.toFixed(0)}%"><b style="height:${p}%;background:${color(p,80,95)}"></b></i>`).join('');
  spark(sys.history);
  const groups={};for(const st of s.steps){(groups[st.track]=groups[st.track]||[]).push(st)}
- $('#steps').innerHTML=TRACK_ORDER.filter(t=>groups[t]).map(t=>`<h3>${t} <span class="sub">· ${groups[t].filter(x=>x.status==='done').length} of ${groups[t].length} done</span></h3><div class="grid">${groups[t].map(stepCard).join('')}</div>`).join('');
+ $('#steps').innerHTML=TRACK_ORDER.filter(t=>groups[t]).map(t=>`<section class="tsec ${t}"><h3><span class="dot"></span>${t.toUpperCase()} <span class="sub">· ${groups[t].filter(x=>x.status==='done').length} of ${groups[t].length} steps done</span></h3><div class="grid">${groups[t].map(stepCard).join('')}</div></section>`).join('');
  $('#guard').textContent=s.guard.enabled?`· guard on: pause if available memory < ${s.guard.mem_pause_gb} GB or swap > ${s.guard.swap_pause_gb} GB, or CPU > ${s.guard.cpu_pause_pct}% sustained; resume at ${s.guard.mem_resume_gb} GB / ${s.guard.cpu_resume_pct}%`:'· guard off';
  $('#workers tbody').innerHTML=s.workers.length?s.workers.map(w=>`<tr><td>${w.pid}</td><td>${w.track}</td><td>${w.step}</td><td>${w.shard}</td><td><span class="pill ${w.state}">${w.state}</span></td><td>${w.cpu.toFixed(0)}</td><td>${w.rss_gb.toFixed(2)}</td><td>${fmtMin(w.age_min)}</td></tr>`).join(''):'<tr><td colspan="8" class="sub">no workers running</td></tr>';
  $('#disks').innerHTML=Object.entries(s.disks).map(([k,d])=>d.missing?`<div class="card gauge"><div class="v stale">—</div><div class="l">${k}<br>not mounted</div></div>`:gauge(`${k}<br>${d.free_gb.toFixed(0)} GB free`,d.used_pct,d.used_pct.toFixed(0)+'%',90,97)).join('');

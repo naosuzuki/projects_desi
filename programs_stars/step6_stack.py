@@ -138,7 +138,7 @@ def iter_desi(df, maxfiles):
 
 
 def _progress(name, done, total, status='done', note=''):
-    """progress file of the monitors (programs_monitor/monitor.py, monitor_stars.py)."""
+    """progress file of the monitors (programs_monitor/monitor.py)."""
     try:
         import json; S = os.path.expanduser('~/data/sdssdesi_status'); os.makedirs(S, exist_ok=True)
         json.dump({'done': int(done), 'total': int(total), 'status': status, 'note': note}, open(f'{S}/step_star_{name}.json', 'w'))
@@ -222,7 +222,7 @@ def main():
     df[['SID', 'CELL', 'STACK', 'FILE', 'SNR_ALL']].to_csv(os.path.join(a.outdir, f'members_{a.tag}.csv'), index=False)
     print(f'written {out}: {len(stacks)} stacks x {NPIX} pixels; median N per stack {int(np.median(accB.nstar))}; {time.time()-t0:.0f}s')
     print(tab.head(10).to_string())
-    _progress('stack', 1, 2 if a.survey == 'sdss' else 2, 'running' if a.survey == 'sdss' else 'done', f'{a.survey}: {len(stacks)} stacks')
+    _progress('stack', 1 if a.survey == 'sdss' else 2, 2, 'waiting' if a.survey == 'sdss' else 'done', f'{a.survey}: {len(stacks)} stacks' + ('; DESI after pass B' if a.survey == 'sdss' else ''))
 
 
 if __name__ == '__main__':

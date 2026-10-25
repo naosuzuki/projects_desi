@@ -150,9 +150,9 @@ before stacking.
   front of them. No star of either survey is south of Dec −30°, so Bayestar covers everything; Edenhofer serves the < 1.25 kpc stars
   (the white dwarfs and M dwarfs).
 - **Monitoring:** the stars track of the main monitor (programs_monitor/monitor.py, http://127.0.0.1:8765) now lists Nao's steps
-  1, 2–3 SDSS, 2b, 3b, 2–3 DESI, 5, 6, 7 with progress files `~/data/sdssdesi_status/step_star_*.json`; detail page on 8767.
+  1, 2–3 SDSS, 2b, 3b, 2–3 DESI, 5, 6, 7 with progress files `~/data/sdssdesi_status/step_star_*.json`; the separate 8767 page was merged into it (colored divider per track).
 - **Scripts** renamed after the steps: `step1_*.py`, `step2_3_pass_{sdss,desi}.py`, `step2b_spcal.py`, `step3b_ebv3d.py`,
-  `step5_hr_cells_check.py`, `step6_stack.py`, `check_pass.py`, `monitor_stars.py`, `run_steps.sh` (see programs_stars/README.md).
+  `step5_hr_cells_check.py`, `step6_stack.py`, `check_pass.py`, `run_steps.sh` (see programs_stars/README.md).
 
 ## 5. Step 5 result on SDSS (2026-10-24 night; `~/data/sdssdesi_status/step5_sdss.txt`, cells in `~/data/sdssdesi_cache/stars/cells_sdss_0.5x0.1_gspphot.csv`)
 Sample: 115,444 SDSS quality stars (plx S/N > 10, ZWARN = 0, S/N > 5, CAL_OK); grid 0.5 mag × 0.1 × [M/H] (GSP-Phot; bins

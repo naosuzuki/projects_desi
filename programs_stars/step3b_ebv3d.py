@@ -40,7 +40,7 @@ _T0 = time.time()
 
 
 def _progress(done, total, status='running'):
-    """progress protocol of the monitors (monitor_stars.py reads this file)."""
+    """progress protocol of the monitors (programs_monitor/monitor.py reads this file)."""
     try:
         os.makedirs(os.path.dirname(STATUS), exist_ok=True)
         tmp = STATUS + '.tmp'

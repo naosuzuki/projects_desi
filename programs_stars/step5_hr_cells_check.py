@@ -143,7 +143,7 @@ def verdicts(tab):
 
 
 def _progress(name, done, total, status='done', note=''):
-    """progress file of the monitors (programs_monitor/monitor.py, monitor_stars.py)."""
+    """progress file of the monitors (programs_monitor/monitor.py)."""
     try:
         import json; S = os.path.expanduser('~/data/sdssdesi_status'); os.makedirs(S, exist_ok=True)
         json.dump({'done': int(done), 'total': int(total), 'status': status, 'note': note}, open(f'{S}/step_star_{name}.json', 'w'))
@@ -202,7 +202,7 @@ def main():
         for _, r in tab[tab.HOMOGENEOUS].sort_values('N', ascending=False).head(15).iterrows():
             print(f"  {r.MG0_MED:5.2f}  {r.COL0_MED:6.2f}  {r.FEH_MED if np.isfinite(r.FEH_MED) else float('nan'):5.2f}  {int(r.N):5d} {r.SNR_MED:5.1f}  {r.R_MAX:4.1f} {r.R_MAX_INDEX:12s}  {r.SIG_ABSG:7.3f}  {r.SIG_CBLUE:8.3f}  {r.COMP}")
     print('written', out)
-    _progress('cells', 1, 2 if a.survey == 'sdss' else 2, 'running' if a.survey == 'sdss' else 'done', f'{a.survey}: {len(tab)} cells, {int((~tab.HOMOGENEOUS).sum()) if len(tab) else 0} mixed')
+    _progress('cells', 1 if a.survey == 'sdss' else 2, 2, 'waiting' if a.survey == 'sdss' else 'done', f'{a.survey}: {len(tab)} cells, {int((~tab.HOMOGENEOUS).sum()) if len(tab) else 0} mixed' + ('; DESI after pass B' if a.survey == 'sdss' else ''))
 
 
 if __name__ == '__main__':

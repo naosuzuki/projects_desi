@@ -21,6 +21,6 @@ case "$1" in
             [ -d ~/data/sdssdesi_passS ] && python3 step5_hr_cells_check.py --survey desi --nmin 100 --snmin 5 | tee $S/step5_desi.txt ;;
   6)        nohup nice -n 10 python3 step6_stack.py --survey sdss --tag sdss_0.5x0.1_gspphot --nmin 100 --snmin 5 >> $S/step6_sdss.log 2>&1 &
             echo "SDSS stacks started: tail -f $S/step6_sdss.log" ;;
-  monitor)  nohup python3 monitor_stars.py --port 8767 >> $S/monitor_stars.log 2>&1 & echo "http://127.0.0.1:8767/monitor.html" ;;
+  monitor)  echo "the stars track is on the main monitor: http://127.0.0.1:8765/monitor.html (programs_monitor/monitor.py)" ;;
   *)        echo "usage: $0 1 | 2-3sdss | 2b | 3b | 2-3desi | 5 | 6 | chain | monitor" ;;
 esac
