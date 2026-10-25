@@ -15,6 +15,7 @@ for ((i=0; i<N; i++)); do
 done
 sleep 2
 for p in $(pgrep -f '02_passB_measure.py --all'); do nohup caffeinate -i -w $p >/dev/null 2>&1 & done
-if ! pgrep -f 04_monitor.py >/dev/null; then nohup python3 04_monitor.py --port 8765 >> ~/data/sdssdesi_status/monitor.log 2>&1 & fi
+# a monitor may be running from programs_monitor/monitor.py (other session) or 04_monitor.py: start one only if none serves 8765
+if ! pgrep -f 'monitor.py --port 8765' >/dev/null; then nohup python3 04_monitor.py --port 8765 >> ~/data/sdssdesi_status/monitor.log 2>&1 & fi
 sleep 1
 echo "workers: $(pgrep -f '02_passB_measure.py --all' | wc -l | tr -d ' ')  caffeinate: $(pgrep -x caffeinate | wc -l | tr -d ' ')  monitor: http://127.0.0.1:8765/monitor.html"

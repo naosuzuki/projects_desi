@@ -96,3 +96,6 @@ forest coverage/transmission, AI-type BAL proxy at CIV/SiIV. Same CLI as pass B;
 Tested on one coadd (112 quasars, 1.5 s); α_λ = −1.60 at S/N>5, CIV blueshift −313 km/s. Full run ≈ 13 h with two
 workers (read-limited) — run only after pass B has finished. Design notes and catalog locations:
 `docs/HANDOVER_quasars.md` §8.
+
+## Stars thread
+Stellar templates: `docs/HANDOVER_stars.md`, scripts in `programs_stars/` (star lookup and HR-cell caches built 2026-10-24).
