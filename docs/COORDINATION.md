@@ -59,6 +59,13 @@ thing; say so in your commit message. Sessions: **Galaxy Template**, **Quasar Te
   tracks; this round stays sequential.
 - Memory: pass Q DESI = 4 shards × ≈4 GB; the guard pauses below 8 GB free.
 
+## 3c. Agreed 2026-10-25 17:50 (Stellar ↔ Quasar): one DESI walk for quasars and stars
+`programs_quasars/02_passQ_desi.py --with-stars` reads each coadd once and runs the quasar chain on the QSO rows and
+`programs_stars/step2_3_pass_desi.measure_star_chunk` on the STAR rows (outputs `~/data/sdssdesi_passS/`, resumable
+per track). Tested on one coadd (112 QSO + 12 STAR rows). `after_passB.sh` starts it this way (4 shards) when pass B
+completes. The Stellar thread owns `measure_star_chunk` / `stars_for` / `load_star_lookup` (interface frozen: same
+signature as pass B's measure_chunk); the Quasar thread owns the walk. Galaxy pass C follows, as in 3b.
+
 ## 4. Open questions for Nao (cross-thread)
 1. Pass C (galaxy stacks) and pass Q DESI both re-read all coadds (≈1 day each on USB 3). Should one pass read each
    coadd once and serve both (a "pass C+Q" that writes rest-frame spectra for galaxies and quasars)? Recommended:
