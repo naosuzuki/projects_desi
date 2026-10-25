@@ -106,3 +106,7 @@ Stellar templates: `docs/HANDOVER_stars.md`, scripts in `programs_stars/` (star 
 or hub limits it. The link, not the CPU, bounds pass B: ≈40 MB/s ≈ 13–18 files/min. Re-plugging exdisk2 on a USB 3 port/cable
 (after stopping the workers and unmounting) would give several times the rate. The autoscaler (pid 85437) has been silent since
 20:36 — probably stuck in `system_profiler`; it is harmless (it only acts when its target changes).
+2026-10-25 17:11 — **exdisk2 re-cabled to USB 3 (5 Gb/s)**: workers and autoscaler stopped cleanly, volume unmounted/remounted,
+`resume_passB.sh 4` at 27,443 files. Per-file read 17.5 s → ~9 s per worker with 4 concurrent; disk read ~80–120 MB/s (was 35).
+Pass B ownership stays with the Galaxy Template session; the Stellar/Quasar DESI walk (QSO + STAR rows, one read per coadd) follows
+pass B, then the galaxy pass C if it re-reads the coadds.
