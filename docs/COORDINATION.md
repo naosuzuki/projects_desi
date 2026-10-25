@@ -48,6 +48,17 @@ thing; say so in your commit message. Sessions: **Galaxy Template**, **Quasar Te
 | after pass B | galaxy cell assignment, pass C (reads coadds again → coordinate with pass Q DESI: run after it, or merge the two reads) | Galaxy |
 | after pass B | star calibration from pass-B outputs; coadd-reading star passes after pass Q DESI | Stellar |
 
+## 3b. Agreed 2026-10-25 17:30 (Galaxy ↔ Quasar)
+- Pass B: Galaxy thread tests 6 workers (keeps them if > 23.4 files/min); `02_passB_measure.py` stays untouched until
+  pass B completes. Then the LINES table goes to vacuum (VAC dict in `programs_quasars/qsolib.py`), documented in
+  ms.tex + README; all galaxy lines are re-measured in pass C (reads every coadd anyway). Interim cell assignment
+  uses the air-wavelength lines (bias ≤ 36 % flux for the narrowest fits; factor-2 EW bins tolerate it).
+- Disk after pass B: pass Q DESI first (auto, `after_passB.sh`: triggers only when 34,508 parquet files exist AND no
+  pass-B worker is alive — a worker dying early does not trigger it), then galaxy pass C (its cell table is catalog
+  work in the meantime). Pass C's per-spectrum stage will be a plug-in function so a later single pass can serve both
+  tracks; this round stays sequential.
+- Memory: pass Q DESI = 4 shards × ≈4 GB; the guard pauses below 8 GB free.
+
 ## 4. Open questions for Nao (cross-thread)
 1. Pass C (galaxy stacks) and pass Q DESI both re-read all coadds (≈1 day each on USB 3). Should one pass read each
    coadd once and serve both (a "pass C+Q" that writes rest-frame spectra for galaxies and quasars)? Recommended:
