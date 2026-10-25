@@ -12,6 +12,12 @@ Output: one Parquet per coadd in OUTDIR/<program>/hpx<N>.parquet (resumable; emp
 Design: docs/HANDOVER_stars.md. Production: call from the pass-Q DESI walk so each coadd is read once (or run standalone
 after pass B with the same recipe as pass B: two workers, OPENBLAS_NUM_THREADS=1, nice 10, detached).
 
+Hook for a single DESI walk (programs_quasars/02_passQ_desi.py): after `w, flux, ivar, mask, percam = passB.combine_cameras(f)`
+  call `step2_3_pass_desi.write_star_file(path, fm, w, flux, ivar, mask, percam, zsub, lookup, program)` with
+  `lookup = step2_3_pass_desi.load_star_lookup()` loaded once per worker (12 M rows, ~1 GB) - the coadd is then read once
+  for quasars and stars. `write_expfib_file(f, path, program)` (open fitsio.FITS f) dumps EXP_FIBERMAP for ALL rows to
+  ~/data/sdssdesi_expfib/<program>/hpx<N>.parquet - call it in the same walk (the standalone driver does).
+
 Usage (same CLI as pass B / pass Q):
   python3 step2_3_pass_desi.py --files /Volumes/exdisk2/.../coadd-main-bright-0.fits --outdir ~/data/sdssdesi_passS_test
   python3 step2_3_pass_desi.py --nfiles 5 --seed 1
@@ -29,7 +35,8 @@ OUTDIR = os.path.expanduser('~/data/sdssdesi_passS')
 STAR_LOOKUP = os.path.expanduser('~/data/sdssdesi_cache/zall_stars_main.parquet')
 STAR_COLS = ['TARGETID', 'PROGRAM', 'HEALPIX', 'SUBTYPE', 'REF_ID', 'REF_CAT', 'GAIA_PHOT_G_MEAN_MAG', 'GAIA_PHOT_BP_MEAN_MAG',
              'GAIA_PHOT_RP_MEAN_MAG', 'PARALLAX', 'PMRA', 'PMDEC', 'MWS_TARGET', 'SCND_TARGET', 'COADD_EXPTIME', 'COADD_NUMEXP', 'MEAN_MJD']
-FM_COLS = ['TARGETID', 'TARGET_RA', 'TARGET_DEC', 'EBV', 'PHOTSYS', 'FLUX_G', 'FLUX_R', 'FLUX_Z', 'FIBERFLUX_G', 'FIBERFLUX_R',
+FM_COLS = ['TARGETID',  # the hook needs these fibermap columns (the quasar driver reads the same set)
+            'TARGET_RA', 'TARGET_DEC', 'EBV', 'PHOTSYS', 'FLUX_G', 'FLUX_R', 'FLUX_Z', 'FIBERFLUX_G', 'FIBERFLUX_R',
            'FIBERFLUX_Z', 'MEAN_PSF_TO_FIBER_SPECFLUX', 'COADD_FIBERSTATUS']
 
 
@@ -46,18 +53,16 @@ def measure_star_chunk(df, w, flux, ivar, mask):
     return starlib.measure_stars(df, w, flux, ivar, mask)
 
 
-def process_file(path, zl, stars, program):
-    t0 = time.time()
-    f = fitsio.FITS(path)
-    fm = f['FIBERMAP'].read(columns=FM_COLS)
+def measure_star_rows(path, fm, w, flux, ivar, mask, percam, zl, stars, program, t0=None):
+    """The star measurements on ALREADY-READ coadd arrays (hook for a single DESI walk shared with the quasar pass:
+    call it from programs_quasars/02_passQ_desi.py right after passB.combine_cameras with the same fm/w/flux/ivar/mask/
+    percam, zl = the zall subset of the file, stars = stars_for(lookup, prog, hpx) or None). Returns (df, t_read)."""
+    t0 = t0 or time.time()
     tid = fm['TARGETID']
     st = zl[(zl.SPECTYPE == 'STAR') & zl.ZCAT_PRIMARY]
     rows = np.where(np.isin(tid, st.TARGETID.to_numpy()))[0]
     if len(rows) == 0:
-        f.close()
         return pd.DataFrame(), time.time() - t0
-    w, flux, ivar, mask, percam = passB.combine_cameras(f)
-    f.close()
     flux, ivar, mask = flux[rows], ivar[rows], mask[rows]
     percam = {c: v[rows] for c, v in percam.items()}
     fm = fm[rows]
@@ -79,6 +84,58 @@ def process_file(path, zl, stars, program):
     out['T_READ'] = t_read
     out['PROC_SEC'] = time.time() - t0
     return out, t_read
+
+
+def process_file(path, zl, stars, program):
+    """standalone: read the coadd, then measure_star_rows."""
+    t0 = time.time()
+    f = fitsio.FITS(path)
+    write_expfib_file(f, path, program)                     # exposure map for all rows (Calibration 2, pass C)
+    fm = f['FIBERMAP'].read(columns=FM_COLS)
+    st = zl[(zl.SPECTYPE == 'STAR') & zl.ZCAT_PRIMARY]
+    if not np.isin(fm['TARGETID'], st.TARGETID.to_numpy()).any():
+        f.close()
+        return pd.DataFrame(), time.time() - t0
+    w, flux, ivar, mask, percam = passB.combine_cameras(f)
+    f.close()
+    return measure_star_rows(path, fm, w, flux, ivar, mask, percam, zl, stars, program, t0=t0)
+
+
+def write_star_file(path, fm, w, flux, ivar, mask, percam, zsub, lookup, program, outdir=OUTDIR, overwrite=False):
+    """One-call hook for the quasar DESI walk: measures the STAR rows of an already-read coadd and writes
+    outdir/<program>/hpx<N>.parquet (skipped when it exists). `lookup` = load_star_lookup() (load once per worker).
+    Returns the number of stars written, or -1 when skipped."""
+    hpx = os.path.basename(path).split('-')[-1].replace('.fits', '')
+    out = os.path.join(outdir, program, f'hpx{hpx}.parquet')
+    if os.path.exists(out) and not overwrite:
+        return -1
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    df, _ = measure_star_rows(path, fm, w, flux, ivar, mask, percam, zsub, stars_for(lookup, program, hpx), program)
+    df.to_parquet(out + '.tmp'); os.replace(out + '.tmp', out)
+    return len(df)
+
+
+EXPFIB_DIR = os.path.expanduser('~/data/sdssdesi_expfib')
+EXPFIB_COLS = ['TARGETID', 'NIGHT', 'EXPID', 'MJD', 'TILEID', 'EXPTIME', 'PETAL_LOC', 'DEVICE_LOC', 'LOCATION', 'FIBER', 'FIBERSTATUS',
+               'FIBER_X', 'FIBER_Y', 'DELTA_X', 'DELTA_Y', 'PSF_TO_FIBER_SPECFLUX', 'IN_COADD_B', 'IN_COADD_R', 'IN_COADD_Z']
+
+
+def write_expfib_file(f, path, program, outdir=EXPFIB_DIR, overwrite=False):
+    """Dump the EXP_FIBERMAP HDU of an open coadd (fitsio.FITS f) for ALL rows: one row per (spectrum, exposure) with
+    EXPID/NIGHT/TILEID/PETAL_LOC/FIBER/FIBER_X/Y/EXPTIME/... -> outdir/<program>/hpx<N>.parquet (agreed with the Galaxy and
+    Quasar threads, docs/COORDINATION.md §3c: the mapping coadd -> exposures that Calibration 2 and pass C need).
+    Returns the number of rows written, or -1 when the file exists."""
+    hpx = os.path.basename(path).split('-')[-1].replace('.fits', '')
+    out = os.path.join(outdir, program, f'hpx{hpx}.parquet')
+    if os.path.exists(out) and not overwrite:
+        return -1
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    e = f['EXP_FIBERMAP']; cols = [c for c in EXPFIB_COLS if c in e.get_colnames()]
+    r = e.read(columns=cols)
+    df = pd.DataFrame({c: r[c].astype(r[c].dtype.newbyteorder('=')) for c in cols})
+    df['PROGRAM'] = program; df['HEALPIX'] = int(hpx)
+    df.to_parquet(out + '.tmp'); os.replace(out + '.tmp', out)
+    return len(df)
 
 
 def stars_for(lookup, prog, hpx):

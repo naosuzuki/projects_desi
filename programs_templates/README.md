@@ -77,6 +77,15 @@ for p in $(pgrep -f '02_passB_measure.py --all'); do nohup caffeinate -i -w $p >
 Existing outputs are skipped; the file that raised the read error (bright-30037) is re-read and should be
 checked (FITS CHECKSUM) if it fails again. Consider `04_monitor.py` adding "disk unmounted → pause workers".
 
+## Known issue (found 2026-10-25 by the Quasar thread): LINES table in AIR wavelengths
+`02_passB_measure.py` LINES uses air wavelengths (Halpha 6562.80, [OIII] 5006.84, [OII] 3726.03/3728.82, ...);
+DESI and SDSS spectra are in VACUUM (6564.61, 5008.24, 3727.09/3729.88, ...). Effect: lines fitted ~76 km/s off
+centre; for the narrowest (80 km/s) Gaussian up to ~36% flux loss, otherwise the width selection compensates partly;
+EWs biased low for narrow lines. Dn4000, S/N, calibration, K and absolute magnitudes are unaffected.
+Decision: pass B runs to completion UNCHANGED (consistent table for all files); the table is switched to vacuum
+(values in programs_quasars/qsolib.py VAC) right after completion, and all lines are re-measured in pass C,
+which reads every coadd anyway. Interim cell assignment may use the pass-B EWs (factor-of-2 bins tolerate the bias).
+
 ## Operational rules
 - Scripts here; caches in `~/data/sdssdesi_products/`; never write to the external disks.
 - Every pass resumable (per-file checkpoint), detached (setsid/nohup), Mac kept awake.

@@ -11,7 +11,7 @@ Measurements
      synthetic: GAIA_DG, GAIA_DBP, GAIA_DRP; color residual GAIA_DBPRP = (BP-RP)_cat - (BP-RP)_syn (tilt handle).
   2. RV frame: integer-pixel shift by the Redrock z on the log10 grid (dlog=1e-4 = 69 km/s), RV_KMS = c z,
      RV_RESID_KMS = residual after the integer shift (stored for a sub-pixel stacking pass if Nao chooses it).
-  3. Spectral indices (A, pseudo-continuum EW: positive = absorption) on the RV-corrected spectrum: Ca II K, HdeltaA,
+  3. Spectral indices (A, pseudo-continuum EW: positive = absorption; band edges converted from air to vacuum) on the RV-corrected spectrum: Ca II K, HdeltaA,
      G band 4300, HgammaA, Hbeta, Mg b, Fe5270, Fe5335, He II 4686, He I 5876, Na D, Halpha (negative = emission),
      Ca II triplet (Cenarro+01, 3 lines + sum); band ratios TiO5, CaH2, CaH3 (Reid+95; M-dwarf type and gravity).
      Errors from the pixel ivar inside the feature band. NaN when < 80 % of the pixels of any band are good.
@@ -60,6 +60,19 @@ INDICES = {
 RATIOS = {'TIO5': ((7126.0, 7135.0), (7042.0, 7046.0)), 'CAH2': ((6814.0, 6846.0), (7042.0, 7046.0)), 'CAH3': ((6960.0, 6990.0), (7042.0, 7046.0))}
 COLOR_BANDS = {'4100': (4000.0, 4200.0), '5600': (5500.0, 5700.0), '8100': (8000.0, 8200.0)}
 MIN_GOOD_FRAC = 0.8
+
+
+def air_to_vac(w):
+    """air -> vacuum wavelength (A), IAU standard (Morton 1991 / Ciddor 1996 form used by SDSS)."""
+    w = np.asarray(w, float); s = 1e4 / w
+    n = 1 + 0.00008336624212083 + 0.02408926869968 / (130.1065924522 - s**2) + 0.00015997409212 / (38.92568793293 - s**2)
+    return w * n
+
+
+# the index definitions above are in AIR wavelengths (Lick, Worthey & Ottaviani 97, Cenarro+01, Reid+95); the spectra are in
+# VACUUM (SDSS and DESI), so the band edges are converted once here (+1.1 A at 4000 A, +2.4 A at 8600 A) - 2026-10-25
+INDICES = {k: (tuple(air_to_vac(v[0])), [tuple(air_to_vac(b)) for b in v[1]]) for k, v in INDICES.items()}
+RATIOS = {k: (tuple(air_to_vac(v[0])), tuple(air_to_vac(v[1]))) for k, v in RATIOS.items()}
 
 
 # ---------------------------------------------------------------- 1. Gaia synthetic photometry
