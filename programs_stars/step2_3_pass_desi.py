@@ -16,7 +16,7 @@ Hook for a single DESI walk (programs_quasars/02_passQ_desi.py): after `w, flux,
   call `step2_3_pass_desi.write_star_file(path, fm, w, flux, ivar, mask, percam, zsub, lookup, program)` with
   `lookup = step2_3_pass_desi.load_star_lookup()` loaded once per worker (12 M rows, ~1 GB) - the coadd is then read once
   for quasars and stars. `write_expfib_file(f, path, program)` (open fitsio.FITS f) dumps EXP_FIBERMAP for ALL rows to
-  ~/data/sdssdesi_expfib/<program>/hpx<N>.parquet - call it in the same walk (the standalone driver does).
+  ~/data/sdssdesi_expfibermap/<program>/hpx<N>.parquet - call it in the same walk (the standalone driver does).
 
 Usage (same CLI as pass B / pass Q):
   python3 step2_3_pass_desi.py --files /Volumes/exdisk2/.../coadd-main-bright-0.fits --outdir ~/data/sdssdesi_passS_test
@@ -115,7 +115,7 @@ def write_star_file(path, fm, w, flux, ivar, mask, percam, zsub, lookup, program
     return len(df)
 
 
-EXPFIB_DIR = os.path.expanduser('~/data/sdssdesi_expfib')
+EXPFIB_DIR = os.path.expanduser('~/data/sdssdesi_expfibermap')   # same directory as the quasar walk's --expfibermap
 EXPFIB_COLS = ['TARGETID', 'NIGHT', 'EXPID', 'MJD', 'TILEID', 'EXPTIME', 'PETAL_LOC', 'DEVICE_LOC', 'LOCATION', 'FIBER', 'FIBERSTATUS',
                'FIBER_X', 'FIBER_Y', 'DELTA_X', 'DELTA_Y', 'PSF_TO_FIBER_SPECFLUX', 'IN_COADD_B', 'IN_COADD_R', 'IN_COADD_Z']
 
