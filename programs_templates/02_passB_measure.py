@@ -35,7 +35,7 @@ import speclite.filters as sfilters
 
 warnings.filterwarnings('ignore')
 MANIFEST = os.path.expanduser('~/github/projects_desi/programs_setups/manifests/healpix_main_darkbright.batch')
-ZLOOKUP_COMPACT = os.path.expanduser('~/data/sdssdesi_cache/zlookup_compact.npz')   # from 00_build_zlookup.py
+ZLOOKUP_COMPACT = os.path.expanduser('~/data/sdssdesi_products/zlookup_compact.npz')   # from 00_build_zlookup.py
 OUTDIR = os.path.expanduser('~/data/sdssdesi_passB')
 DLOG = 1e-4
 REST_MIN, REST_MAX = 1400.0, 9900.0

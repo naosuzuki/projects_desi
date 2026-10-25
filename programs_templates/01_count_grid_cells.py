@@ -8,14 +8,14 @@ Grid:  z in 0.05 slices (0-1.6) x M_r in 1-mag bins (-24..-16) x color in 0.25-m
        color = g-r for z<0.5, r-z for z>=0.5 (observed, Legacy Surveys total fluxes)
 Sample: DESI DR2 loa main dark+bright, ZCAT_PRIMARY, ZWARN=0, COADD_FIBERSTATUS=0,
         SPECTYPE=GALAXY, DELTACHI2>25, 0<z<1.6.
-Input:  ~/data/sdssdesi_cache/zall_loa.parquet (built from zall-pix-loa.fits)
+Input:  ~/data/sdssdesi_products/zall_loa.parquet (built from zall-pix-loa.fits)
 """
 import os
 import numpy as np
 import pandas as pd
 from astropy.cosmology import Planck18 as cosmo
 
-CACHE = os.path.expanduser('~/data/sdssdesi_cache/zall_loa.parquet')
+CACHE = os.path.expanduser('~/data/sdssdesi_products/zall_loa.parquet')
 DZ, DM, DC = 0.05, 1.0, 0.25
 ZMAX = 1.6
 

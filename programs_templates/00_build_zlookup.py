@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Build the compact redshift lookup used by pass B (one-time, ~1 min).
 
-Input : ~/data/sdssdesi_cache/zlookup_main.parquet  (main survey rows of zall-pix-loa, built from the zall cache)
-Output: ~/data/sdssdesi_cache/zlookup_compact.npz with
+Input : ~/data/sdssdesi_products/zlookup_main.parquet  (main survey rows of zall-pix-loa, built from the zall cache)
+Output: ~/data/sdssdesi_products/zlookup_compact.npz with
         TARGETID int64, Z float32, ZERR float32, ZWARN int32, DELTACHI2 float32, ZCAT_PRIMARY bool,
         SPECTYPE_CODE int8 (0 GALAXY, 1 QSO, 2 STAR, 3 other), rows sorted by (program, healpix),
         and OFFSETS: for each (program code 0=dark 1=bright, healpix) the [start, stop) row range.
@@ -12,7 +12,7 @@ import os, time
 import numpy as np
 import pyarrow.parquet as pq
 
-CACHE = os.path.expanduser('~/data/sdssdesi_cache')
+CACHE = os.path.expanduser('~/data/sdssdesi_products')
 t0 = time.time()
 t = pq.read_table(f'{CACHE}/zlookup_main.parquet', columns=['TARGETID', 'PROGRAM', 'HEALPIX', 'Z', 'ZERR', 'ZWARN', 'SPECTYPE', 'DELTACHI2', 'ZCAT_PRIMARY'])
 prog = t.column('PROGRAM').to_numpy(zero_copy_only=False)

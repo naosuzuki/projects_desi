@@ -22,7 +22,7 @@ Nao commits). Scripts: `~/github/projects_desi/programs_quasars/` (README.md the
 | SDSS DR17 spPlate (v5_13_2) | `~/sdssredux/v5_13_2/PLATE/` | 4,131 files, all of spAll |
 | SDSS DR8 spPlate | `~/sdssredux/DR8/{26,103,104}/PLATE/` | 3,975 files, all of specObj-dr8; `sdss_db.py` searches these |
 | `spAll-v5_13_2.fits`, `specObj-dr8.fits` | `~/sdssredux/` | |
-| catalog cache (Parquet) | `~/data/sdssdesi_cache/`: `zall_loa.parquet` (4.7 GB), `spall_dr17.parquet`, `specobj_dr8.parquet`, `zlookup_main.parquet`, `zlookup_compact.npz` | persistent; rebuild notes in programs_templates/README.md |
+| catalog cache (Parquet) | `~/data/sdssdesi_products/`: `zall_loa.parquet` (4.7 GB), `spall_dr17.parquet`, `specobj_dr8.parquet`, `zlookup_main.parquet`, `zlookup_compact.npz` | persistent; rebuild notes in programs_templates/README.md |
 | Gaia DR3 × SDSS quasars | `~/github/projects_gaia/csvfiles/gaiadr3_sdssdr{8,17}_quasar*.csv`, XP spectra `~/github/projects_gaia/data/gaiadr3_xpspec_sdssdr{8,17}_quasar.fits` | for absolute flux checks of bright quasars |
 | redrock + templates | `~/github/redrock` (0.22.2), `~/github/redrock-templates` (`RR_TEMPLATE_DIR`) | QSO-LOZ/HIZ v1.1 = reference |
 | sdsslib | `~/github/sdsslib/pylib` (`PYLIB`) | SDSSspec reader, log-rebin, 2D stack format |
@@ -128,7 +128,7 @@ while pass B runs** (disk bottleneck). Suggested: start Sunday after pass B, sam
 
 ### 8.4 Next steps (in order)
 1. Nao: approve the downloads in 8.1 (DR16Q 1.7 GB; DR1 zlya 281 MB; DR1 QSO cat 816 MB; EDR BAL 105 MB; BH-mass
-   109 MB) into `~/data/sdssdesi_cache/quasar/` (catalog-level, safe during pass B).
+   109 MB) into `~/data/sdssdesi_products/quasar/` (catalog-level, safe during pass B).
 2. Sunday, after pass B: run pass Q over all coadds (13 h, two workers); then SDSS pass (spPlates, internal disk).
 3. Luminosity axis: M_i(z=2) = m_i(dereddened) − DM(z) − K(z) with Richards table; DESI has no i → use
    synthetic i from the calibrated spectrum (pass Q can add `SYN_I`), or FLUX_R/FLUX_Z interpolation. Decide.
@@ -235,7 +235,7 @@ Redshift rule (Nao): de-redshift with the **peak of a narrow/low-ionization line
 pipeline z only as fallback. Implemented in pass Q as `Z_SYS`, `Z_SYS_SRC` (1/2/3/0) from the new `_VPEAK` columns
 (peak of the smoothed continuum-subtracted line, parabolic refinement). Test coadd: 68 Mg II, 15 [O III], 7 O I,
 22 fallback; Z_SYS − Z_pipe median −34 km/s, MAD 410 km/s; peak − centroid: [O III] 10 km/s, Mg II 190, C IV 265.
-1. Catalogs (now): DR16Q, DR1 zlya, DR1 QSO cat, EDR BAL, BH-mass VACs → `~/data/sdssdesi_cache/quasar/`.
+1. Catalogs (now): DR16Q, DR1 zlya, DR1 QSO cat, EDR BAL, BH-mass VACs → `~/data/sdssdesi_products/quasar/`.
 2. Pass Q over all DESI coadds (Sunday, after pass B; 2 workers, ~13 h), then the SDSS spPlates (internal disk).
    Per quasar: pass-B columns + slope, line EWs/peaks (incl. oxygen lines), Z_SYS, forest, BAL proxy.
 3. Master quasar table: pass Q + catalog BAL class (DR16Q BAL_PROB/BI/AI, zlya AI/BI; proxy where neither) + Z_SYS;
@@ -338,3 +338,64 @@ One page for all tracks and steps (pass B, pass Q SDSS/DESI, cell tables, stacks
 rate, ETA/finish time, per-step worker CPU/RSS, system CPU/memory/swap/disk gauges and a 1-h history; same guard and
 status dir. New steps report through `~/data/sdssdesi_status/step_<name>.json` (README there). Pass B ETA slipped to
 Sunday ~23:00 under the evening load (Prospector + pass B + SDSS pass); SDSS pass reniced to 19.
+
+### 8.19 Products directory renamed (2026-10-24 22:22): `~/data/sdssdesi_products/` (was `sdssdesi_cache`)
+Nao: these are products, not caches (the zall Parquet is a 51 GB read, the master table an hour, the stacks a day).
+A symlink `~/data/sdssdesi_cache -> sdssdesi_products` keeps older scripts working (the star thread's scripts still
+use the old name; the running pass-B workers loaded the lookup at start and a restart by the autoscaler resolves
+through the symlink). Scripts and docs of the templates / quasars tracks now use the new name. Everything under
+`~/data` is on the internal SSD and survives reboots; only the session scratchpad (/private/tmp) is lost.
+Quasar products: `~/data/sdssdesi_products/quasar/` (master tables, checks, EW quantiles, later cell tables).
+Cleanup (Nao, 2026-10-24): pass-Q test directories deleted. **To do after pass B finishes:** delete
+`~/data/sdssdesi_passB_test`, `~/data/sdssdesi_passB_test2` and `~/data/sdssdesi_products/zlookup_main.parquet`
+(rebuildable from zall_loa.parquet; pass B reads only zlookup_compact.npz).
+
+### 8.20 SDSS master table v1 and checks (2026-10-24 23:05; `03_qso_table_sdss.py`, full report in
+`data/quasar/qso_checks_sdss_v1_airwave.txt`, quantiles `data/quasar/qso_ew_quantiles_sdss_v1.csv`)
+Rows 1,140,616 (DR17 978k, DR8 163k); after cuts (ZWARN=0, plate good, 0<z<5) 748,305; S/N>5: 302,883 (DR17 236k,
+DR8 67k; ms.tex census said 233k + 67k ✓). DR16Q match 727k.
+**Bug found and fixed in pass Q**: the optical lines (Hα, Hβ, [O III], [O II], [O I], …) were at AIR wavelengths while
+SDSS/DESI spectra are vacuum → our [O III] peak sat +76 km/s (= 1.4 Å at 5007) above DR16Q Z_PCA with MAD 74 km/s.
+qsolib now overrides pass B's LINES with vacuum values and uses vacuum Hβ/Hα/[O III]/[O I]; SDSS pass rerunning
+(started 23:05, ~1 h at nice 19), table to be rebuilt. **The same air-wavelength list is in `02_passB_measure.py`
+(galaxy lines of pass B, running now)** — for the galaxy thread: narrow lines fitted 80 km/s off centre with the
+σ=80 km/s Gaussian lose flux; fix the LINES table (vacuum) and either re-measure lines in the cell-assignment pass
+or rerun pass B's line step. Decision for the galaxy thread / Nao.
+Findings (S/N>5, before the fix; offsets will shift by the 76–84 km/s correction):
+- Z_SYS: [O III] peak vs DR16Q Z_PCA median +76, MAD 74 km/s, 0.2 % > 1000 km/s (excellent); Mg II peak vs DR16Q
+  Z_MGII +212 / MAD 315 (DR16Q uses 2799.12? we use 2798.75 = 39 km/s of it; the rest is the redvsblue "peak" vs
+  ours), vs Z_PCA +150 / 353, 11 % > 1000; **O I 1304 peak is poor** (MAD 600–900 km/s, 15–30 % > 1000 km/s) → drop
+  O I from the Z_SYS chain (keep the pipeline z at z>2.3, or C III]/Mg II where in window) — Nao to confirm.
+  Pipeline Z vs DR16Q Z_PCA: −7 / 90 km/s.
+- BAL (DR17, 1.57<z<5, S/N>5, 120k): our class>0 catches 96 % of DR16Q BI_CIV>0 (67 % as class 2); false positives
+  14.5 % among BAL_PROB<0.1; our BAL fraction 29 % (S/N 5–10) / 39 % (S/N>10) vs DR16Q BAL_PROB≥0.5 31 % / 33 %;
+  agreement 80 %. Usable as a grid axis now; the eigenspectra-continuum iteration should cut the false positives.
+- Slope: DR17 and DR8 agree at z>1.2 (α_λ ≈ −1.30 to −1.40, both); at 0.3<z<1 DR17 is bluer by 0.3–0.5 (different
+  programs/hosts, not calibration). The DESI test coadd gave −1.60 → compare with the full DESI pass.
+- Measured EW medians (S/N>5, ≥3σ): Hα 80–176 Å (rising with z = luminosity), Hβ 35–38, Mg II 26, C IV 22–25
+  (composite 24 ✓); [O III] 12–16, [O II] 2.4–3.2, O I 1304 1.6–2.1, O VI 10–14; slope 16/50/84 % = −1.7/−1.35/−0.9
+  at z>0.9 → the slope bins −2.0…−1.0 (6 × 0.25) are well placed; the factor-2 EW ladders centred on these medians.
+  **Oxygen-axis gap**: at 1.6<z<1.8 neither [O II] (obs >9700 Å) nor O I 1304 (obs <3650 Å) is in the window
+  (167 detections) → use O III] 1663 there (obs 4300–4700 Å).
+- BAL fraction (our class) 0.22–0.39 at z>1.6; 0 at z<1.5 except LoBAL ≈ 0.3–6 % at z<0.6 (host/Fe II false
+  positives likely — check).
+
+### 8.21 SDSS pass Q v2 (vacuum wavelengths) and table rebuilt 2026-10-25 00:03 — `data/quasar/qso_checks_sdss_v2_vacuum.txt`
+[O III] peak vs DR16Q Z_PCA: median −5 km/s, MAD 77 (was +76): the air/vacuum bug is confirmed fixed. Mg II unchanged
+(+212 / 315 km/s vs DR16Q Z_MGII; UV lines were already vacuum). Master table: `~/data/sdssdesi_products/quasar/
+qso_master_sdss.parquet` (1,140,616 rows, 168 cols, 506 MB). Grid quantiles: `data/quasar/qso_ew_quantiles_sdss.csv`.
+Machine 2026-10-25 02:10: Prospector finished (load 1); pass B restarted with 4 workers at 02:11 (resume.log), but
+**exdisk2 is on a 480 Mb/s (USB 2) link** (system_profiler; disk read 30–35 MB/s): pass B is disk-bound at ≈13–15
+files/min whatever the worker count (ETA Mon 00:40). Re-plugging exdisk2 on a USB 3 port (5 Gb/s) is the only real
+acceleration (the autoscaler then allows 4 workers; ≈100 files/min → hours instead of a day). Pass Q DESI shares that
+disk → it stays queued behind pass B; the quasar track continues on the SDSS half (cells, stacks) meanwhile.
+
+### 8.22 Cells on the SDSS half (2026-10-25 17:15; `04_cells.py --survey sdss`; tables `data/quasar/qso_stack_cells_sdss.csv`,
+`qso_primary_ew_medians_sdss.csv`; per-object labels `~/data/sdssdesi_products/quasar/qso_cells_sdss.parquet`)
+Training 302,840 (QCUT, S/N>5, M_i). Six-axis cells occupied 15,385; ≥300 as full cells: 152 (82.5k quasars). After the
+merge rule (BAL → oxygen → slope): **537 stacks holding 265,598 quasars (87.7 %)**; 37k quasars in 817 pool cells still
+below 300 (mostly z<0.4, z>3.5 and the bright/faint M_i edges). Stages: 152 full, 18 BAL-collapsed, 209 +oxygen,
+158 +slope. Fine bins available: EW 95 %, slope 100 %, oxygen 50 % (detected ≥3σ), BAL known 94 %.
+Per slice: 7–10 stacks at z<0.6, 18–26 at 0.6–1.0, 43–49 at 1.0–2.4 (12–25 full six-axis cells each), 10–36 at 2.4–3.5,
+4 at 3.5–4, none above 4. DESI (≈940k at S/N>5) will roughly triple this → the ≈1,000–1,200 expected in 8.10.
+Coordination note for all threads: `docs/COORDINATION.md` (2026-10-25); messages sent to the Galaxy and Stellar sessions.

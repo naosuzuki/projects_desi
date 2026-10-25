@@ -99,3 +99,10 @@ workers (read-limited) — run only after pass B has finished. Design notes and 
 
 ## Stars thread
 Stellar templates: `docs/HANDOVER_stars.md`, scripts in `programs_stars/` (star lookup and HR-cell caches built 2026-10-24).
+
+## 2026-10-25 02:11 — pass B scaled to 4 workers (Prospector finished)
+`resume_passB.sh 4` (17,419 files done). Evidence before the change: 2 workers = 13/min, 38 MB/s disk read, CPU 13 %.
+**exdisk2 (WD My Book 25EE, 24 TB) is attached at USB 2 speed (480 Mb/s), exdisk1 at 5 Gb/s** — the drive is USB 3; the cable, port
+or hub limits it. The link, not the CPU, bounds pass B: ≈40 MB/s ≈ 13–18 files/min. Re-plugging exdisk2 on a USB 3 port/cable
+(after stopping the workers and unmounting) would give several times the rate. The autoscaler (pid 85437) has been silent since
+20:36 — probably stuck in `system_profiler`; it is harmless (it only acts when its target changes).

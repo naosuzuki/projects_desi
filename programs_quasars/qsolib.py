@@ -21,6 +21,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 _spec = importlib.util.spec_from_file_location('passB', os.path.join(HERE, '..', 'programs_templates', '02_passB_measure.py'))
 passB = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(passB)
 
+# SDSS and DESI wavelengths are in vacuum; pass B's optical line list is in AIR wavelengths (found 2026-10-24 from the
+# +76 km/s offset of our [O III] peak against DR16Q). Override here with vacuum values (Morton 1991 / NIST) without
+# touching 02_passB_measure.py, which is mid-run for the galaxies (that fix is for the galaxy thread to schedule).
+VAC = {'OII_3726': 3727.09, 'OII_3729': 3729.88, 'NEIII_3869': 3869.86, 'HDELTA': 4102.89, 'HGAMMA': 4341.68, 'HBETA': 4862.68,
+       'OIII_4959': 4960.30, 'OIII_5007': 5008.24, 'NII_6548': 6549.86, 'HALPHA': 6564.61, 'NII_6583': 6585.27,
+       'SII_6716': 6718.29, 'SII_6731': 6732.67}
+passB.LINES = {g: [(n, VAC.get(n, l)) for n, l in lines] for g, lines in passB.LINES.items()}
+
 DLOG = passB.DLOG
 CKMS = passB.CKMS
 F32 = np.float32
@@ -47,10 +55,10 @@ QLINES = {
     'civ':   ([('CIV', 1549.06)], BROAD_SIG),
     'ciii':  ([('ALIII', 1857.4), ('CIII', 1908.73)], BROAD_SIG),
     'mgii':  ([('MGII', 2798.75)], BROAD_SIG),
-    'hb_b':  ([('HBETA_B', 4861.33)], BROAD_SIG),
-    'ha_b':  ([('HALPHA_B', 6562.80)], BROAD_SIG),
-    'oiii_n': ([('OIII_N', 5006.84)], [100.0, 200.0, 400.0, 600.0]),
-    'oi_n':   ([('OI_6300', 6300.30)], [100.0, 200.0, 400.0, 600.0]),
+    'hb_b':  ([('HBETA_B', 4862.68)], BROAD_SIG),
+    'ha_b':  ([('HALPHA_B', 6564.61)], BROAD_SIG),
+    'oiii_n': ([('OIII_N', 5008.24)], [100.0, 200.0, 400.0, 600.0]),
+    'oi_n':   ([('OI_6300', 6302.05)], [100.0, 200.0, 400.0, 600.0]),
 }
 OXYGEN_NOTE = '[O II] 3727 and [O III] 4959/5007 fluxes/EWs come from the pass-B galaxy line list (OII_SUM_*, OIII_5007_*).'
 SIDEBAND_FRAC = 0.025      # width of each continuum sideband as a fraction of lambda (~ 7500 km/s); a group may override (3rd item)
