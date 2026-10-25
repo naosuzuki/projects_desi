@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SDSS-DESI Pipeline Monitor</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--fg:#1b1f24;--muted:#6b7280;--line:#e5e7eb;--ok:#16a34a;--warn:#d97706;--bad:#dc2626;--acc:#2563eb;--track:#e5e7eb;--idle:#c7cbd3}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1115;--card:#171a21;--fg:#e6e8ec;--muted:#9aa3b2;--line:#262a33;--track:#2a2f3a;--idle:#3a4050}}
+:root[data-theme="dark"]{--bg:#0f1115;--card:#171a21;--fg:#e6e8ec;--muted:#9aa3b2;--line:#262a33;--track:#2a2f3a;--idle:#3a4050}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;padding:16px}
+h1{font-size:18px;margin:0 0 4px}h2{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:22px 0 10px}
+h3{font-size:14px;margin:14px 0 8px;color:var(--fg)}h3 .sub{font-weight:400}
+.sub{color:var(--muted);font-size:12px}.grid{display:grid;gap:12px}.g5{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}.g3{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+.gauge{display:flex;flex-direction:column;align-items:center}.gauge svg{width:130px;height:80px;overflow:visible}
+.gauge .v{font-size:22px;font-weight:600;margin-top:-30px}.gauge .l{font-size:12px;color:var(--muted);text-align:center}
+.stepcard{display:grid;grid-template-columns:140px 1fr;gap:4px 12px;align-items:start}
+.stepcard .gauge svg{width:130px;height:80px}.stepcard .gauge .v{font-size:20px}
+.stepcard .title{font-weight:600;font-size:13.5px;line-height:1.3}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:3px 10px;font-size:12px;color:var(--muted);margin-top:6px}.kv b{color:var(--fg);font-weight:600}
+.eta{font-size:13px;margin-top:6px}.eta b{font-size:15px}
+.pill{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.pill.running,.pill.sleeping{color:var(--ok);border-color:var(--ok)}.pill.stalled,.pill.paused,.pill.stopped{color:var(--warn);border-color:var(--warn)}.pill.done{color:var(--acc);border-color:var(--acc)}
+.bar{height:8px;background:var(--track);border-radius:4px;overflow:hidden;grid-column:1/-1;margin-top:6px}.bar i{display:block;height:100%;background:var(--acc);border-radius:4px;transition:width .6s}
+table{width:100%;border-collapse:collapse;font-size:12.5px}th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:500}
+.cores{display:grid;grid-template-columns:repeat(auto-fill,minmax(18px,1fr));gap:3px}.cores i{display:block;height:28px;border-radius:3px;background:var(--track);position:relative;overflow:hidden}.cores i b{position:absolute;bottom:0;left:0;right:0;background:var(--acc)}
+.ev{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;white-space:pre-wrap;color:var(--muted);max-height:180px;overflow:auto}
+.stale{color:var(--bad)}
+.tracks{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}.tracks .card b{font-size:15px}
+.spark{width:100%;height:70px}
+</style>
+</head>
+<body>
+<h1>SDSS–DESI pipeline monitor <span id="host" class="sub"></span></h1>
+<div class="sub" id="meta">waiting for status.json …</div>
+
+<h2>Pipeline at a glance</h2>
+<div class="tracks" id="tracks"></div>
+
+<h2>Resources</h2>
+<div class="grid g5" id="gauges"></div>
+<div class="grid g3" style="margin-top:12px">
+ <div class="card"><div class="sub" style="margin-bottom:6px">CPU per core (<span id="ncpu"></span>)</div><div class="cores" id="cores"></div></div>
+ <div class="card"><div class="sub" style="margin-bottom:6px">last hour: CPU % (blue) and memory used GB (green, right axis)</div><svg class="spark" id="spark" viewBox="0 0 600 70" preserveAspectRatio="none"></svg></div>
+</div>
+
+<h2>Steps</h2>
+<div id="steps"></div>
+
+<h2>Workers <span id="guard" class="sub"></span></h2>
+<div class="card"><table id="workers"><thead><tr><th>pid</th><th>track</th><th>step</th><th>shard</th><th>state</th><th>CPU %</th><th>RSS GB</th><th>age</th></tr></thead><tbody></tbody></table></div>
+
+<h2>Disks</h2>
+<div class="grid g5" id="disks"></div>
+
+<h2>Guard events</h2>
+<div class="card ev" id="events">—</div>
+
+<script>
+const $=s=>document.querySelector(s);
+const TRACK_ORDER=['common','galaxies','quasars','stars'];
+function color(p,warn,bad){return p>=bad?'var(--bad)':p>=warn?'var(--warn)':'var(--ok)'}
+function arc(p,col){const c=Math.PI*52,o=c*(1-Math.max(0,Math.min(100,p))/100);
+ return `<svg viewBox="0 0 130 80"><path d="M13 70 A52 52 0 0 1 117 70" fill="none" stroke="var(--track)" stroke-width="12" stroke-linecap="round"/>
+ <path d="M13 70 A52 52 0 0 1 117 70" fill="none" stroke="${col}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${o}"/></svg>`}
+function gauge(label,val,txt,warn,bad){return `<div class="card gauge">${arc(val,color(val,warn,bad))}<div class="v">${txt}</div><div class="l">${label}</div></div>`}
+function fmtMin(m){if(m==null||!isFinite(m))return '—';if(m<1)return '< 1 min';if(m<90)return m.toFixed(0)+' min';const h=m/60;return h<48?h.toFixed(1)+' h':(h/24).toFixed(1)+' d'}
+function stepColor(st){return st.status==='done'?'var(--acc)':st.status==='stalled'?'var(--warn)':st.status==='idle'?'var(--idle)':'var(--ok)'}
+function stepCard(st){const eta=st.status==='done'?'finished':st.status==='idle'?'not started':st.eta_min==null?'ETA unknown (no rate yet)':`ETA <b>${fmtMin(st.eta_min)}</b> <span class="sub">→ ${st.eta_at}</span>`;
+ return `<div class="card stepcard"><div class="gauge">${arc(st.pct,stepColor(st))}<div class="v">${st.total?st.pct.toFixed(1)+'%':'—'}</div><div class="l">${st.total?st.done.toLocaleString()+' / '+st.total.toLocaleString():'no progress file'}</div></div>
+ <div><div class="title">${st.name} <span class="pill ${st.status}">${st.status}</span>${st.n_paused?' <span class="pill paused">'+st.n_paused+' paused</span>':''}</div>
+ <div class="eta">${eta}</div>
+ <div class="kv"><span>rate <b>${st.rate_per_min?st.rate_per_min.toFixed(1)+' /min':'—'}</b></span><span>elapsed <b>${fmtMin(st.elapsed_min)}</b></span><span>started <b>${st.started||'—'}</b></span><span>last output <b>${st.last_update||'—'}</b></span>
+ <span>workers <b>${st.n_workers}</b></span><span>workers CPU <b>${st.n_workers?st.workers_cpu.toFixed(0)+'%':'—'}</b></span><span>workers RSS <b>${st.n_workers?st.workers_rss_gb.toFixed(1)+' GB':'—'}</b></span>${st.note?'<span>note <b>'+st.note+'</b></span>':''}</div>
+ <div class="bar"><i style="width:${st.pct}%;background:${stepColor(st)}"></i></div></div></div>`}
+function spark(h){if(!h||h.length<2){$('#spark').innerHTML='';return}const W=600,H=70,n=h.length;const x=i=>i/(n-1)*W;
+ const mmax=Math.max(64,...h.map(p=>p.mem));const cpu=h.map((p,i)=>`${x(i).toFixed(1)},${(H-p.cpu/100*H).toFixed(1)}`).join(' ');const mem=h.map((p,i)=>`${x(i).toFixed(1)},${(H-p.mem/mmax*H).toFixed(1)}`).join(' ');
+ $('#spark').innerHTML=`<line x1="0" y1="${H/2}" x2="${W}" y2="${H/2}" stroke="var(--line)"/><polyline points="${cpu}" fill="none" stroke="var(--acc)" stroke-width="1.5"/><polyline points="${mem}" fill="none" stroke="var(--ok)" stroke-width="1.5"/>
+ <text x="2" y="10" font-size="9" fill="var(--muted)">100% / ${mmax.toFixed(0)} GB</text>`}
+async function tick(){try{const s=await (await fetch('status.json?'+Date.now())).json();render(s)}catch(e){$('#meta').innerHTML='<span class="stale">status.json unavailable: '+e+'</span>'}}
+function render(s){const sys=s.system;$('#host').textContent='· '+s.host;
+ const age=(Date.now()-new Date(s.time.replace(' ','T')).getTime())/1000;
+ $('#meta').innerHTML=`updated ${s.time} ${age>3*s.interval?'<span class="stale">(stale, '+age.toFixed(0)+' s ago — is the monitor running?)</span>':''} · ${s.n_workers} worker(s)${s.n_paused?', <span class="stale">'+s.n_paused+' paused by guard</span>':''}`;
+ const tr=(s.tracks||[]).slice().sort((a,b)=>TRACK_ORDER.indexOf(a.track)-TRACK_ORDER.indexOf(b.track));
+ $('#tracks').innerHTML=tr.map(t=>`<div class="card"><div class="sub" style="text-transform:uppercase;letter-spacing:.04em">${t.track}</div><b>${t.n_done} / ${t.n_steps}</b> <span class="sub">steps done</span>
+  <div style="margin-top:6px;font-size:12.5px">${t.running?`running: ${t.running}<br><span class="sub">ETA ${fmtMin(t.eta_min)}${t.eta_at?' → '+t.eta_at:''}</span>`:'<span class="sub">nothing running</span>'}</div></div>`).join('');
+ const mem=sys.mem_pct, g=[gauge('CPU total',sys.cpu_total,sys.cpu_total.toFixed(0)+'%',75,92),
+  gauge(`memory used of ${sys.mem_total_gb.toFixed(0)} GB`,mem,sys.mem_used_gb.toFixed(1)+' GB',75,88),
+  gauge('memory available',100-100*sys.mem_available_gb/sys.mem_total_gb,sys.mem_available_gb.toFixed(1)+' GB',75,88),
+  gauge('swap in use',Math.min(100,sys.swap_used_gb/8*100),sys.swap_used_gb.toFixed(1)+' GB',40,75),
+  gauge('disk read',Math.min(100,sys.disk_read_mbs/300*100),sys.disk_read_mbs.toFixed(0)+' MB/s',200,300),
+  gauge('load (1 min) / cores',100*sys.load1/sys.ncpu,sys.load1.toFixed(1),80,100)];
+ $('#gauges').innerHTML=g.join('');$('#ncpu').textContent=sys.ncpu+' cores';
+ $('#cores').innerHTML=sys.cpu_per_core.map(p=>`<i title="${p.toFixed(0)}%"><b style="height:${p}%;background:${color(p,80,95)}"></b></i>`).join('');
+ spark(sys.history);
+ const groups={};for(const st of s.steps){(groups[st.track]=groups[st.track]||[]).push(st)}
+ $('#steps').innerHTML=TRACK_ORDER.filter(t=>groups[t]).map(t=>`<h3>${t} <span class="sub">· ${groups[t].filter(x=>x.status==='done').length} of ${groups[t].length} done</span></h3><div class="grid">${groups[t].map(stepCard).join('')}</div>`).join('');
+ $('#guard').textContent=s.guard.enabled?`· guard on: pause if available memory < ${s.guard.mem_pause_gb} GB or swap > ${s.guard.swap_pause_gb} GB, or CPU > ${s.guard.cpu_pause_pct}% sustained; resume at ${s.guard.mem_resume_gb} GB / ${s.guard.cpu_resume_pct}%`:'· guard off';
+ $('#workers tbody').innerHTML=s.workers.length?s.workers.map(w=>`<tr><td>${w.pid}</td><td>${w.track}</td><td>${w.step}</td><td>${w.shard}</td><td><span class="pill ${w.state}">${w.state}</span></td><td>${w.cpu.toFixed(0)}</td><td>${w.rss_gb.toFixed(2)}</td><td>${fmtMin(w.age_min)}</td></tr>`).join(''):'<tr><td colspan="8" class="sub">no workers running</td></tr>';
+ $('#disks').innerHTML=Object.entries(s.disks).map(([k,d])=>d.missing?`<div class="card gauge"><div class="v stale">—</div><div class="l">${k}<br>not mounted</div></div>`:gauge(`${k}<br>${d.free_gb.toFixed(0)} GB free`,d.used_pct,d.used_pct.toFixed(0)+'%',90,97)).join('');
+ $('#events').textContent=s.events.length?s.events.map(e=>e.t+'  '+e.msg).join('\n'):'no guard events';
+}
+tick();setInterval(tick,10000);
+</script>
+</body>
+</html>

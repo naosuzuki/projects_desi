@@ -194,3 +194,9 @@ cython_debug/
 .cursorindexingignore
 # Large local data extracts (exceed GitHub 100MB file limit)
 csvfiles/
+
+# large local extracts and run logs (not for GitHub)
+.DS_Store
+programs/zall-pix-loa.csv
+programs_setups/manifests/
+programs_setups/logs/

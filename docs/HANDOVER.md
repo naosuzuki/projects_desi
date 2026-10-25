@@ -1,5 +1,10 @@
 # Handover: Spectral Classification & Redshifting Tool
 
+> **Update 2026-10-24:** this Mac *is* the data machine — all SDSS DR8/DR17 spPlates and all DESI DR2 coadds are on
+> local disks (§3 and §6 below are out of date). Current state, scripts and the running pass B are described in
+> `programs_templates/README.md`; the plan is in `~/github/papers/26_sdssdesi_spectra/ms.tex`; the quasar thread
+> starts from `docs/HANDOVER_quasars.md`.
+
 Date: 2026-10-22
 From: Claude Code session on Mac (desktop), with Nao Suzuki
 Purpose: transfer this project to the computer that hosts the SDSS/DESI data
