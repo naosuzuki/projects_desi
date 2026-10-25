@@ -19,7 +19,10 @@ while true; do
   if ! mount | grep -q ' /Volumes/exdisk2 '; then log "exdisk2 not mounted - waiting"; sleep 120; continue; fi
   sp=$(link); prosp=$(pgrep -f 21_prosp_fit | wc -l | tr -d ' ')
   case "$sp" in *Gb*) usb3=1;; *) usb3=0;; esac
-  if [ $usb3 -eq 1 ]; then if [ "$prosp" -gt 0 ]; then target=3; else target=4; fi; else target=2; fi
+  # USB 3: 4 workers (3 while Prospector holds the performance cores). USB 2: the link is the limit, but a
+  # 10-min test gave 18/min with 4 workers vs 13-16/min with 2, so use 4 once the CPU is free, else 2.
+  if [ $usb3 -eq 1 ]; then if [ "$prosp" -gt 0 ]; then target=3; else target=4; fi
+  else if [ "$prosp" -gt 0 ]; then target=2; else target=4; fi; fi
   n=$(current_n)
   if [ "$target" -ne "$last_target" ] || [ "$n" -eq 0 ]; then
     log "link=${sp:-?} prospector=$prosp workers=$n -> target=$target (done $done_n/$TOTAL)"
