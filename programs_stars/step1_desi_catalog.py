@@ -3,7 +3,7 @@
 that the pass-B compact lookup does not carry (SUBTYPE, REF_ID = Gaia DR3 source_id, Gaia G/BP/RP, PARALLAX, PM,
 MWS_TARGET, ...) -> ~/data/sdssdesi_cache/zall_stars_main.parquet  (12.18 M rows, 2 min, chunked: < 2 GB RAM).
 Reads the internal disk only (safe while pass B runs). Prints a census at the end.
-Usage: python3 00_build_star_lookup.py
+Usage: python3 step1_desi_catalog.py
 """
 import os, time
 import numpy as np, pandas as pd, fitsio

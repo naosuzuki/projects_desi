@@ -1,5 +1,9 @@
 # Handover: stellar templates and the Gaia-based flux calibration (new thread)
 
+> Written 2026-10-24 20:56 by the galaxy/quasar session as the brief for this thread. The **living status document of the
+> stars thread is `docs/HANDOVER_stars.md`** (steps, decisions, census, grid, test results); the runbook is `programs_stars/README.md`.
+> This file is kept as the original brief; items 1-3 of §4 are done, 4-6 are open (see docs/HANDOVER_stars.md §4).
+
 Date: 2026-10-24. From: the "projects_desi" session (galaxy/quasar/star template design; pass B and the SDSS quasar pass
 running). Purpose: let a fresh session start the **star work** — ms.tex §3.5 "Stars: combining Gaia and DESI" — without
 re-deriving the context. Read this, then `~/github/papers/26_sdssdesi_spectra/ms.tex` §3.5 (sec:gaia), §3.9 (common

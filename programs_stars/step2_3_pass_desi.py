@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Pass S: stellar per-spectrum measurements over the DESI DR2 loa healpix coadds (STAR rows only).
+"""Steps 2-3 (DESI): stellar per-spectrum measurements over the DESI DR2 loa healpix coadds (STAR rows only).
 
 For the STAR rows of each coadd (SPECTYPE == STAR and ZCAT_PRIMARY from the pass-B compact lookup; ZWARN kept as a
 column) this script
   1. runs the pass-B chain (02_passB_measure.measure_chunk: Step 1 fiber-flux scale CAL_*, S/N, synthetic LS g/r/z,
      F99 extinction, rest frame, Dn4000, galaxy lines) -> the same columns as pass B (stars are the Step-1 validators);
-  2. attaches the stellar catalog columns from ~/data/sdssdesi_cache/zall_stars_main.parquet (00_build_star_lookup.py):
+  2. attaches the stellar catalog columns from ~/data/sdssdesi_cache/zall_stars_main.parquet (step1_desi_catalog.py):
      SUBTYPE, REF_ID (Gaia DR3 source_id), GAIA_PHOT_G/BP/RP_MEAN_MAG, PARALLAX, PMRA, PMDEC, MWS_TARGET, SCND_TARGET;
   3. runs starlib.measure_stars: synthetic Gaia G/BP/RP vs catalog, RV frame, spectral indices, band ratios, colors.
 Output: one Parquet per coadd in OUTDIR/<program>/hpx<N>.parquet (resumable; empty Parquet when the file has no stars).
@@ -13,9 +13,9 @@ Design: docs/HANDOVER_stars.md. Production: call from the pass-Q DESI walk so ea
 after pass B with the same recipe as pass B: two workers, OPENBLAS_NUM_THREADS=1, nice 10, detached).
 
 Usage (same CLI as pass B / pass Q):
-  python3 02_passS_measure.py --files /Volumes/exdisk2/.../coadd-main-bright-0.fits --outdir ~/data/sdssdesi_passS_test
-  python3 02_passS_measure.py --nfiles 5 --seed 1
-  python3 02_passS_measure.py --all --shard 0/2
+  python3 step2_3_pass_desi.py --files /Volumes/exdisk2/.../coadd-main-bright-0.fits --outdir ~/data/sdssdesi_passS_test
+  python3 step2_3_pass_desi.py --nfiles 5 --seed 1
+  python3 step2_3_pass_desi.py --all --shard 0/2
 """
 import os, sys, time, argparse, warnings, gc
 import numpy as np, pandas as pd, fitsio

@@ -91,6 +91,39 @@ def gaia_mags(w, flux, ivar, mask):
     return out
 
 
+# ---------------------------------------------------------------- 1b. generic synthetic AB magnitudes (any speclite filter)
+def synth_mags(w, flux, ivar, mask, names, prefix):
+    """AB magnitudes of the raw pipeline spectrum through the speclite filters `names` (dict band -> filter name), with the
+    spectrum padded flat beyond its ends (as gaia_mags) so bands that overhang the spectrum still get a value; the band-weight
+    fraction in the padding is stored as <prefix>_EXTRAP_<band> (use it to down-weight or drop the band in the joint fit)."""
+    n = flux.shape[0]
+    good = (ivar > 0) & (mask == 0)
+    f = flux * FLUX_UNIT; iv = ivar / FLUX_UNIT**2
+    with np.errstate(all='ignore'):
+        lo = np.nanmean(np.where(good[:, :PAD_NPIX], f[:, :PAD_NPIX], np.nan), axis=1)
+        hi = np.nanmean(np.where(good[:, -PAD_NPIX:], f[:, -PAD_NPIX:], np.nan), axis=1)
+    dw = float(np.median(np.diff(w)))
+    pad_lo = np.arange(PAD_MIN, w[0] - 0.5 * dw, dw); pad_hi = np.arange(w[-1] + dw, PAD_MAX, dw)
+    wz = np.concatenate([pad_lo, w, pad_hi])
+    fz = np.concatenate([np.repeat(np.nan_to_num(lo)[:, None], len(pad_lo), axis=1), np.where(good, f, 0.0),
+                         np.repeat(np.nan_to_num(hi)[:, None], len(pad_hi), axis=1)], axis=1)
+    gz = np.concatenate([np.ones((n, len(pad_lo)), bool), good, np.ones((n, len(pad_hi)), bool)], axis=1)
+    ivz = np.concatenate([np.zeros((n, len(pad_lo))), np.where(good, iv, 0.0), np.zeros((n, len(pad_hi)))], axis=1)
+    inspec = np.zeros(len(wz), bool); inspec[len(pad_lo):len(pad_lo) + len(w)] = True
+    out = {}
+    for b, name in names.items():
+        flt = passB.filt(name); wt, den, inband = passB.band_weights(flt, wz)
+        m, e = passB.ab_mags(flt, wz, fz, gz, min_range=0.0, min_good=0.5, ivar2d=ivz)
+        ok = np.isfinite(lo) & np.isfinite(hi)
+        out[f'{prefix}_{b}'] = np.where(ok, m, np.nan); out[f'{prefix}_{b}_ERR'] = np.where(ok, e, np.nan)
+        out[f'{prefix}_EXTRAP_{b}'] = np.full(n, float(wt[~inspec].sum() / wt.sum()))
+    return out
+
+
+SDSS_FILTERS = {'U': 'sdss2010-u', 'G': 'sdss2010-g', 'R': 'sdss2010-r', 'I': 'sdss2010-i', 'Z': 'sdss2010-z'}
+LS_FILTERS = {True: {'G': 'decam2014-g', 'R': 'decam2014-r', 'Z': 'decam2014-z'}, False: {'G': 'BASS-g', 'R': 'BASS-r', 'Z': 'MzLS-z'}}
+
+
 # ---------------------------------------------------------------- 2. RV frame
 def rv_frame(df, w, flux, ivar, mask, rid0=None):
     """Rebin the pipeline spectrum (cgs) to the log grid (or, for SDSS spPlates already on the log10 grid with
@@ -132,13 +165,19 @@ def indices(rflux, rivar):
     rflux = rflux.astype(float); rivar = rivar.astype(float)
     for name, (feat, conts) in INDICES.items():
         # pseudo-continuum: straight line through the band means (2 bands: exact; >2: least squares)
-        xs, ys, vs, oks = [], [], [], np.ones(n, bool)
+        # pseudo-continuum through the good band means (bands with < MIN_GOOD_FRAC good pixels are dropped; at least
+        # 2 bands, or 60 % of them for the 5-band Ca II triplet definition, must remain: sky residuals mask many pixels there)
+        xs, ys, oks = [], [], []
         for lo, hi in conts:
-            m, v, ok = _band_mean(rflux, rivar, lo, hi); xs.append(0.5 * (lo + hi)); ys.append(m); vs.append(v); oks &= ok
-        xs = np.array(xs); ys = np.stack(ys, axis=1)
-        xm = xs.mean(); sxx = np.sum((xs - xm)**2)
-        slope = np.sum((xs - xm)[None, :] * (ys - ys.mean(axis=1, keepdims=True)), axis=1) / sxx
-        icpt = ys.mean(axis=1) - slope * xm
+            m, v, ok = _band_mean(rflux, rivar, lo, hi); xs.append(0.5 * (lo + hi)); ys.append(m); oks.append(ok)
+        xs = np.array(xs); ys = np.stack(ys, axis=1); okb = np.stack(oks, axis=1)
+        need = max(2, int(np.ceil(0.6 * len(conts))))
+        wb = okb.astype(float); nb = wb.sum(axis=1); oks = nb >= need
+        with np.errstate(all='ignore'):
+            xm = (wb * xs[None, :]).sum(axis=1) / nb; ym = np.nansum(wb * ys, axis=1) / nb
+            sxx = (wb * (xs[None, :] - xm[:, None])**2).sum(axis=1)
+            slope = np.where(sxx > 0, np.nansum(wb * (xs[None, :] - xm[:, None]) * (ys - ym[:, None]), axis=1) / np.where(sxx > 0, sxx, 1), 0.0)
+            icpt = ym - slope * xm
         s = (SWAVE >= feat[0]) & (SWAVE < feat[1]); wf = SWAVE[s]
         g = rivar[:, s] > 0; okf = g.sum(axis=1) >= MIN_GOOD_FRAC * s.sum()
         cont = icpt[:, None] + slope[:, None] * wf[None, :]
@@ -177,8 +216,9 @@ def colors(rflux, rivar, ebv):
 
 
 # ---------------------------------------------------------------- all together
-# Gaia G extinction per unit E(B-V) for a G-type star at R_V = 3.1 (the GSP-Phot A_G is used when available)
-AG_PER_EBV = 2.74
+# Gaia extinction per unit E(B-V) at R_V = 3.1 (Casagrande & VandenBerg 2018, solar-type star): A_G, A_BP, A_RP
+AG_PER_EBV, ABP_PER_EBV, ARP_PER_EBV = 2.740, 3.374, 2.035
+EBPRP_PER_EBV = ABP_PER_EBV - ARP_PER_EBV
 
 
 def distance_columns(df):
@@ -199,12 +239,13 @@ def distance_columns(df):
         out['DIST_PC'] = d; out['DM'] = 5 * np.log10(d / 10.0)
         out['ABS_SCALE'] = (d / 10.0)**2                          # multiply F_lam by this to put the star at 10 pc
         ebv_sfd = np.nan_to_num(df['EBV'].to_numpy(dtype=float), nan=0.0) if 'EBV' in df else np.zeros(n)
-        out['EBV_SFD'] = ebv_sfd; out['EBV_3D'] = np.full(n, np.nan)
+        out['EBV_SFD'] = ebv_sfd
+        out['EBV_3D'] = df['EBV_3D'].to_numpy(dtype=float) if 'EBV_3D' in df else np.full(n, np.nan)   # step3b_ebv3d.py
         out['EBV_USED'] = np.where(np.isfinite(out['EBV_3D']), out['EBV_3D'], 0.86 * ebv_sfd)
         out['EBV_SRC'] = np.where(np.isfinite(out['EBV_3D']), 2, 1).astype(np.int8)
         # A_G from the same E(B-V) as the spectrum (policy 2026-10-24: the 3D map is the correction; GSP-Phot A_G,
         # carried in GAIA_AG_GSPPHOT where present, is a per-star cross-check only)
-        out['A_G_USED'] = AG_PER_EBV * out['EBV_USED']
+        out['A_G_USED'] = AG_PER_EBV * out['EBV_USED']; out['EBPRP_USED'] = EBPRP_PER_EBV * out['EBV_USED']
     return out
 
 

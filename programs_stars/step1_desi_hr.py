@@ -4,7 +4,7 @@ quality sample (parallax S/N > 10, RUWE < 1.4, not non-single, not VARIABLE; ms.
 M_G0 = G + 5 log10(plx/100 mas) - A_G(GSP-Phot), (BP-RP)_0 = BP-RP - E(BP-RP)(GSP-Phot), and the number of HR cells
 holding >= floor stars for several grids -> ~/data/sdssdesi_cache/gaia_desi_stars_hr.parquet (3.92 M rows, 30 s).
 Parallax zero point: global -0.017 mas (the full Lindegren+21 recipe needs nu_eff / ecl_lat; refine in pass S).
-Usage: python3 01_hr_cells.py
+Usage: python3 step1_desi_hr.py
 """
 import os, time
 import numpy as np, pandas as pd

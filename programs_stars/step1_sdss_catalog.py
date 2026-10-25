@@ -13,7 +13,7 @@ are kept in the file with GAIA_PLX = False so the pass can include them with --a
 Derived: PLX_CORR = parallax + 0.017 mas (global Lindegren+21 offset; the full recipe later), QUALITY = plx S/N > 10 &
 RUWE < 1.4 & single & not variable (ms.tex), M_G, M_G0 and (BP-RP)_0 with GSP-Phot A_G / E(BP-RP) where available.
 Output: ~/data/sdssdesi_cache/sdss_stars_gaia.parquet (one row per primary star spectrum).
-Usage: python3 04_sdss_star_catalog.py
+Usage: python3 step1_sdss_catalog.py
 """
 import os, time
 import numpy as np, pandas as pd, fitsio

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Checks on pass-S output: Gaia-G/BP/RP check of the pipeline flux scale, Step-1 fiber-flux check for stars,
 RV distribution, spectral indices and band ratios per Redrock SUBTYPE.
-Usage: python3 03_passS_check.py [outdir]   (default ~/data/sdssdesi_passS)
+Usage: python3 check_pass.py [outdir]   (default ~/data/sdssdesi_passS)
 """
 import os, sys, glob
 import numpy as np, pandas as pd
@@ -10,7 +10,8 @@ OUT = os.path.expanduser(sys.argv[1] if len(sys.argv) > 1 else '~/data/sdssdesi_
 files = sorted(glob.glob(os.path.join(OUT, '*', '*.parquet')))
 df = pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
 print(f'files {len(files)}  stars {len(df):,}  mean time/file {df.groupby("FILE").PROC_SEC.first().mean():.1f}s  columns {df.shape[1]}')
-good = (df.ZWARN == 0) & (df.COADD_FIBERSTATUS == 0)
+good = (df.ZWARN == 0) & ((df.COADD_FIBERSTATUS == 0) if 'COADD_FIBERSTATUS' in df else True)
+if 'SUBTYPE' not in df and 'SUBCLASS1' in df: df['SUBTYPE'] = df.SUBCLASS1
 print('good (ZWARN=0, fiberstatus=0):', good.sum(), ' SUBTYPE:', df[good].SUBTYPE.value_counts().to_dict())
 
 def stats(x):
@@ -28,13 +29,19 @@ print('  by SUBTYPE (S/N>10), G and BP-RP:')
 for t, s in df[good & (df.SNR_ALL > 10)].groupby('SUBTYPE'):
     print(f'    {t:3s} G: {stats(s.GAIA_DG)}   BP-RP: {stats(s.GAIA_DBPRP)}')
 
-print('\n== Step 1 (pass B) for stars: catalog minus synthetic FIBER mag, spectrum x MEAN_PSF_TO_FIBER_SPECFLUX (expect 0 +- 0.05)')
 s = df[good & (df.SNR_ALL > 3)]
-print(f'  g: {stats(s.CAL_DG)}   r: {stats(s.CAL_DR)}   z after scale: {stats(s[s.CAL_OK].CAL_DZ_CHECK)}   CAL_OK {s.CAL_OK.mean():.3f}')
+if 'CAL_DZ_CHECK' in df:
+    print('\n== Step 2 (DESI, pass B): catalog minus synthetic FIBER mag, spectrum x MEAN_PSF_TO_FIBER_SPECFLUX (expect 0 +- 0.05)')
+    print(f'  g: {stats(s.CAL_DG)}   r: {stats(s.CAL_DR)}   z after scale: {stats(s[s.CAL_OK].CAL_DZ_CHECK)}   CAL_OK {s.CAL_OK.mean():.3f}')
+else:
+    print('\n== Step 2 (SDSS): PSF mag minus synthetic (expect 0 +- 0.05); fiber mag minus synthetic for the record')
+    for sv, g2 in s.groupby('SURVEY'):
+        print(f'  {sv}: g: {stats(g2.CAL_DG)}   r: {stats(g2.CAL_DR)}   CAL_OK {g2.CAL_OK.mean():.3f}   fiber g: {stats(g2.CAL_DG_FIBER)}   Gaia G after the PSF scale: {stats(g2.GAIA_DG_CAL)}')
 m = np.isfinite(s.GAIA_DG.to_numpy(float)) & np.isfinite(s.CAL_DR.to_numpy(float))
-print(f'  Gaia G vs LS fiber r residuals: corr(GAIA_DG, CAL_DR) = {np.corrcoef(s.GAIA_DG[m], s.CAL_DR[m])[0,1]:.2f}  (n={m.sum()})')
+print(f'  Gaia G vs catalog r residuals: corr(GAIA_DG, CAL_DR) = {np.corrcoef(s.GAIA_DG[m], s.CAL_DR[m])[0,1]:.2f}  (n={m.sum()})')
 
 print('\n== RV (km/s) from Redrock z and the integer-shift residual')
+if 'DIST_PC' in df: print('  distance pc 5/50/95:', np.nanpercentile(df[good].DIST_PC, [5,50,95]).round(0), ' M_G_SYN0 - M_G0 (abs. synthetic G vs Gaia):', stats(df[good].M_G_SYN0 - (df[good].GAIA_PHOT_G_MEAN_MAG - df[good].DM - df[good].A_G_USED)))
 print('  RV:', stats(df[good].RV_KMS), '  |RV|>300:', f'{(np.abs(df[good].RV_KMS) > 300).mean():.3f}', '  residual:', stats(df[good].RV_RESID_KMS))
 
 print('\n== indices by SUBTYPE (median, good, S/N>10): EW in A (positive = absorption), ratios dimensionless')

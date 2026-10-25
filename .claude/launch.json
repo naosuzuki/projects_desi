@@ -15,6 +15,17 @@
       ],
       "port": 8765,
       "url": "http://127.0.0.1:8765"
+    },
+    {
+      "name": "monitor-stars",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "programs_stars/monitor_stars.py",
+        "--port",
+        "8767"
+      ],
+      "port": 8767,
+      "url": "http://127.0.0.1:8767"
     }
   ]
 }

@@ -78,7 +78,7 @@ Existing outputs are skipped; the file that raised the read error (bright-30037)
 checked (FITS CHECKSUM) if it fails again. Consider `04_monitor.py` adding "disk unmounted → pause workers".
 
 ## Operational rules
-- Scripts here; caches in `~/data/sdssdesi_cache/`; never write to the external disks.
+- Scripts here; caches in `~/data/sdssdesi_products/`; never write to the external disks.
 - Every pass resumable (per-file checkpoint), detached (setsid/nohup), Mac kept awake.
 - Env: SPECTRO_REDUX, DESI_REDUX, PYLIB, DESILIB, RR_TEMPLATE_DIR (see ~/.zshrc).
 - DESI coadd paths: /Volumes/exdisk2/desiredux/DR2/spectro/redux/loa/healpix/main/{dark,bright}/...,

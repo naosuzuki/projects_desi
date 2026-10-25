@@ -42,14 +42,22 @@ STEPS = [
          pattern=f'{HOME}/data/sdssdesi_passQ_sdss/*/*.parquet', total=N_SDSS_PLATES, proc='01_passQ_sdss'),
     dict(track='quasars', name='Pass Q: DESI quasars (coadds)', kind='files',
          pattern=f'{HOME}/data/sdssdesi_passQ/*/*.parquet', total=N_DESI_COADDS, proc='02_passQ_desi'),
-    dict(track='quasars', name='Quasar cell table (6 axes)', kind='json', path=f'{STATUS_DIR}/step_qso_cells.json', proc='03_cells'),
-    dict(track='quasars', name='Quasar stacks', kind='json', path=f'{STATUS_DIR}/step_qso_stack.json', proc='04_stack'),
-    dict(track='quasars', name='Quasar EM-PCA', kind='json', path=f'{STATUS_DIR}/step_qso_empca.json', proc='05_empca'),
-    # --- stars
-    dict(track='stars', name='Star sample table (Gaia x DESI)', kind='json', path=f'{STATUS_DIR}/step_star_sample.json', proc='01_star_sample'),
-    dict(track='stars', name='Gaia XP fetch (DESI stars)', kind='json', path=f'{STATUS_DIR}/step_star_xp.json', proc='02_xp_fetch'),
-    dict(track='stars', name='Calibration 1 (XP / photometry response)', kind='json', path=f'{STATUS_DIR}/step_star_cal1.json', proc='03_cal1'),
-    dict(track='stars', name='Calibration 2 (HR-cell consensus)', kind='json', path=f'{STATUS_DIR}/step_star_cal2.json', proc='04_cal2'),
+    dict(track='quasars', name='Quasar master table, SDSS (DR16Q match, checks)', kind='json', path=f'{STATUS_DIR}/step_qso_table_sdss.json', proc='03_qso_table_sdss'),
+    dict(track='quasars', name='Quasar master table, DESI', kind='json', path=f'{STATUS_DIR}/step_qso_table_desi.json', proc='03_qso_table_desi'),
+    dict(track='quasars', name='Quasar cell table (6 axes)', kind='json', path=f'{STATUS_DIR}/step_qso_cells.json', proc='04_cells'),
+    dict(track='quasars', name='Quasar stacks', kind='json', path=f'{STATUS_DIR}/step_qso_stack.json', proc='05_stack'),
+    dict(track='quasars', name='Quasar EM-PCA', kind='json', path=f'{STATUS_DIR}/step_qso_empca.json', proc='06_empca'),
+    # --- stars (Nao's steps, 2026-10-24 night; scripts in programs_stars/, runbook there; detail page http://127.0.0.1:8767/monitor.html)
+    dict(track='stars', name='Stars 1: catalogs with Gaia parallax (DESI lookup, DESI HR, SDSS)', kind='json', path=f'{STATUS_DIR}/step_star_catalog.json', proc='step1_'),
+    dict(track='stars', name='Stars 2-3: SDSS pass (PSF/Gaia calibration, RV frame, indices)', kind='files',
+         pattern=f'{HOME}/data/sdssdesi_passS_sdss/*/*.parquet', total=N_SDSS_PLATES, proc='step2_3_pass_sdss'),
+    dict(track='stars', name='Stars 2b: joint spectrophotometric fit (Gaia scale, SDSS/LS tilt, zero points)', kind='json', path=f'{STATUS_DIR}/step_star_spcal.json', proc='step2b_spcal'),
+    dict(track='stars', name='Stars 3b: 3D extinction at the parallax distance (Edenhofer + Bayestar)', kind='json', path=f'{STATUS_DIR}/step_star_ebv3d.json', proc='step3b_ebv3d'),
+    dict(track='stars', name='Stars 2-3: DESI pass (coadds, after pass B)', kind='files',
+         pattern=f'{HOME}/data/sdssdesi_passS/*/*.parquet', total=N_DESI_COADDS, proc='step2_3_pass_desi'),
+    dict(track='stars', name='Stars 5: HR grid, same-cell similarity test (SDSS, DESI)', kind='json', path=f'{STATUS_DIR}/step_star_cells.json', proc='step5_hr_cells'),
+    dict(track='stars', name='Stars 6: stacks of the alike cells (SDSS, DESI)', kind='json', path=f'{STATUS_DIR}/step_star_stack.json', proc='step6_stack'),
+    dict(track='stars', name='Stars 7: EM-PCA', kind='json', path=f'{STATUS_DIR}/step_star_empca.json', proc='step7_empca'),
 ]
 DISKS = {'internal (output)': HOME, 'exdisk2 (coadds)': '/Volumes/exdisk2', 'exdisk1 / My Book (overflow)': ['/Volumes/exdisk1', '/Volumes/My Book']}
 

@@ -5,6 +5,9 @@ Date: 2026-10-24 (night). From: the "projects_desi" session, after reading `docs
 of the three template sets) and §3.9 (processing recipe). Purpose: the steps to generate the **stellar** templates on this Mac,
 in the same shape as the galaxy (pass B) and quasar (pass Q) threads. Scripts live in `programs_stars/` (README there).
 
+Companion: `programs_stars/HANDOVER_stars.md` is the brief the galaxy/quasar session wrote for this thread at 20:56 (data table,
+XP-fetch and DA-white-dwarf tasks, open decisions); this file is the living status document.
+
 ## 1. Where the project stands (2026-10-24 ~21:00)
 - **Pass B** (galaxy per-spectrum measurements, all 34,508 DESI coadds): exdisk2 dropped at 17:20; resumed 18:14 with two workers
   (`passB_w{0,1}of2.log`); 12,838 files done (37 %), 13.9 files/min, monitor ETA **Sunday 23:04** (http://127.0.0.1:8765/monitor.html).
@@ -133,6 +136,61 @@ numbers but coverage: 18 % of its quality stars are metal-poor (ELODIE [Fe/H] < 
 turnoff cells (M_G0 3.5–6.6, (BP−RP)_0 0.5–0.8) are filled by SDSS; it also adds 21 late-M cells (M_G0 12.5–13, (BP−RP)_0 2.8–3.3)
 with ≥ 100 stars where DESI has < 300. Where the groups mix inside a cell (step 5 report), the cell is split along the separating axis
 before stacking.
+
+## 3c. Decisions of 2026-10-24 night (Nao) — supersede the corresponding lines above
+- **Gaia XP is not required.** Its few-per-cent, color- and wavelength-dependent systematics (worst below 400 nm and above 950 nm,
+  and for faint stars) are of the size we want to correct. XP stays an optional cross-check with the SDSS XP spectra already on disk;
+  no DESI XP download.
+- **Step 2 = joint fit (step2b_spcal.py):** Gaia G sets the gray scale, the SDSS / Pan-STARRS / Legacy Surveys bands constrain the
+  tilt, and each band's zero point (plus a color term) is solved from the stars themselves; Gaia G, BP, RP are the fixed reference
+  system. Pan-STARRS joins when a crossmatch is on disk. SDSS filter curves: Doi et al. 2010 (speclite sdss2010, airmass 1.3).
+- **Dust maps installed** in `~/data/GAIA` (Bayestar19 0.73 GB, Edenhofer+24 mean map 3.25 GB). Units calibrated on 10.3 M DESI
+  stars: E(B−V)_SF11 = 0.86 × E_Bayestar19 (Bayestar is on the raw SFD scale; matches 0.86 SFD at d > 3 kpc to 0.2 %) and
+  = 1.00 × E_Edenhofer (matches Bayestar in the 0.3–1.25 kpc overlap to 0.6 %). Stars within 300 pc have 56 % of the SFD column in
+  front of them. No star of either survey is south of Dec −30°, so Bayestar covers everything; Edenhofer serves the < 1.25 kpc stars
+  (the white dwarfs and M dwarfs).
+- **Monitoring:** the stars track of the main monitor (programs_monitor/monitor.py, http://127.0.0.1:8765) now lists Nao's steps
+  1, 2–3 SDSS, 2b, 3b, 2–3 DESI, 5, 6, 7 with progress files `~/data/sdssdesi_status/step_star_*.json`; detail page on 8767.
+- **Scripts** renamed after the steps: `step1_*.py`, `step2_3_pass_{sdss,desi}.py`, `step2b_spcal.py`, `step3b_ebv3d.py`,
+  `step5_hr_cells_check.py`, `step6_stack.py`, `check_pass.py`, `monitor_stars.py`, `run_steps.sh` (see programs_stars/README.md).
+
+## 5. Step 5 result on SDSS (2026-10-24 night; `~/data/sdssdesi_status/step5_sdss.txt`, cells in `~/data/sdssdesi_cache/stars/cells_sdss_0.5x0.1_gspphot.csv`)
+Sample: 115,444 SDSS quality stars (plx S/N > 10, ZWARN = 0, S/N > 5, CAL_OK); grid 0.5 mag × 0.1 × [M/H] (GSP-Phot; bins
+< −1.5, −1.5…−1, −1…−0.5, −0.5…0, > 0, unknown); 216 cells with ≥ 100 stars hold 80 % of the sample. The test works on residuals
+after a plane fit in (M_G0, color) inside each cell, with the step-2b tilt applied to the colors; spreads are judged relative to the
+median cell. First version (raw spreads, absolute thresholds) flagged every cell: the in-cell temperature gradient and the per-spectrum
+tilt dominate the raw scatter, and Na D carries interstellar absorption (now report-only).
+**Verdict: 38 cells homogeneous (alike stars), 178 mixed.** Causes of the mixed cells: FEH 66, INDEX 34, COLOR 28, BALMER+COLOR 12,
+FEH+COLOR 9, BIMODAL 9, HALPHA(+…) 13, CONT 3.
+Cells shared by different stellar groups, by HR region:
+- **Metal-poor F turnoff** ([M/H] < −1, M_G0 3.8–5.3, (BP−RP)_0 0.64–0.75; 5–11 cells of 500–1,200 stars): Ca K residual spread 4–6×
+  the typical cell, σ[Fe/H] 0.3 inside the cell (ELODIE agrees: 0.31–0.38). Halo stars of different metallicity share the same (M_G,
+  color): the [M/H] axis must be finer there (0.5 dex bins below −1 are not enough; use 0.25 or split at the cell median — step 6 does).
+- **F/G boundary** (M_G0 4.2–4.8, (BP−RP)_0 0.75–0.77; F 55 % + G 45 %): G-band and Ca K residuals 2–3× typical → two groups at the same
+  colour, probably turnoff dwarfs and subgiants / different [Fe/H] (INDEX cause: flagged, stacked whole, to be examined on the stacks).
+- **White-dwarf sequence** (M_G0 10.8–11.7, (BP−RP)_0 −0.25…−0.05; subclass W 80–88 % + O 12–15 %): Hδ/Hβ/He I residuals bimodal →
+  DA versus non-DA (DB/DC/sdO) at the same position; split on the Balmer EW (BALMER). Colors also spread (COLOR; 3D dereddening of
+  WDs at 100–300 pc and the hot-star tilt).
+- **M dwarfs** (M_G0 9.7, (BP−RP)_0 2.45, 519 stars): Ca K bimodal, 3 % Hα emitters → active / inactive; split on Hα (HALPHA).
+- **K dwarfs** (M_G0 6–7.3, (BP−RP)_0 1.2–1.6): mostly homogeneous; the FEH flags there come from the GSP-Phot [M/H] residual
+  distribution (σ 0.16 = GSP-Phot noise) — treat with care; ELODIE [Fe/H] is quantized on its template grid, so its bimodality test is
+  meaningless (guarded now: no BC for < 15 distinct values).
+Homogeneous cells: the disk F/G/K main sequence at −0.7 < [M/H] < +0.3 (e.g. M_G0 5.2–5.7, (BP−RP)_0 0.87–0.94, 2,000–2,400 stars each;
+K dwarfs M_G0 6.3–7.2 with 1,000–1,900 stars). No homogeneous cell among the WDs or M dwarfs at this grid.
+Step 6 (running): stacks all 216 cells, splitting the FEH / HALPHA / BALMER cells on their axis; INDEX / COLOR / BIMODAL cells are stacked
+whole with the flag in the CELLS table. Next refinement: finer [M/H] below −1, a Balmer-strength axis for the WDs, Hα for the M dwarfs.
+
+## 6. Step 6 result on SDSS (2026-10-24 night) — the goal for now, reached for SDSS
+`~/data/sdssdesi_stars/stacks_sdss_0.5x0.1_gspphot.fits` (FLUX/ERR/SCATTER/NSPEC [316 × 4447] + CELLS table; log grid COEFF0/COEFF1,
+3550–9881 Å, F_λ at 10 pc), `members_sdss_0.5x0.1_gspphot.csv`, quick-look `stacks_sdss_quicklook.png`. 216 cells → **316 stacks**
+after the splits (116 whole, 77 × 2 [M/H] halves, 14 × 2 Balmer halves for the white dwarfs, 9 × 2 Hα halves for the M dwarfs);
+91,726 stars (step-2b scale for 82.6 k, tilt applied to 67 k; 3D E(B−V) for 86 %). N per stack 74 / 155 / 446 (16/50/84 %), minimum 12
+(a split half; raise --nmin per half later). Stack S/N at 5500 Å 58 / 89 / 148; star-to-star scatter 14 % of the absolute flux (the
+per-star scale + distance errors). Absolute level: F(5500 Å) of the M_G0 ≈ 4.7 cells = 4 × 10⁻¹¹ erg/s/cm²/Å, the Sun at 10 pc.
+The splits are real spectral differences at equal continuum: metal-poor turnoff low/high-[M/H] halves differ by 11 % at Ca K (0.3 % at
+5000–5500 Å); DA/non-DA white-dwarf halves by 20 % at Hβ; M-dwarf Hα-emitter/non-emitter halves by 13 % at Hα. Two passes over the
+6,572 plates took 11 min. Next: DESI (after pass B), finer [M/H] bins below −1, Calibration 2 (per exposure/petal/fiber response from
+the residuals against these stacks), then EM-PCA (step 7).
 
 ## 4. Decisions for Nao (ordered by when they block)
 1. Backup-program coadds: download (brightest stars, most XP) or dark+bright only? (blocks the final sample, not the pipeline)
