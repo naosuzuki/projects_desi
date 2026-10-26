@@ -38,9 +38,12 @@ def g_flux(flux, good):
     """synthetic Gaia-G flux of spectra on SWAVE (photon-weighted mean F_lambda through the G band; flat padding beyond the
     covered range as in starlib.gaia_mags). Returns NORM_GFLUX, M_G_SYN (Vega), M_G_SYN_AB."""
     n = flux.shape[0]
-    with np.errstate(all='ignore'):
-        lo = np.array([np.nanmean(np.where(good[i], flux[i], np.nan)[:300]) if good[i][:300].any() else np.nan for i in range(n)])
-        hi = np.array([np.nanmean(np.where(good[i], flux[i], np.nan)[-300:]) if good[i][-300:].any() else np.nan for i in range(n)])
+    # padding level = mean of the outermost 300 GOOD pixels of each spectrum (SDSS-I spectra start at 3800 A, not at the grid edge)
+    lo = np.full(n, np.nan); hi = np.full(n, np.nan)
+    for i in range(n):
+        idx = np.where(good[i])[0]
+        if len(idx) > 10:
+            lo[i] = flux[i, idx[:300]].mean(); hi[i] = flux[i, idx[-300:]].mean()
     dw = float(np.median(np.diff(SWAVE)))
     pad_lo = np.arange(starlib.PAD_MIN, SWAVE[0] - 0.5 * dw, dw); pad_hi = np.arange(SWAVE[-1] + dw, starlib.PAD_MAX, dw)
     wz = np.concatenate([pad_lo, SWAVE, pad_hi])
@@ -59,8 +62,10 @@ def g_flux(flux, good):
     return np.where(ok, gf, np.nan), np.where(ok, m_ab - starlib.GAIA_AB_MINUS_VEGA['G'], np.nan), np.where(ok, m_ab, np.nan)
 
 
-def empca(X, W, nvec, niter, min_cover=5, min_frac=0.5, min_wfrac=0.3):
-    """Weighted EM-PCA (Bailey 2012). X [n, p] data (mean already subtracted), W [n, p] weights (0 = missing).
+def empca(X, W, nvec, niter, min_cover=5, min_frac=0.5, min_wfrac=0.3, n_ref=None):
+    """STABLE INTERFACE (imported by programs_templates/10_galaxy_empca.py): empca(X, W, nvec, niter, min_cover, min_frac,
+    min_wfrac[, n_ref]) -> (P, C, pixok); explained(X, W, P) -> R^2 per truncation. Add keywords only with defaults.
+    Weighted EM-PCA (Bailey 2012). X [n, p] data (mean already subtracted), W [n, p] weights (0 = missing).
     Pixels with weight in fewer than max(min_cover, min_frac*n) objects are excluded (W = 0, eigenvectors 0 there): the
     per-pixel M-step is ill-conditioned where only one or two objects contribute (e.g. the blue end covered by BOSS plates only).
     Init: SVD of the data with missing pixels set to 0. Returns P [nvec, p] orthonormal, C [n, nvec], pixmask [p]."""
@@ -68,8 +73,10 @@ def empca(X, W, nvec, niter, min_cover=5, min_frac=0.5, min_wfrac=0.3):
     # a pixel enters the basis only where at least min_frac of the objects have it AND the median weight over all objects is
     # >= min_wfrac of the typical weight: pixels covered only by a few low-S/N inputs (the blue end from BOSS plates only,
     # the red end beyond 9200 A for SDSS-I) would otherwise dominate the unit-norm eigenvectors with noise
-    cover = (W > 0).sum(axis=0); wmed = np.median(W, axis=0); wtyp = np.median(W[W > 0]) if (W > 0).any() else 1.0
-    pixok = (cover >= max(min_cover, int(min_frac * n))) & (wmed >= min_wfrac * wtyp)
+    # the pixel criterion is evaluated on the first n_ref rows (the stacks) only: the individuals carry small weights by design
+    Wr = W[:n_ref] if n_ref else W; nr = Wr.shape[0]
+    cover = (Wr > 0).sum(axis=0); wmed = np.median(Wr, axis=0); wtyp = np.median(Wr[Wr > 0]) if (Wr > 0).any() else 1.0
+    pixok = (cover >= max(min_cover, int(min_frac * nr))) & (wmed >= min_wfrac * wtyp)
     W = np.where(pixok[None, :], W, 0.0); X = np.where(W > 0, X, 0.0)
     U, s, Vt = np.linalg.svd(X, full_matrices=False); P = Vt[:nvec].copy()
     C = np.zeros((n, nvec)); eye = np.eye(nvec)
@@ -169,7 +176,7 @@ def main():
         mean = np.where(np.isfinite(mean), mean, 0.0)
         Xc = X - mean[None, :]
         nvec = min(a.nvec, len(X) - 1)
-        P, C, pixok = empca(Xc, W, nvec, a.niter)
+        P, C, pixok = empca(Xc, W, nvec, a.niter, n_ref=len(sel))
         var = explained(np.where(pixok[None, :], Xc, 0.0), np.where(pixok[None, :], W, 0.0), P)
         mean = np.where(pixok, mean, 0.0)
         out = os.path.join(OUTDIR, f'empca_{a.tag}_{c}.fits')

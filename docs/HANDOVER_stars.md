@@ -221,6 +221,19 @@ in the individuals' table. Absolute flux = normalized spectrum × NORM_GFLUX, ex
 - Next on DESI (after the walk): 2b (zero points vs Gaia at scale → zp_desi.csv for the Galaxy thread), 5, 6, 7; then Calibration 2
   from the star residuals against the stacks with the exposure maps (§3d of COORDINATION.md).
 
+### Step 7 with individuals (SDSS, 2026-10-25 23:30, vacuum-band rerun of steps 2–6 first)
+Steps 2b/5/6 rerun on the vacuum-band tables: 216 cells, 39 homogeneous / 177 mixed (unchanged within noise), 315 stacks.
+EM-PCA on the stacks + ≤ 5 stars per stack with S/N > 20 (1,575 stars; individuals weighted to match the stacks as a group):
+| class | stacks | stars | pixels in basis | R² with 1 / 2 / 3 / 5 / 10 vectors |
+|---|---|---|---|---|
+| WD | 39 | 195 | 3,290 | 0.62 / 0.74 / 0.79 / 0.88 / 0.97 |
+| AF | 29 | 145 | 4,131 | 0.65 / 0.81 / 0.90 / 0.93 / 0.99 |
+| GK | 179 | 895 | 3,864 | 0.71 / 0.88 / 0.92 / 0.96 / 0.99 |
+| M | 68 | 340 | 2,923 | 0.80 / 0.89 / 0.91 / 0.93 / 0.96 |
+Two bugs fixed before this run: the G-flux padding used the grid edge instead of each spectrum's outermost good pixels (dropped
+most SDSS-I individuals), and the pixel-coverage criterion counted the low-weight individuals (halved the M-dwarf basis); it is now
+evaluated on the stacks only. `empca()`/`explained()` are a stable interface: the Galaxy thread imports them.
+
 ## 4. Decisions for Nao (ordered by when they block)
 1. Backup-program coadds: download (brightest stars, most XP) or dark+bright only? (blocks the final sample, not the pipeline)
 2. Downloads: Bayestar19 (dustmaps), DESI DR1 MWS VAC, Gaia XP coefficients for the DESI quality stars (sizes to be reported before fetching).
