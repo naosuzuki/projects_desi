@@ -410,3 +410,20 @@ stacks (pass C, quasar stacks) and any rest-frame spectrum store will not. Candi
 1.7 GB (approved, deleted after pass B). The 1–2 TB SSD for rest-frame spectra (programs_templates/README.md) is now needed.
 `02_passQ_desi.py --with-stars --expfibermap` (Stellar hook `write_star_file` + EXP_FIBERMAP dump, all rows) tested on one
 coadd: 112 QSO, 12 STAR, 784 exposure rows (44 KB); `after_passB.sh` relaunched with both flags.
+Cleanup (Nao, 2026-10-25 18:20): deleted `programs/zall-pix-loa.csv` (10 GB) and `csvfiles/` (7.6 GB; duplicates of
+projects_gaia/csvfiles). Internal disk went only 60 → 63 GB free: csvfiles/ were APFS clones of projects_gaia/csvfiles (shared blocks, nothing to free) and/or the zall csv was still held open; re-check later.
+Cleanup (Nao, 2026-10-25 18:35): deleted `~/data/exdisk2_keep_tmp/` (zall-tilecumulative-loa.fits, 55 GB; not used —
+the pipeline is keyed to zall-pix-loa; the tile catalog is public if ever needed). The two target csvs in
+programs_setups/manifests (1.4 GB) are kept pending Nao's word.
+
+### 8.24 Normalization before stacking / EM-PCA (Nao, 2026-10-25 evening)
+Rule: divide each rest-frame spectrum by the mean flux in ONE of three line-free windows (switching with redshift),
+multiply ivar by s²; same normalization for the stacks; no mean subtraction (first eigenspectrum = mean quasar).
+| window (rest Å) | in the DESI window for | used for |
+|---|---|---|
+| 5100–5130 | z < 0.91 (DR17 < 1.03, DR8 < 0.79) | z < 0.8 |
+| 3000–3050 | 0.20–2.21 (DR17 0.18–2.41, DR8 0.25–2.02) | 0.8–2.1 |
+| 1275–1290 (the Suzuki 2005/2006 1280 Å point: "average of 21 pixels around 1280 Å where no emission line is seen", HST/FOS PCA 1020–1600 Å; Suzuki+05 ApJ 618, 592; Suzuki 06 ApJS 163, 110) | 1.81–6.6 (DR17 ≥ 1.79, DR8 ≥ 1.98) | z ≥ 2.1 (no gap at z>4.7) |
+Overlaps (0.2–0.9, 1.8–2.2) tie the scales together; 1700–1720 (1.12–4.70) is measured as a cross-check where covered.
+1275–1290 is already CONT_WINDOWS[0] in qsolib; it is redward of the Lyα/N V complex and of the Si IV BAL region
+(Si IV troughs reach 1280 only at −25,000 km/s). Fallback if the window is masked (<10 good pixels): the other covered window, flagged (DR8 at 2.0<z<2.1 has both at its edges).
