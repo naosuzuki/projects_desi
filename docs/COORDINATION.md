@@ -117,3 +117,12 @@ homogeneity test; rerun with the next refinement).
   link, starts the monitor, relaunches the walk with 4 shards, skipping existing outputs). Galaxy pass C and star jobs
   are started by their threads after that. Copies of both scripts: `programs_quasars/`.
 - Expected state at 04:15: walk ≈ 15,000 of 34,508 coadds (bright files first, then dark); remaining ≈ 8–10 h after resume.
+- The Galaxy thread adds sync + clean unmount of exdisk1/exdisk2 at ~04:18, after `shutdown.log` says "all stopped".
+- **Manual resume command for Nao** (equivalent to resume_after_reboot.sh, run after the disks are mounted on USB 3):
+  ```
+  cd ~/github/projects_desi/programs_monitor && nohup python3 monitor.py --port 8765 >> ~/data/sdssdesi_status/monitor.log 2>&1 &
+  cd ~/github/projects_desi/programs_quasars
+  for i in 0 1 2 3; do OPENBLAS_NUM_THREADS=1 nohup nice -n 10 python3 02_passQ_desi.py --all --with-stars --expfibermap --shard $i/4 >> ~/data/sdssdesi_status/passQ_desi$i.log 2>&1 & done
+  ```
+  Resumability: every output (passQ, passS, expfibermap) is written per coadd as .tmp + rename; on restart a coadd is
+  skipped when all three outputs exist and re-read when any is missing, so partial coadds are completed.
