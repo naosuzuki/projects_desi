@@ -107,22 +107,20 @@ homogeneity test; rerun with the next refinement).
    yes — a 1–2 TB SSD for rest-frame spectra was already the plan in programs_templates/README.md.
 2. Who fixes the air-wavelength table in pass B and when (see §2).
 
-## 5. Planned shutdown 2026-10-26 ~04:30 (Nao) — all threads
-- `~/data/sdssdesi_status/stop_before_shutdown.sh` is scheduled (running, pid 10770): at **04:15** it SIGTERMs the walk
-  shards (02_passQ_desi), any pass-B / pass-C / step2_3 / 06_passB_summary python jobs, removes *.tmp outputs, stops
-  caffeinate and the monitor, and logs to `shutdown.log`. Every pass writes .tmp + rename, so nothing is corrupted;
-  at most the files in progress are redone. **If your thread starts a long job tonight, make sure it is resumable and
-  name its python pattern here so the stop script can be extended.**
-- After the reboot: run `~/data/sdssdesi_status/resume_after_reboot.sh` (checks exdisk2/exdisk1 mounts and the USB 3
-  link, starts the monitor, relaunches the walk with 4 shards, skipping existing outputs). Galaxy pass C and star jobs
-  are started by their threads after that. Copies of both scripts: `programs_quasars/`.
-- Expected state at 04:15: walk ≈ 15,000 of 34,508 coadds (bright files first, then dark); remaining ≈ 8–10 h after resume.
-- The Galaxy thread adds sync + clean unmount of exdisk1/exdisk2 at ~04:18, after `shutdown.log` says "all stopped".
-- **Manual resume command for Nao** (equivalent to resume_after_reboot.sh, run after the disks are mounted on USB 3):
-  ```
-  cd ~/github/projects_desi/programs_monitor && nohup python3 monitor.py --port 8765 >> ~/data/sdssdesi_status/monitor.log 2>&1 &
-  cd ~/github/projects_desi/programs_quasars
-  for i in 0 1 2 3; do OPENBLAS_NUM_THREADS=1 nohup nice -n 10 python3 02_passQ_desi.py --all --with-stars --expfibermap --shard $i/4 >> ~/data/sdssdesi_status/passQ_desi$i.log 2>&1 & done
-  ```
-  Resumability: every output (passQ, passS, expfibermap) is written per coadd as .tmp + rename; on restart a coadd is
-  skipped when all three outputs exist and re-read when any is missing, so partial coadds are completed.
+## 5. Shutdown 2026-10-26 ~04:30 (Nao) — one sequence, agreed by the three threads (22:10)
+Stop (automatic; Nao only shuts down at 04:30):
+- **04:10** `~/data/sdssdesi_status/pre_shutdown.sh` (Stellar): SIGTERM to every batch job (walk shards, pass B/S/Q, stacks,
+  EM-PCA, table jobs), 5-min grace, kills stragglers, stops caffeinate and the monitor, writes `shutdown_state.txt`
+  (file counts), removes `.tmp` files, **unmounts exdisk2 and exdisk1**.
+- 04:15 `stop_before_shutdown.sh` (Quasar, pid 10770) and ~04:18 the Galaxy stop: safety nets, find nothing running,
+  log to `shutdown.log`; their unmounts report "already unmounted" (harmless).
+Resume (after the reboot, with exdisk2 on a **USB 3** port) — ONE command, run once, from any terminal:
+```
+zsh ~/data/sdssdesi_status/post_reboot.sh
+```
+(checks the disks and the 5 Gb/s link, restarts the monitor on 8765, resumes the walk `02_passQ_desi.py --all --with-stars
+--expfibermap` with 4 shards + caffeinate; `resume_after_reboot.sh` is the equivalent Quasar-thread script, either works,
+both refuse to start a second walk). Everything is per-file atomic (`.tmp` + rename) and skipped on resume: pass B
+(complete), the walk's three outputs (a coadd is re-read when any of its three outputs is missing), the SDSS passes
+(complete). Expected at 04:10: walk ≈ 14,000 of 34,508 coadds; ≈ 8–10 h remaining after resume. Galaxy pass C and star
+jobs are started by their threads after the walk finishes.
