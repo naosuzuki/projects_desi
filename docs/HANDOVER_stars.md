@@ -199,6 +199,13 @@ RV-corrected inputs, mean subtracted (weighted mean = component 0), zero weight 
 temperature class (hot/WD, A-F, G-K, M, CV). Weights: each stack counts once; S/N>20 individuals with ivar scaled so that their
 total weight ≈ the stacks'. Outside the basis: amplitude and RV (fit parameters), HR labels and [M/H] (read back from the
 best-fitting cell). Written into ms.tex §3.4 (Step 4, "Normalization").
+**The normalizing factor is stored, not recomputed** (Nao, 2026-10-25): per stack and per individual, NORM_GFLUX = the synthetic
+Gaia-G flux of the input at 10 pc (photon-weighted mean F_λ through the G passband, erg/s/cm²/Å) and the equivalent magnitudes
+M_G_SYN (Vega, Riello+21 zero point) and M_G_SYN_AB. In principle the factor follows from M_G alone — F_G = C_G × 10^(−0.4 M_G)
+with C_G the passband constant — but that needs the passband constant and the AB/Vega zero point, and the cell's catalog M_G0
+differs from the stack's synthetic value by the calibration residuals (0.02–0.05 mag), so the exact number is kept in the
+template file: a NORM table (STACK, NORM_GFLUX, M_G_SYN, M_G_SYN_AB, M_G0_CELL, N) next to the eigenspectra, and the same columns
+in the individuals' table. Absolute flux = normalized spectrum × NORM_GFLUX, exactly.
 
 ## 4. Decisions for Nao (ordered by when they block)
 1. Backup-program coadds: download (brightest stars, most XP) or dark+bright only? (blocks the final sample, not the pipeline)
