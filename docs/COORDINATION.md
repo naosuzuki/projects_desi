@@ -106,3 +106,14 @@ homogeneity test; rerun with the next refinement).
    coadd once and serve both (a "pass C+Q" that writes rest-frame spectra for galaxies and quasars)? Recommended:
    yes — a 1–2 TB SSD for rest-frame spectra was already the plan in programs_templates/README.md.
 2. Who fixes the air-wavelength table in pass B and when (see §2).
+
+## 5. Planned shutdown 2026-10-26 ~04:30 (Nao) — all threads
+- `~/data/sdssdesi_status/stop_before_shutdown.sh` is scheduled (running, pid 10770): at **04:15** it SIGTERMs the walk
+  shards (02_passQ_desi), any pass-B / pass-C / step2_3 / 06_passB_summary python jobs, removes *.tmp outputs, stops
+  caffeinate and the monitor, and logs to `shutdown.log`. Every pass writes .tmp + rename, so nothing is corrupted;
+  at most the files in progress are redone. **If your thread starts a long job tonight, make sure it is resumable and
+  name its python pattern here so the stop script can be extended.**
+- After the reboot: run `~/data/sdssdesi_status/resume_after_reboot.sh` (checks exdisk2/exdisk1 mounts and the USB 3
+  link, starts the monitor, relaunches the walk with 4 shards, skipping existing outputs). Galaxy pass C and star jobs
+  are started by their threads after that. Copies of both scripts: `programs_quasars/`.
+- Expected state at 04:15: walk ≈ 15,000 of 34,508 coadds (bright files first, then dark); remaining ≈ 8–10 h after resume.

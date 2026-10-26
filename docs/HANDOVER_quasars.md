@@ -427,3 +427,8 @@ multiply ivar by s²; same normalization for the stacks; no mean subtraction (fi
 Overlaps (0.2–0.9, 1.8–2.2) tie the scales together; 1700–1720 (1.12–4.70) is measured as a cross-check where covered.
 1275–1290 is already CONT_WINDOWS[0] in qsolib; it is redward of the Lyα/N V complex and of the Si IV BAL region
 (Si IV troughs reach 1280 only at −25,000 km/s). Fallback if the window is masked (<10 good pixels): the other covered window, flagged (DR8 at 2.0<z<2.1 has both at its edges).
+
+### 8.25 Shutdown 2026-10-26 04:30 (Nao): graceful stop scheduled 04:15, resume script ready
+`~/data/sdssdesi_status/stop_before_shutdown.sh` (scheduled, pid 10770) and `resume_after_reboot.sh` (run once after
+the reboot; it relaunches the walk `02_passQ_desi.py --all --with-stars --expfibermap`, 4 shards, resumable). Walk
+started 21:51; 38 files/min on the bright files. Copies in programs_quasars/. See COORDINATION.md §5.
