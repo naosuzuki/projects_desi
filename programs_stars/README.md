@@ -2,7 +2,7 @@
 
 Steps (Nao, 2026-10-24 night): 1 catalog with Gaia parallax → 2 spectrophotometric calibration (2b joint fit) → 3 RV and rest frame → 3b dust map /
 Milky Way extinction → 4 parallax distance → absolute flux → 5 HR grid, test that the stars of a cell are alike (report shared cells) →
-6 stack the alike cells (**goal for now**) → 7 EM-PCA. SDSS first (internal disk), DESI after pass B. Details: `docs/HANDOVER_stars.md` §3.
+6 stack the alike cells → 7 EM-PCA (normalize to Gaia-G flux = 1, factor stored). SDSS first (internal disk), DESI after pass B. Details: `docs/HANDOVER_stars.md` §3.
 
 Design and status: `docs/HANDOVER_stars.md` (steps, census, HR-cell counts, decisions); paper: ms.tex §3.5 ("Stars: combining Gaia
 and DESI"). Imports the common pieces from `../programs_templates/02_passB_measure.py` (filters, rebin, extinction, Step 1).

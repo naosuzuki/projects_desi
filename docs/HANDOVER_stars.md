@@ -207,6 +207,20 @@ differs from the stack's synthetic value by the calibration residuals (0.02–0.
 template file: a NORM table (STACK, NORM_GFLUX, M_G_SYN, M_G_SYN_AB, M_G0_CELL, N) next to the eigenspectra, and the same columns
 in the individuals' table. Absolute flux = normalized spectrum × NORM_GFLUX, exactly.
 
+## 8. Status 2026-10-25 22:30 and the shutdown of 2026-10-26 ~04:30
+- Pass B complete (34,508). The shared DESI walk (`02_passQ_desi.py --all --with-stars --expfibermap`, 4 shards, Quasar thread)
+  started automatically and writes the DESI star tables (`~/data/sdssdesi_passS/`) and exposure maps; ≈42 coadds/min → ≈14 h;
+  it is stopped cleanly at 04:10 by `~/data/sdssdesi_status/pre_shutdown.sh` and resumed after the reboot by `post_reboot.sh`
+  (docs/COORDINATION.md §5). Everything is per-file atomic and resumable.
+- SDSS side: the pass is being rerun with the vacuum band edges; a chain then reruns 2b → 5 → 6 → 7 (with 5 individuals per
+  stack, S/N > 20); logs step2b_sdss.txt, step5_sdss.txt, step6_sdss.log, step7_sdss.txt in `~/data/sdssdesi_status/`.
+- Step 7 (`step7_empca.py`) works: own weighted EM-PCA; first SDSS run on the stacks alone gives, for the M dwarfs, vector 1 =
+  temperature slope, 3 = TiO/CaH band structure, 4 = Balmer emission (activity); R² 0.93/0.97/0.98 with 1/2/3 vectors. G/K: 5
+  vectors for R² 0.98. The eigenvectors are noisy where only BOSS-era stacks reach (< 3800 Å, > 9200 Å): pixels now need ≥ 50 %
+  coverage and a median weight ≥ 0.3 of the typical to enter the basis.
+- Next on DESI (after the walk): 2b (zero points vs Gaia at scale → zp_desi.csv for the Galaxy thread), 5, 6, 7; then Calibration 2
+  from the star residuals against the stacks with the exposure maps (§3d of COORDINATION.md).
+
 ## 4. Decisions for Nao (ordered by when they block)
 1. Backup-program coadds: download (brightest stars, most XP) or dark+bright only? (blocks the final sample, not the pipeline)
 2. Downloads: Bayestar19 (dustmaps), DESI DR1 MWS VAC, Gaia XP coefficients for the DESI quality stars (sizes to be reported before fetching).
