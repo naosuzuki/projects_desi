@@ -192,6 +192,14 @@ The splits are real spectral differences at equal continuum: metal-poor turnoff 
 6,572 plates took 11 min. Next: DESI (after pass B), finer [M/H] bins below −1, Calibration 2 (per exposure/petal/fiber response from
 the residuals against these stacks), then EM-PCA (step 7).
 
+## 7. Step 7 plan (EM-PCA), agreed with Nao 2026-10-25
+Normalize every stack and individual by its synthetic Gaia G flux (G flux = 1; ivar scaled by the square); keep M_G0 and the HR
+coordinates as labels (10^(-0.4 M_G0) restores the absolute-flux stack). Linear flux (the fitter is linear), dereddened and
+RV-corrected inputs, mean subtracted (weighted mean = component 0), zero weight on uncovered pixels (EM-PCA). One basis per
+temperature class (hot/WD, A-F, G-K, M, CV). Weights: each stack counts once; S/N>20 individuals with ivar scaled so that their
+total weight ≈ the stacks'. Outside the basis: amplitude and RV (fit parameters), HR labels and [M/H] (read back from the
+best-fitting cell). Written into ms.tex §3.4 (Step 4, "Normalization").
+
 ## 4. Decisions for Nao (ordered by when they block)
 1. Backup-program coadds: download (brightest stars, most XP) or dark+bright only? (blocks the final sample, not the pipeline)
 2. Downloads: Bayestar19 (dustmaps), DESI DR1 MWS VAC, Gaia XP coefficients for the DESI quality stars (sizes to be reported before fetching).
