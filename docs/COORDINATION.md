@@ -112,7 +112,7 @@ Stop (automatic; Nao only shuts down at 04:30):
 - **04:10** `~/data/sdssdesi_status/pre_shutdown.sh` (Stellar): SIGTERM to every batch job (walk shards, pass B/S/Q, stacks,
   EM-PCA, table jobs), 5-min grace, kills stragglers, stops caffeinate and the monitor, writes `shutdown_state.txt`
   (file counts), removes `.tmp` files, **unmounts exdisk2 and exdisk1**.
-- 04:15 `stop_before_shutdown.sh` (Quasar, pid 10770) and ~04:18 the Galaxy stop: safety nets, find nothing running,
+- 04:15 `stop_before_shutdown.sh` (Quasar; pass C pattern `python3 08_passC_stack.py --all`) and ~04:18 the Galaxy stop: safety nets, find nothing running,
   log to `shutdown.log`; their unmounts report "already unmounted" (harmless).
 Resume (after the reboot, with exdisk2 on a **USB 3** port) — ONE command, run once, from any terminal:
 ```

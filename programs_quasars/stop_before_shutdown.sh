@@ -10,7 +10,7 @@ echo "$(date '+%F %T') scheduled stop at $TARGET ($(( (tgt-now)/60 )) min from n
 [ $tgt -gt $now ] && sleep $((tgt-now))
 echo "$(date '+%F %T') stopping: walk files done Q=$(ls ~/data/sdssdesi_passQ/*/ 2>/dev/null | grep -c parquet) S=$(ls ~/data/sdssdesi_passS/*/ 2>/dev/null | grep -c parquet) E=$(ls ~/data/sdssdesi_expfibermap/*/ 2>/dev/null | grep -c parquet)" >> $LOG
 pkill -f 'after_passB.sh' 2>/dev/null
-for pat in 'python3 02_passQ_desi.py --all' 'python3 02_passB_measure.py --all' 'python3 step2_3_pass_desi.py' 'python3 07_passC' 'python3 06_passB_summary'; do
+for pat in 'python3 02_passQ_desi.py --all' 'python3 02_passB_measure.py --all' 'python3 step2_3_pass_desi.py' 'python3 08_passC_stack.py --all' 'python3 06_passB_summary'; do
   for p in $(pgrep -f "$pat"); do kill -TERM $p 2>/dev/null && echo "$(date '+%F %T') TERM $p ($pat)" >> $LOG; done
 done
 sleep 20
