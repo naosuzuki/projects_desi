@@ -7,7 +7,7 @@
 LOG=~/data/sdssdesi_status/resume.log
 if ! mount | grep -q ' /Volumes/exdisk2 '; then echo "exdisk2 not mounted - plug it in (USB 3 port!) and rerun"; exit 1; fi
 if ! mount | grep -q ' /Volumes/exdisk1 ' && ! mount | grep -q ' /Volumes/My Book '; then echo "WARNING: overflow disk (exdisk1 / My Book) not mounted - 969 coadds will be reported MISSING"; fi
-sp=$(system_profiler SPUSBDataType 2>/dev/null | awk 'BEGIN{RS="\n\n"} /BSD Name: disk5/ {print}' | grep -m1 Speed | sed 's/.*Up to //'); echo "exdisk2 link: ${sp:-?}"
+sp=$(system_profiler SPUSBDataType 2>/dev/null | awk 'BEGIN{RS="\n\n"} /My Book 25EE/ {print}' | grep -m1 Speed | sed 's/.*Up to //'); echo "exdisk2 link: ${sp:-?}"
 case "$sp" in *Gb*) ;; *) echo "ABORT: exdisk2 is not on a USB 3 link (${sp:-unknown}); re-plug it on a USB 3 port and rerun (FORCE=1 to override; a USB 2 relaunch costs 3x on the remaining walk)"; [ "${FORCE:-0}" = "1" ] || exit 1;; esac
 if ! ls /Volumes/exdisk2/desiredux/DR2/spectro/redux/loa/healpix/main >/dev/null 2>&1; then echo "ABORT: coadd tree unreadable on exdisk2"; exit 1; fi
 if ! pgrep -f 'monitor.py --port 8765' >/dev/null; then
