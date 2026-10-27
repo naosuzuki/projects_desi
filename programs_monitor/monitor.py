@@ -26,6 +26,10 @@ STATUS_DIR = f'{HOME}/data/sdssdesi_status'
 HERE = os.path.dirname(os.path.abspath(__file__))
 N_DESI_COADDS = 34508
 N_SDSS_PLATES = 4131 + 3953          # DR17 v5_13_2 + DR8 (26/103/104) spPlate files on disk
+# The shared DESI walk (02_passQ_desi.py --with-stars --expfibermap --with-galaxies) writes several outputs ('walk=True'
+# below). After a restart it re-reads coadds that some outputs already have, so those outputs make no files for hours
+# while the walk is busy: they show as 'waiting' with the walk's ETA, not 'stalled'.
+WALK_PROC = '02_passQ_desi'
 
 # The pipeline, by track. 'proc' is the substring of the worker command line (python scripts), used for the worker
 # table, the per-step CPU/RSS and the guard. Steps that do not exist yet use the JSON protocol and show as 'idle'.
@@ -41,7 +45,7 @@ STEPS = [
     dict(track='quasars', name='Pass Q: SDSS quasars (DR17 + DR8 spPlates)', kind='files',
          pattern=f'{HOME}/data/sdssdesi_passQ_sdss/*/*.parquet', total=N_SDSS_PLATES, proc='01_passQ_sdss'),
     dict(track='quasars', name='Pass Q: DESI quasars (coadds)', kind='files',
-         pattern=f'{HOME}/data/sdssdesi_passQ/*/*.parquet', total=N_DESI_COADDS, proc='02_passQ_desi'),
+         pattern=f'{HOME}/data/sdssdesi_passQ/*/*.parquet', total=N_DESI_COADDS, proc='02_passQ_desi', walk=True),
     dict(track='quasars', name='Quasar master table, SDSS (DR16Q match, checks)', kind='json', path=f'{STATUS_DIR}/step_qso_table_sdss.json', proc='03_qso_table_sdss'),
     dict(track='quasars', name='Quasar master table, DESI', kind='json', path=f'{STATUS_DIR}/step_qso_table_desi.json', proc='03_qso_table_desi'),
     dict(track='quasars', name='Quasar cell table (6 axes)', kind='json', path=f'{STATUS_DIR}/step_qso_cells.json', proc='04_cells'),
@@ -54,7 +58,7 @@ STEPS = [
     dict(track='stars', name='Stars 2b: joint spectrophotometric fit (Gaia scale, SDSS/LS tilt, zero points)', kind='json', path=f'{STATUS_DIR}/step_star_spcal.json', proc='step2b_spcal'),
     dict(track='stars', name='Stars 3b: 3D extinction at the parallax distance (Edenhofer + Bayestar)', kind='json', path=f'{STATUS_DIR}/step_star_ebv3d.json', proc='step3b_ebv3d'),
     dict(track='stars', name='Stars 2-3: DESI pass (coadds, after pass B)', kind='files',
-         pattern=f'{HOME}/data/sdssdesi_passS/*/*.parquet', total=N_DESI_COADDS, proc='step2_3_pass_desi'),
+         pattern=f'{HOME}/data/sdssdesi_passS/*/*.parquet', total=N_DESI_COADDS, proc='step2_3_pass_desi', walk=True),
     dict(track='stars', name='Stars 5: HR grid, same-cell similarity test (SDSS, DESI)', kind='json', path=f'{STATUS_DIR}/step_star_cells.json', proc='step5_hr_cells'),
     dict(track='stars', name='Stars 6: stacks of the alike cells (SDSS, DESI)', kind='json', path=f'{STATUS_DIR}/step_star_stack.json', proc='step6_stack'),
     dict(track='stars', name='Stars 7: EM-PCA', kind='json', path=f'{STATUS_DIR}/step_star_empca.json', proc='step7_empca'),
@@ -102,7 +106,7 @@ def step_progress(step, hist, workers):
             if status == 'running' and now - last > 900: status = 'stalled'
         else:
             done, total, status, started, last, rate = 0, 0, 'idle', None, None, 0.0
-    ws = [w for w in workers if w['step'] == step['name']]
+    ws = [w for w in workers if w['step'] == step['name'] or (step.get('walk') and w.get('walk'))]
     if status == 'idle' and ws: status = 'running'
     remaining = max(total - done, 0)
     eta_min = remaining / rate if (rate > 0 and status != 'done') else (0.0 if status == 'done' else None)
@@ -128,7 +132,7 @@ def find_workers():
                     with p.oneshot():
                         out.append(dict(pid=p.pid, step=s['name'], track=s['track'], shard=shard, cpu=p.cpu_percent(interval=None),
                                         rss_gb=p.memory_info().rss / 1e9, state=('paused' if p.pid in paused else p.status()),
-                                        age_min=(time.time() - p.info['create_time']) / 60))
+                                        age_min=(time.time() - p.info['create_time']) / 60, walk=WALK_PROC in cmd))
                     break
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             pass
@@ -203,17 +207,28 @@ def collect(hist, do_guard):
     if do_guard:
         guard(workers, mem, swap, cpu_total)
     steps = [step_progress(s, hist, workers) for s in STEPS]
+    # walk outputs: one that is behind while another advances and the walk is alive is waiting for the walk to reach it
+    walk = [st for st, s in zip(steps, STEPS) if s.get('walk')]
+    lead = [st for st in walk if st['status'] == 'running' and st['eta_min']]
+    if lead and any(w.get('walk') for w in workers):
+        lead = max(lead, key=lambda x: x['eta_min'])
+        for st in walk:
+            if st['status'] == 'stalled':
+                st.update(status='waiting', rate_per_min=0.0, eta_min=lead['eta_min'], eta_at=lead['eta_at'],
+                          note=f"walk alive; resumes when the walk passes coadd {st['done']:,} (now at {lead['done']:,} for "
+                               f"'{lead['name'].split(':')[0]}'); ETA = walk ETA, a lower limit")
     # pipeline summary per track: running step, next ETA
     tracks = {}
     for st in steps:
         t = tracks.setdefault(st['track'], dict(track=st['track'], n_steps=0, n_done=0, running=None, eta_at=None, eta_min=None))
         t['n_steps'] += 1; t['n_done'] += st['status'] == 'done'
-        if st['status'] in ('running', 'stalled') and t['running'] is None:
-            t['running'] = st['name']; t['eta_at'] = st['eta_at']; t['eta_min'] = st['eta_min']
+        rank = {'running': 0, 'stalled': 1, 'waiting': 2}.get(st['status'], 9) + (0 if st['eta_min'] else 0.5)
+        if rank < 9 and rank < t.get('_rank', 9):     # running first, then stalled, then waiting; with an ETA first
+            t['_rank'] = rank; t['running'] = st['name']; t['eta_at'] = st['eta_at']; t['eta_min'] = st['eta_min']
     hist_sys = hist.setdefault('__sys__', []); hist_sys.append((now, cpu_total, (mem.total - mem.available) / 1e9)); del hist_sys[:-360]   # 1 h at 10 s
     return dict(
         time=time.strftime('%Y-%m-%d %H:%M:%S'), host=socket.gethostname(), interval=INTERVAL,
-        steps=steps, tracks=list(tracks.values()), workers=workers, n_workers=len(workers), n_paused=len(paused),
+        steps=steps, tracks=[{k: v for k, v in t.items() if k != '_rank'} for t in tracks.values()], workers=workers, n_workers=len(workers), n_paused=len(paused),
         system=dict(cpu_total=cpu_total, cpu_per_core=cpu_pc, ncpu=len(cpu_pc), load1=load[0], load5=load[1],
                     mem_total_gb=mem.total / 1e9, mem_used_gb=(mem.total - mem.available) / 1e9, mem_available_gb=mem.available / 1e9,
                     mem_pct=100.0 * (mem.total - mem.available) / mem.total, swap_used_gb=swap.used / 1e9, disk_read_mbs=read_mbs,
