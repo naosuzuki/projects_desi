@@ -13,7 +13,7 @@ pkill -f 'after_passB.sh' 2>/dev/null
 for pat in 'python3 02_passQ_desi.py --all' 'python3 02_passB_measure.py --all' 'python3 step2_3_pass_desi.py' 'python3 08_passC_stack.py --all' 'python3 06_passB_summary'; do
   for p in $(pgrep -f "$pat"); do kill -TERM $p 2>/dev/null && echo "$(date '+%F %T') TERM $p ($pat)" >> $LOG; done
 done
-sleep 20
+for i in $(seq 1 24); do pgrep -f 'python3 02_passQ_desi.py --all' >/dev/null || break; sleep 5; done   # up to 2 min: the walk finishes its coadd and writes the galaxy checkpoint
 for pat in 'python3 02_passQ_desi.py --all' 'python3 02_passB_measure.py --all'; do for p in $(pgrep -f "$pat"); do kill -KILL $p 2>/dev/null && echo "$(date '+%F %T') KILL $p" >> $LOG; done; done
 pkill -x caffeinate 2>/dev/null
 pkill -f 'monitor.py --port' 2>/dev/null

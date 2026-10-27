@@ -18,7 +18,7 @@ if pgrep -f 'python3 02_passQ_desi.py --all' >/dev/null; then echo "walk already
 cd ~/github/projects_desi/programs_quasars
 echo "$(date '+%F %T') resume walk with 4 shards; done so far Q=$(ls ~/data/sdssdesi_passQ/*/ 2>/dev/null | grep -c parquet)" | tee -a $LOG
 for i in 0 1 2 3; do
-  OPENBLAS_NUM_THREADS=1 nohup nice -n 10 python3 02_passQ_desi.py --all --with-stars --expfibermap --shard $i/4 >> ~/data/sdssdesi_status/passQ_desi$i.log 2>&1 &
+  OPENBLAS_NUM_THREADS=1 nohup nice -n 10 python3 02_passQ_desi.py --all --with-stars --expfibermap --with-galaxies --shard $i/4 >> ~/data/sdssdesi_status/passQ_desi$i.log 2>&1 &
   sleep 3
 done
 for p in $(pgrep -f 'python3 02_passQ_desi.py --all'); do nohup caffeinate -i -w $p >/dev/null 2>&1 & done

@@ -8,9 +8,9 @@ one read per coadd for both tracks. With --expfibermap the EXP_FIBERMAP of every
 --expfm-outdir (default ~/data/sdssdesi_expfibermap/<program>/hpx<N>.parquet) for calibration 2 (all tracks).
 Run after pass B has finished (the external disks are the bottleneck):
   python3 02_passQ_desi.py --nfiles 5 --seed 1
-  OPENBLAS_NUM_THREADS=1 nohup nice -n 10 python3 02_passQ_desi.py --all --with-stars --expfibermap --shard 0/4 > ~/data/sdssdesi_status/passQ_desi0.log 2>&1 &
+  OPENBLAS_NUM_THREADS=1 nohup nice -n 10 python3 02_passQ_desi.py --all --with-stars --expfibermap --with-galaxies --shard 0/4 > ~/data/sdssdesi_status/passQ_desi0.log 2>&1 &
 """
-import os, sys, time, argparse, warnings, gc
+import os, sys, time, argparse, warnings, gc, signal
 import numpy as np
 import pandas as pd
 import fitsio
@@ -63,23 +63,27 @@ def dump_expfibermap(f, path, program, outdir, overwrite=False):
     return len(df)
 
 
-def process_file(path, zl, program, star_lookup=None, want_stars=False, want_q=True, expfm_dir=None, overwrite=False):
+def process_file(path, zl, program, star_lookup=None, want_stars=False, want_q=True, expfm_dir=None, overwrite=False,
+                 G=None, need_g=False, hpx=None):
     """One read of the coadd: quasar measurements for the QSO rows (returned), the Stellar thread's hook for the STAR
     rows (written by S.write_star_file) and the EXP_FIBERMAP dump. Returns (qso_df, n_star, n_expfm, t_read)."""
     t0 = time.time()
     f = fitsio.FITS(path)
     n_expfm = dump_expfibermap(f, path, program, expfm_dir, overwrite) if expfm_dir else 0
     fm = f['FIBERMAP'].read(columns=FM_COLS)
+    gfm = f['FIBERMAP'].read(columns=G_FM_COLS) if need_g else None      # Galaxy thread's hook (pass C on the same read)
     tid = fm['TARGETID']
     qso = zl[(zl.SPECTYPE == 'QSO') & zl.ZCAT_PRIMARY]
     qrows = np.where(np.isin(tid, qso.TARGETID.to_numpy()))[0] if want_q else np.array([], int)
     nstar_rows = int(np.isin(tid, zl[(zl.SPECTYPE == 'STAR') & zl.ZCAT_PRIMARY].TARGETID.to_numpy()).sum()) if want_stars else 0
-    if len(qrows) == 0 and nstar_rows == 0:
+    if len(qrows) == 0 and nstar_rows == 0 and not need_g:
         f.close()
         return pd.DataFrame(), 0, n_expfm, time.time() - t0
     w, flux, ivar, mask, percam = Q.passB.combine_cameras(f)
     f.close()
     t_read = time.time() - t0
+    if need_g:
+        G.process(path, gfm, w, flux, ivar, mask, program, hpx)
     n_star = 0
     if want_stars:
         n_star = STARS.write_star_file(path, fm, w, flux, ivar, mask, percam, zl, star_lookup, program, outdir=STAR_OUTDIR_RUN, overwrite=overwrite)
@@ -92,6 +96,7 @@ def process_file(path, zl, program, star_lookup=None, want_stars=False, want_q=T
 
 
 STAR_OUTDIR_RUN = STAR_OUTDIR
+G_FM_COLS = None      # galaxy_hook.FM_COLS when --with-galaxies
 
 
 def main():
@@ -108,6 +113,9 @@ def main():
     ap.add_argument('--star-outdir', default=STAR_OUTDIR)
     ap.add_argument('--expfibermap', action='store_true', help='dump EXP_FIBERMAP of every coadd (all rows) to --expfm-outdir')
     ap.add_argument('--expfm-outdir', default=EXPFM_OUTDIR)
+    ap.add_argument('--with-galaxies', action='store_true', help="also run the Galaxy thread's pass-C hook (programs_templates/galaxy_hook.py) on the same read")
+    ap.add_argument('--gal-store', default='/Volumes/exdisk3/sdssdesi_restframe', help='rest-frame spectrum store of the galaxy hook')
+    ap.add_argument('--gal-outdir', default=None, help='override the galaxy hook state dir (testing only; default = pass C state)')
     a = ap.parse_args()
     global STARS, STAR_OUTDIR_RUN
     star_lookup = None; STAR_OUTDIR_RUN = os.path.expanduser(a.star_outdir)
@@ -129,8 +137,25 @@ def main():
     offsets = {int(k): (int(s), int(e)) for k, s, e in zip(zl['OFF_KEY'], zl['OFF_START'], zl['OFF_STOP'])}
     print(f'zlookup loaded: {len(zl["TARGETID"]):,} rows, {time.time()-t0:.0f}s', flush=True)
     STYPE = np.array(['GALAXY', 'QSO', 'STAR', 'OTHER'])
+    global G_FM_COLS
+    G = None
+    if a.with_galaxies:
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'programs_templates'))
+        import galaxy_hook as GH
+        G_FM_COLS = GH.FM_COLS
+        kw = dict(store=a.gal_store, zl=zl, offsets=offsets)
+        if a.gal_outdir:
+            kw['outdir'] = os.path.expanduser(a.gal_outdir)
+        G = GH.GalaxyHook(si, sn, **kw)
+        print(f'galaxy hook: shard {si}/{sn}, {len(G.done):,} coadds already in the accumulator', flush=True)
+    # graceful stop: SIGTERM only sets a flag; the loop finishes the current coadd, then checkpoints and exits, so the
+    # galaxy accumulator is never saved half-way through a coadd (a redone coadd would otherwise be counted twice)
+    stop = {'flag': False}
+    signal.signal(signal.SIGTERM, lambda sig, frm: stop.__setitem__('flag', True))
     done = 0; missing = []; nq = 0
     for k, p in enumerate(paths):
+        if stop['flag']:
+            print('SIGTERM: stopping after the last complete coadd', flush=True); break
         prog = 'dark' if '/dark/' in p else 'bright'
         hpx = os.path.basename(p).split('-')[-1].replace('.fits', '')
         out = os.path.join(a.outdir, prog, f'hpx{hpx}.parquet')
@@ -139,7 +164,8 @@ def main():
         need_q = a.overwrite or not os.path.exists(out)
         need_s = a.with_stars and (a.overwrite or not os.path.exists(sout))
         need_e = a.expfibermap and (a.overwrite or not os.path.exists(eout))
-        if not (need_q or need_s or need_e):
+        need_g = G is not None and G.needs(prog, int(hpx))
+        if not (need_q or need_s or need_e or need_g):
             continue
         lp = Q.passB.local_path(p)
         if lp is None:
@@ -152,16 +178,20 @@ def main():
                                  'ZCAT_PRIMARY': zl['ZCAT_PRIMARY'][s:e]})
             zsub['PROGRAM'] = prog
             qdf, n_star, n_expfm, t_read = process_file(lp, zsub, prog, star_lookup=star_lookup, want_stars=need_s, want_q=need_q,
-                                                        expfm_dir=(a.expfm_outdir if need_e else None), overwrite=a.overwrite)
+                                                        expfm_dir=(a.expfm_outdir if need_e else None), overwrite=a.overwrite,
+                                                        G=G, need_g=need_g, hpx=int(hpx))
             if need_q:
                 qdf.to_parquet(out + '.tmp'); os.replace(out + '.tmp', out)
             done += 1; nq += len(qdf)
             print(f'{k+1}/{len(paths)} {os.path.basename(lp)} nqso={len(qdf)}' + (f' nstar={n_star}' if need_s else '') + (f' nexp={n_expfm}' if need_e else '')
+                  + (' gal' if need_g else '')
                   + f' read {t_read:.1f}s total {time.time()-t0:.0f}s', flush=True)
         except Exception as e:
             import traceback; traceback.print_exc()
             print('ERROR', p, repr(e), flush=True)
-    print(f'done: {done} files, {nq} quasars, missing {len(missing)}, {time.time()-t0:.0f}s')
+    if G is not None:
+        G.close(); print(f'galaxy hook checkpoint written: {len(G.done):,} coadds, {G.ngal:,} galaxies this run', flush=True)
+    print(f'{"stopped" if stop["flag"] else "done"}: {done} files, {nq} quasars, missing {len(missing)}, {time.time()-t0:.0f}s')
     if missing:
         with open(os.path.join(a.outdir, f'missing_shard{si}of{sn}.txt'), 'w') as fh:
             fh.write('\n'.join(missing) + '\n')

@@ -124,3 +124,14 @@ both refuse to start a second walk). Everything is per-file atomic (`.tmp` + ren
 (complete), the walk's three outputs (a coadd is re-read when any of its three outputs is missing), the SDSS passes
 (complete). Expected at 04:10: walk ≈ 14,000 of 34,508 coadds; ≈ 8–10 h remaining after resume. Galaxy pass C and star
 jobs are started by their threads after the walk finishes.
+
+## 6. One DESI walk for all three tracks (2026-10-27 00:05, Nao via the Galaxy thread)
+`02_passQ_desi.py --all --with-stars --expfibermap --with-galaxies --shard i/4` (restarted 00:05:15). `--with-galaxies`
+calls the Galaxy thread's `programs_templates/galaxy_hook.py` (pass C on the same read: per-galaxy tables
+`~/data/sdssdesi_passC/tables/`, accumulators `~/data/sdssdesi_passC/acc/acc_shard<i>of4.npz`, rest-frame store
+`/Volumes/exdisk3/sdssdesi_restframe`). The ~17,500 coadds done before 00:05 are re-read for their galaxies only, then
+the walk continues with all four outputs. **Stop:** SIGTERM only sets a flag; each shard finishes its coadd, writes
+the galaxy checkpoint (tmp + rename) and exits — allow ≥ 2 min before any KILL (stop_before_shutdown.sh waits up to
+2 min; pre_shutdown.sh 5 min). **Resume command everywhere must carry `--with-galaxies`** (resume_after_reboot.sh
+updated; post_reboot.sh is the Stellar thread's). Memory: ≈ 1.2 GB more per shard. The monitor's pass-Q file count
+does not move during the galaxy-only phase (shows "stalled"): watch the passC tables count instead.
