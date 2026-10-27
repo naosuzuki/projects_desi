@@ -38,9 +38,12 @@ STEPS = [
     dict(track='common', name='Pass B: DESI per-spectrum measurements (all classes)', kind='files',
          pattern=f'{HOME}/data/sdssdesi_passB/*/*.parquet', total=N_DESI_COADDS, proc='02_passB_measure'),
     # --- galaxies
-    dict(track='galaxies', name='Galaxy cell assignment', kind='json', path=f'{STATUS_DIR}/step_gal_assign.json', proc='06_assign_cells'),
-    dict(track='galaxies', name='Pass C: galaxy stacks', kind='json', path=f'{STATUS_DIR}/step_gal_passC.json', proc='07_passC_stack'),
-    dict(track='galaxies', name='Galaxy EM-PCA', kind='json', path=f'{STATUS_DIR}/step_gal_empca.json', proc='08_empca_gal'),
+    dict(track='galaxies', name='Galaxy cell assignment', kind='json', path=f'{STATUS_DIR}/step_gal_assign.json', proc='07_assign_cells'),
+    dict(track='galaxies', name='SDSS galaxy pass DR8 (spPlates, internal disk)', kind='json', path=f'{STATUS_DIR}/step_gal_sdss_dr8_shard0of1.json', proc='11_passG_sdss.py --survey dr8'),
+    dict(track='galaxies', name='SDSS galaxy pass DR17 (spPlates, internal disk)', kind='json', path=f'{STATUS_DIR}/step_gal_sdss_dr17_shard0of1.json', proc='11_passG_sdss.py --survey dr17'),
+    dict(track='galaxies', name='Pass C: galaxy stacks (DESI coadds)', kind='files',
+         pattern=f'{HOME}/data/sdssdesi_passC/tables/*/*.parquet', total=N_DESI_COADDS, proc='08_passC_stack', walk=True),
+    dict(track='galaxies', name='Galaxy EM-PCA', kind='json', path=f'{STATUS_DIR}/step_gal_empca.json', proc='10_galaxy_empca'),
     # --- quasars
     dict(track='quasars', name='Pass Q: SDSS quasars (DR17 + DR8 spPlates)', kind='files',
          pattern=f'{HOME}/data/sdssdesi_passQ_sdss/*/*.parquet', total=N_SDSS_PLATES, proc='01_passQ_sdss'),

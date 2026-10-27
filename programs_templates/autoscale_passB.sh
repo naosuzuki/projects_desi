@@ -10,7 +10,7 @@ LOG=~/data/sdssdesi_status/autoscale.log
 TOTAL=34508
 log() { echo "$(date '+%F %T') $*" | tee -a $LOG; }
 current_n() { pgrep -f '02_passB_measure.py --all' | wc -l | tr -d ' '; }
-link() { system_profiler SPUSBDataType 2>/dev/null | awk 'BEGIN{RS="\n\n"} /BSD Name: disk5/ {print}' | grep -m1 Speed | sed 's/.*Up to //'; }
+link() { system_profiler SPUSBDataType 2>/dev/null | awk 'BEGIN{RS="\n\n"} /25EE|25ee/ {print}' | grep -m1 Speed | sed 's/.*Up to //'; }
 log "autoscaler started (current workers: $(current_n))"
 last_target=0
 while true; do
@@ -21,7 +21,8 @@ while true; do
   case "$sp" in *Gb*) usb3=1;; *) usb3=0;; esac
   # USB 3: 4 workers (3 while Prospector holds the performance cores). USB 2: the link is the limit, but a
   # 10-min test gave 18/min with 4 workers vs 13-16/min with 2, so use 4 once the CPU is free, else 2.
-  if [ $usb3 -eq 1 ]; then if [ "$prosp" -gt 0 ]; then target=3; else target=${USB3_WORKERS:-6}; fi
+  # measured 2026-10-25 on USB 3, dark files: 4 workers 23.4 files/min (70 MB/s), 6 workers 19.5 (62 MB/s) -> 4 is the optimum
+  if [ $usb3 -eq 1 ]; then if [ "$prosp" -gt 0 ]; then target=3; else target=${USB3_WORKERS:-4}; fi
   else if [ "$prosp" -gt 0 ]; then target=2; else target=4; fi; fi
   n=$(current_n)
   if [ "$target" -ne "$last_target" ] || [ "$n" -eq 0 ]; then

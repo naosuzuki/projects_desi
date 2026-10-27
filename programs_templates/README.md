@@ -77,6 +77,62 @@ for p in $(pgrep -f '02_passB_measure.py --all'); do nohup caffeinate -i -w $p >
 Existing outputs are skipped; the file that raised the read error (bright-30037) is re-read and should be
 checked (FITS CHECKSUM) if it fails again. Consider `04_monitor.py` adding "disk unmounted → pause workers".
 
+## Pass B COMPLETE 2026-10-25 21:49 — 34,508/34,508 files, 36 GB, 0 missing
+Started 2026-10-24 11:53; interrupted 17:20-18:03 (exdisk2 USB disconnect), then USB 2 link until 16:21 on
+2026-10-25 (new cable -> 5 Gb/s). Optimum on USB 3: 4 workers = 23.4 files/min (6 workers = 19.5). Handoff:
+after_passB.sh (Quasar thread) ran cleanup at 21:50 and started pass Q DESI (4 shards, --with-stars --expfibermap).
+Summary scan: 06_passB_summary.py -> ~/data/sdssdesi_products/passB_summary.json + passB_summary_columns.parquet.
+LINES table switched to VACUUM at 21:55 (LINES_FRAME='vacuum'); all pass-B tables were measured with the air table.
+
+## One DESI read for all three tracks (Nao, 2026-10-27)
+`galaxy_hook.py` runs pass C's per-coadd galaxy work (08_passC_stack.process_arrays) inside the shared DESI walk
+(programs_quasars/02_passQ_desi.py --with-galaxies), so each coadd is read once for quasars, stars and galaxies.
+Same state files as `run_passC.sh N` (acc_shard<i>of<N>.npz + tables; same manifest split for N=4), so either can
+continue the other. Test (40 coadds): hook == standalone, bit-identical accumulators (3,349 stacked both ways).
+SDSS galaxies: `11_passG_sdss.py` (internal disk; DR8 + DR17 separate accumulators), running since 2026-10-26 23:58.
+
+## Pass C (stacking) — written and tested 2026-10-25 23:30, NOT yet run
+Scripts: `gridcells.py` (bin rules), `normwin.py` (normalization windows), `08_passC_stack.py` (per-galaxy
+Steps 1-6 + cell accumulators; SIGTERM-safe: finishes the current file and checkpoints), `09_merge_stacks.py`
+(merge shards -> stacks_z<zb>.fits per slice + cell_stacks.csv), `run_passC.sh N [STORE]` (launcher; refuses to
+start while pass Q runs or if exdisk2 is not on USB 3).
+Test (40 overflow coadds, 3,909 galaxies): 85.7% stacked (the photometry-check failures are now included with
+scale 1); vacuum lines: strong Halpha flux +17%, [OIII] +12.5% vs the air table, [OII] sum unchanged; stack line
+centroids within 0.25 px (Hb +17, [OIII] +10, Ha -6 km/s); ~1 s/file CPU, 3.9 GB peak per worker (1.24 GB
+accumulators for 9,117 cells x 8,495 px); store ~17 KB/spectrum -> ~470 GB for all galaxies.
+Production: after pass Q DESI finishes, `./run_passC.sh 4 [/Volumes/exdisk3/sdssdesi_restframe]`, then
+`python3 09_merge_stacks.py --floor 200`. Expected ~20 h (disk-bound like pass B). Median stacks need the store.
+Eigenspectra: `10_galaxy_empca.py --nvec 10 --niter 25 --tag v1` (uses programs_stars/step7_empca.empca with
+galaxy settings: absolute pixel coverage, no mean subtraction - the mean shape is component 0). Smoke test on the
+40-file test stacks runs (127 stacks, 6 s); the vectors are noise-dominated at the blue end there (stacks of 5-19
+galaxies at S/N~2, few covering <1700 A) -> with real stacks add a summed-weight pixel criterion (like the stars).
+Resume test: SIGTERM after 20 of 40 files -> checkpoint written, restart skipped them, final accumulator
+bit-identical to an uninterrupted run (3,349 spectra, max |diff| 0). Monitor (programs_monitor/monitor.py)
+galaxy-track entries now point at 07_assign_cells / 08_passC_stack (files-kind, tables/*/*.parquet) / 10_galaxy_empca.
+DECISIONS (Nao, 2026-10-26):
+ 1. DONE: pass C writes the rest-frame store to /Volumes/exdisk3/sdssdesi_restframe (kept for the project; derived,
+    reproducible data). exdisk3 = WD easystore 5 TB, USB, ~54 MB/s write measured (pass C needs ~13 MB/s).
+ 2. DONE: photoPlate-dr8.fits (5.5 GB) + photoMatchPlate-dr8.fits (0.27 GB) downloaded from data.sdss.org to
+    ~/sdssredux (were not on any local disk) -> DR8 galaxies get CMODELMAG/FIBERMAG/PSFMAG for M_r and Step 1.
+    Verified: 1,843,200 rows, ROW-ALIGNED with specObj-dr8 (OBJID == BESTOBJID for 100% of rows; no PLATE/MJD/FIBERID
+    columns, so join by row index). 908,404 primary DR8 galaxies, 96.3% with a valid CMODELMAG r (median 17.41).
+OPEN:
+ 3. SDSS Step-1 reference for galaxies: the SDSS pipeline calibrates to PSF magnitudes (Quasar thread: synthetic -
+    fiber = -0.70 BOSS, -0.30 SDSS-I/II for point sources) -> galaxies should be scaled to FIBER2MAG/FIBERMAG plus the
+    per-plate point-source offset median(PSFMAG - FIBERMAG of the plate's stars), the analogue of DESI's
+    MEAN_PSF_TO_FIBER_SPECFLUX.
+
+## Shutdown 2026-10-26 ~04:30 (planned)
+`preshutdown.sh 04:15` is armed (detached): SIGTERM to pass Q / pass B workers, monitor, autoscaler; caffeinate
+released; sync; clean unmount of exdisk2 and exdisk1; log in ~/data/sdssdesi_status/shutdown.log.
+Restart checklist: docs/RESTART_after_shutdown.md. Pass Q (Quasar thread) resumes file by file.
+
+## Galaxy cell assignment (07_assign_cells.py, 2026-10-25 22:10)
+28,110,226 galaxies (DELTACHI2>25, z<1.6) -> 23,182,521 assignable (82.5%); populated cells: 5,762 at floor 300
+(95.7% of assigned galaxies), 6,850 at floor 200, 3,182 at floor 1000. Outputs: ~/data/sdssdesi_products/galaxy_cells.parquet,
+galaxy_cell_table.csv. Bin boundaries confirmed from the measured distributions (EW log2 bins; Dn4000 0.25 bins; one EW
+scale for Halpha/[OII], ratio 0.95 in the overlap).
+
 ## Known issue (found 2026-10-25 by the Quasar thread): LINES table in AIR wavelengths
 `02_passB_measure.py` LINES uses air wavelengths (Halpha 6562.80, [OIII] 5006.84, [OII] 3726.03/3728.82, ...);
 DESI and SDSS spectra are in VACUUM (6564.61, 5008.24, 3727.09/3729.88, ...). Effect: lines fitted ~76 km/s off

@@ -166,16 +166,19 @@ def combine_cameras(f):
     return w, flux, den, mask, percam
 
 # ---------------------------------------------------------------- emission lines
-LINES = {   # group: list of (name, rest wavelength)
-    'oii':  [('OII_3726', 3726.03), ('OII_3729', 3728.82)],
-    'neiii':[('NEIII_3869', 3868.76)],
-    'hd':   [('HDELTA', 4101.74)],
-    'hg':   [('HGAMMA', 4340.47)],
-    'hb':   [('HBETA', 4861.33)],
-    'oiii': [('OIII_4959', 4958.91), ('OIII_5007', 5006.84)],
-    'ha':   [('NII_6548', 6548.05), ('HALPHA', 6562.80), ('NII_6583', 6583.45)],
-    'sii':  [('SII_6716', 6716.44), ('SII_6731', 6730.82)],
+LINES = {   # group: list of (name, rest wavelength) -- VACUUM wavelengths (DESI and SDSS spectra are in vacuum).
+    # The pass-B production run of 2026-10-24/25 used AIR values (Halpha 6562.80 etc.): lines ~76 km/s off centre,
+    # EWs of narrow lines biased low. Switched to vacuum after completion; lines are re-measured in pass C.
+    'oii':  [('OII_3726', 3727.09), ('OII_3729', 3729.88)],
+    'neiii':[('NEIII_3869', 3869.86)],
+    'hd':   [('HDELTA', 4102.89)],
+    'hg':   [('HGAMMA', 4341.68)],
+    'hb':   [('HBETA', 4862.68)],
+    'oiii': [('OIII_4959', 4960.30), ('OIII_5007', 5008.24)],
+    'ha':   [('NII_6548', 6549.86), ('HALPHA', 6564.61), ('NII_6583', 6585.27)],
+    'sii':  [('SII_6716', 6718.29), ('SII_6731', 6732.67)],
 }
+LINES_FRAME = 'vacuum'   # pass-B tables produced before 2026-10-25 21:50 were measured with the air table
 SIGMAS_KMS = [80.0, 150.0, 300.0]
 SIDEBAND = 30.0   # A on each side of the group for the linear continuum
 CKMS = 299792.458
