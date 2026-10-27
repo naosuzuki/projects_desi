@@ -211,9 +211,9 @@ def collect(hist, do_guard):
     walk = [st for st, s in zip(steps, STEPS) if s.get('walk')]
     lead = [st for st in walk if st['status'] == 'running' and st['eta_min']]
     if lead and any(w.get('walk') for w in workers):
-        lead = max(lead, key=lambda x: x['eta_min'])
-        for st in walk:
-            if st['status'] == 'stalled':
+        lead = max(lead, key=lambda x: x['rate_per_min'])     # the output the walk is producing now
+        for st in walk:      # stalled, or trickling (a few retried coadds) far below the walk's rate
+            if st is not lead and (st['status'] == 'stalled' or (st['status'] == 'running' and st['rate_per_min'] < 0.25 * lead['rate_per_min'])):
                 st.update(status='waiting', rate_per_min=0.0, eta_min=lead['eta_min'], eta_at=lead['eta_at'],
                           note=f"walk alive; resumes when the walk passes coadd {st['done']:,} (now at {lead['done']:,} for "
                                f"'{lead['name'].split(':')[0]}'); ETA = walk ETA, a lower limit")
