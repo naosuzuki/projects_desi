@@ -234,6 +234,13 @@ Two bugs fixed before this run: the G-flux padding used the grid edge instead of
 most SDSS-I individuals), and the pixel-coverage criterion counted the low-weight individuals (halved the M-dwarf basis); it is now
 evaluated on the stacks only. `empca()`/`explained()` are a stable interface: the Galaxy thread imports them.
 
+## 9. 2026-10-27: the walk also carries the galaxy pass C
+Since 00:05 the walk runs `02_passQ_desi.py --all --with-stars --expfibermap --with-galaxies --shard i/4` (Quasar thread, at Nao's
+request via the Galaxy thread; COORDINATION.md §6). The first ~17,500 coadds are re-read for galaxies only, so the DESI star tables
+pause at 17,462 for ≈7 h, then grow again with the rest of the walk (≈8 h more). The walk stops gracefully on SIGTERM (finishes its
+coadd, writes a galaxy checkpoint); the 5-min grace in pre_shutdown.sh is enough. post_reboot.sh launches the same command.
+The DESI star steps (2b, 5, 6, 7, Calibration 2) wait for the walk to finish, ≈15 h from 00:05.
+
 ## 4. Decisions for Nao (ordered by when they block)
 1. Backup-program coadds: download (brightest stars, most XP) or dark+bright only? (blocks the final sample, not the pipeline)
 2. Downloads: Bayestar19 (dustmaps), DESI DR1 MWS VAC, Gaia XP coefficients for the DESI quality stars (sizes to be reported before fetching).
