@@ -120,6 +120,14 @@ def load_individuals(tag, cells, k_per_stack, snmin, survey):
     spec = importlib.util.spec_from_file_location('step6', os.path.join(HERE, 'step6_stack.py')); S6 = importlib.util.module_from_spec(spec); spec.loader.exec_module(S6)
     mem = pd.read_csv(os.path.join(OUTDIR, f'members_{tag}.csv'))
     mem = mem[mem.SNR_ALL > snmin].sort_values('SNR_ALL', ascending=False).groupby('STACK').head(k_per_stack)
+    selp = os.path.join(S6.CACHE, f'step6_selection_{tag}.parquet')
+    if survey == 'desi' and os.path.exists(selp):          # the step-6 selection has every column; spectra from star_hook's store
+        import star_hook
+        df = pd.read_parquet(selp); df = df[df.SID.isin(mem.SID)]
+        specs, ws, ids, stacks = [], [], [], []
+        for row, f, iv, mk, rid0 in S6.iter_store(df, 0, star_hook.STORE):
+            s, w = S6.star_spectrum(row, f, iv, mk, rid0); specs.append(s); ws.append(w); ids.append(row.SID); stacks.append(row.STACK)
+        return (np.array(specs), np.array(ws), ids, stacks) if specs else (np.zeros((0, NPIX)), np.zeros((0, NPIX)), [], [])
     files = sorted(__import__('glob').glob(os.path.join(S6.PASSDIR[survey], '*', '*.parquet')))
     import pyarrow.parquet as pq
     need = ['FILE', 'Z', 'GAIA_DG', 'CAL_A', 'EBV_USED', 'EBV_SFD', 'ABS_SCALE', 'SNR_ALL'] + (['PLATE', 'MJD', 'FIBERID', 'SURVEY'] if survey == 'sdss' else ['TARGETID', 'PROGRAM'])

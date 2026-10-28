@@ -198,11 +198,17 @@ def main():
     ap.add_argument('--onepass', action='store_true', help='read each spectrum once, keep it in memory for passes A and B')
     ap.add_argument('--select-only', action='store_true', help='write the star selection (for star_hook.py) and stop')
     ap.add_argument('--from-store', action='store_true', help="DESI: stack from star_hook's store + the selection file")
+    ap.add_argument('--store-only', action='store_true', help='with --from-store: use only the coadds already in the store (no exdisk2 reads); the cap applies to those')
     a = ap.parse_args(); t0 = time.time(); os.makedirs(a.outdir, exist_ok=True)
     _progress('stack', 0, 1, 'running', f'{a.survey}: reading the star tables'); cells, mem = members(a.tag, a.nmin)
     selp = os.path.join(CACHE, f'step6_selection_{a.tag}.parquet')
     if a.from_store:
         df = pd.read_parquet(selp); stacks = sorted(df.STACK.unique())
+        if a.store_only:
+            import star_hook
+            have = {e.name[:-4] + '.fits' for e in os.scandir(star_hook.STORE) if e.name.endswith('.npz') and '.tmp' not in e.name}
+            n0 = len(df); df = df[df.FILE.isin(have)]
+            print(f'--store-only: {len(have):,} coadds in the store hold {len(df):,} of {n0:,} candidate stars', flush=True)
         print(f'{a.survey}: selection {len(df):,} stars, {len(stacks)} stacks, {df.FILE.nunique():,} files (from {selp}); {time.time()-t0:.0f}s', flush=True)
         if a.maxper:
             n0, f0 = len(df), df.FILE.nunique(); df = select_per_stack(df, a.maxper)

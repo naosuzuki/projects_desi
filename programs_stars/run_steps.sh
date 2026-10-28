@@ -28,11 +28,15 @@ case "$1" in
             nice -n 10 python3 step6_stack.py --survey desi --tag desi_0.5x0.1_gspphot --nmin 100 --snmin 5 --maxper ${MAXPER:-300} --onepass > $S/step6_desi.log 2>&1
             nice -n 10 python3 step7_empca.py --survey desi --tag desi_0.5x0.1_gspphot --individuals 5 --plot > $S/step7_desi.txt 2>&1
             echo "DESI chain finished $(date '+%F %T')" ;;
-  desi67)   # step 6 from star_hook's store (filled inside the quasar-stack read) once the quasar DESI shards are done -> step 7
-            # done = all three DESI shard status files say 'done' (a restart gap with no shard running must not count)
-            until [ $(cat $S/step_qso_stack_desi_shard*of3.json 2>/dev/null | grep -o '"status": "done"' | wc -l) -ge 3 ] && ! pgrep -f "[0]5_stack.py --survey desi" >/dev/null; do sleep 60; done
-            nice -n 10 python3 step6_stack.py --survey desi --tag desi_0.5x0.1_gspphot --nmin 100 --snmin 5 --maxper ${MAXPER:-300} --from-store --onepass > $S/step6_desi.log 2>&1
-            nice -n 10 python3 step7_empca.py --survey desi --tag desi_0.5x0.1_gspphot --individuals 5 --plot > $S/step7_desi.txt 2>&1
+  desi67)   # step 6 from star_hook's store (filled inside the quasar-stack read + fill_store.py) -> step 7. Starts when the
+            # 300-per-stack coadds (first 18,875 lines of star_priority_files.txt) are all stored, or at DEADLINE (HHMM, default 0715)
+            # with whatever is stored (--store-only: no exdisk2 reads); Nao wants the stars done before 08:30 (2026-10-28)
+            P=~/data/sdssdesi_products/stars/star_priority_files.txt; ST=/Volumes/exdisk3/sdssdesi_star_spectra/desi
+            until [ $(date +%H%M) -ge ${DEADLINE:-0715} ] && [ $(date +%H%M) -lt 1200 ] || \
+                  [ $(head -18875 $P | sed 's/.fits$/.npz/' | while read f; do [ -f $ST/$f ] || echo x; done | wc -l) -eq 0 ]; do sleep 120; done
+            echo "step 6 starts $(date '+%F %T')"
+            nice -n 5 python3 step6_stack.py --survey desi --tag desi_0.5x0.1_gspphot --nmin 100 --snmin 5 --maxper ${MAXPER:-300} --from-store --store-only --onepass > $S/step6_desi.log 2>&1
+            nice -n 5 python3 step7_empca.py --survey desi --tag desi_0.5x0.1_gspphot --individuals 5 --plot > $S/step7_desi.txt 2>&1
             echo "DESI steps 6-7 finished $(date '+%F %T')" ;;
   monitor)  echo "the stars track is on the main monitor: http://127.0.0.1:8765/monitor.html (programs_monitor/monitor.py)" ;;
   *)        echo "usage: $0 1 | 2-3sdss | 2b | 3b | 2-3desi | 5 | 6 | chain | desi | desi67 | monitor" ;;
