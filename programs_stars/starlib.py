@@ -76,6 +76,12 @@ RATIOS = {k: (tuple(air_to_vac(v[0])), tuple(air_to_vac(v[1]))) for k, v in RATI
 
 
 # ---------------------------------------------------------------- 1. Gaia synthetic photometry
+def desi_sid(df):
+    """star-spectrum id for DESI coadds: TARGETID-PROGRAM (a star observed in bright and dark has two coadds, each with its own
+    exposures and response; TARGETID alone merged them, fixed 2026-10-27)."""
+    return df.TARGETID.astype(str) + '-' + df.PROGRAM.astype(str)
+
+
 def gaia_mags(w, flux, ivar, mask):
     """Synthetic Gaia DR3 G/BP/RP (Vega) of the pipeline spectrum, padded flat beyond the DESI range.
     Returns dict of arrays: SYN_GAIA_{G,BP,RP}, GAIA_EXTRAP_{G,BP,RP} (band-weight fraction in the padding)."""

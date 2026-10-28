@@ -133,9 +133,9 @@ def main():
     files = [f for f in files if 'FILE' in pq.ParquetFile(f).schema_arrow.names]
     need = ['ZWARN', 'SNR_ALL', 'GAIA_PHOT_G_MEAN_MAG', 'GAIA_PHOT_BP_MEAN_MAG', 'GAIA_PHOT_RP_MEAN_MAG', 'SYN_GAIA_G', 'SYN_GAIA_BP', 'SYN_GAIA_RP', 'GAIA_DG', 'CAL_B_EST']
     need += (['PLATE', 'MJD', 'FIBERID'] + [f'{p}_{b}' for b in 'UGRIZ' for p in ('PSFMAG', 'SYN_SDSS', 'SYN_SDSS_EXTRAP')] + [f'SYN_SDSS_{b}_ERR' for b in 'UGRIZ']) if a.survey == 'sdss' \
-            else ['TARGETID', 'PHOTSYS', 'MEAN_PSF_TO_FIBER_SPECFLUX', 'FLUX_G', 'FLUX_R', 'FLUX_Z', 'SYN_FIBER_G_RAW', 'SYN_FIBER_R_RAW', 'SYN_FIBER_Z_RAW', 'SYN_FIBER_G_ERR', 'SYN_FIBER_R_ERR']
+            else ['TARGETID', 'PROGRAM', 'PHOTSYS', 'MEAN_PSF_TO_FIBER_SPECFLUX', 'FLUX_G', 'FLUX_R', 'FLUX_Z', 'SYN_FIBER_G_RAW', 'SYN_FIBER_R_RAW', 'SYN_FIBER_Z_RAW', 'SYN_FIBER_G_ERR', 'SYN_FIBER_R_ERR']
     df = pd.concat([pd.read_parquet(f, columns=[c for c in need if c in pq.ParquetFile(f).schema_arrow.names]) for f in files], ignore_index=True)
-    df['SID'] = (df.PLATE.astype(str) + '-' + df.MJD.astype(str) + '-' + df.FIBERID.astype(str)) if a.survey == 'sdss' else df.TARGETID.astype(str)
+    df['SID'] = (df.PLATE.astype(str) + '-' + df.MJD.astype(str) + '-' + df.FIBERID.astype(str)) if a.survey == 'sdss' else starlib.desi_sid(df)
     df = df[(df.ZWARN == 0) & (df.SNR_ALL > a.snmin)].reset_index(drop=True)
     L = long_table(df, a.survey)
     print(f'{a.survey}: {len(files)} files, {len(df):,} stars (ZWARN=0, S/N>{a.snmin}), {len(L):,} star-band pairs, bands {sorted(L.KEY.unique())}; {time.time()-t0:.0f}s', flush=True)

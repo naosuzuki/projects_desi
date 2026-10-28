@@ -42,12 +42,21 @@ def load(survey, passdir):
     files = sorted(glob.glob(os.path.join(passdir, '*', '*.parquet')))
     import pyarrow.parquet as pq
     files = [f for f in files if 'FILE' in pq.ParquetFile(f).schema_arrow.names]          # skip the empty per-file tables
-    df = pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
+    if survey == 'desi':        # 11.6 M rows x 206 columns would be ~19 GB: read only what this step uses
+        have = pq.read_schema(files[0]).names
+        cols = ['FILE', 'TARGETID', 'PROGRAM', 'ZWARN', 'SUBTYPE', 'SNR_ALL', 'CAL_OK', 'GAIA_PHOT_G_MEAN_MAG', 'GAIA_PHOT_BP_MEAN_MAG',
+                'GAIA_PHOT_RP_MEAN_MAG', 'GAIA_BP_RP', 'DM', 'EBV_3D', 'EBV_USED', 'A_G_USED', 'EBPRP_USED', 'M_G_SYN0', 'C_BLUE_RAW', 'C_RED_RAW']
+        for c in INDICES + REPORT_ONLY + RATIOS:
+            cols += [c, c.replace('_EW', '_EW_ERR') if c.endswith('_EW') else c + '_ERR']
+        cols = [c for c in dict.fromkeys(cols) if c in have]
+        df = pd.concat([pd.read_parquet(f, columns=[c for c in cols if c in pq.ParquetFile(f).schema_arrow.names]) for f in files], ignore_index=True)
+    else:
+        df = pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
     if survey == 'desi':
-        hr = pd.read_parquet(os.path.expanduser('~/data/sdssdesi_cache/gaia_desi_stars_hr.parquet'), columns=['targetid', 'mh_gspphot'])
+        hr = pd.read_parquet(os.path.expanduser('~/data/sdssdesi_cache/gaia_desi_stars_hr.parquet'), columns=['targetid', 'mh_gspphot']).drop_duplicates('targetid')   # 1.4 % of targetids listed twice
         df = df.merge(hr.rename(columns={'targetid': 'TARGETID', 'mh_gspphot': 'GAIA_MH_GSPPHOT'}), on='TARGETID', how='inner')
         df['QUALITY'] = True; df['SUBCLASS1'] = df['SUBTYPE'].str[:1]
-        df['SID'] = df['TARGETID'].astype(str)
+        import starlib; df['SID'] = starlib.desi_sid(df)
     else:
         df['SID'] = df.PLATE.astype(str) + '-' + df.MJD.astype(str) + '-' + df.FIBERID.astype(str)
     return df, len(files)

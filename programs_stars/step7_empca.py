@@ -122,10 +122,10 @@ def load_individuals(tag, cells, k_per_stack, snmin, survey):
     mem = mem[mem.SNR_ALL > snmin].sort_values('SNR_ALL', ascending=False).groupby('STACK').head(k_per_stack)
     files = sorted(__import__('glob').glob(os.path.join(S6.PASSDIR[survey], '*', '*.parquet')))
     import pyarrow.parquet as pq
-    need = ['FILE', 'Z', 'GAIA_DG', 'CAL_A', 'EBV_USED', 'EBV_SFD', 'ABS_SCALE', 'SNR_ALL'] + (['PLATE', 'MJD', 'FIBERID', 'SURVEY'] if survey == 'sdss' else ['TARGETID'])
+    need = ['FILE', 'Z', 'GAIA_DG', 'CAL_A', 'EBV_USED', 'EBV_SFD', 'ABS_SCALE', 'SNR_ALL'] + (['PLATE', 'MJD', 'FIBERID', 'SURVEY'] if survey == 'sdss' else ['TARGETID', 'PROGRAM'])
     files = [f for f in files if 'FILE' in pq.ParquetFile(f).schema_arrow.names]
     df = pd.concat([pd.read_parquet(f, columns=[c for c in need if c in pq.ParquetFile(f).schema_arrow.names]) for f in files], ignore_index=True)
-    df['SID'] = (df.PLATE.astype(str) + '-' + df.MJD.astype(str) + '-' + df.FIBERID.astype(str)) if survey == 'sdss' else df.TARGETID.astype(str)
+    df['SID'] = (df.PLATE.astype(str) + '-' + df.MJD.astype(str) + '-' + df.FIBERID.astype(str)) if survey == 'sdss' else starlib.desi_sid(df)
     df = df[df.SID.isin(mem.SID)].merge(mem[['SID', 'STACK', 'CELL']], on='SID', how='inner')
     sp = os.path.join(S6.CACHE, f'spcal_{survey}.parquet')
     if os.path.exists(sp):

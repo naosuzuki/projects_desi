@@ -178,7 +178,7 @@ def main():
     cells, mem = members(a.tag, a.nmin)
     files = sorted(glob.glob(os.path.join(a.passdir or PASSDIR[a.survey], '*', '*.parquet')))
     need = ['FILE', 'Z', 'GAIA_DG', 'CAL_A', 'EBV_USED', 'ABS_SCALE', 'SNR_ALL', 'HALPHA_ST_EW', 'HALPHA_ST_EW_ERR', 'HBETA_LK_EW']
-    need += ['PLATE', 'MJD', 'FIBERID', 'SURVEY'] if a.survey == 'sdss' else ['TARGETID']
+    need += ['PLATE', 'MJD', 'FIBERID', 'SURVEY'] if a.survey == 'sdss' else ['TARGETID', 'PROGRAM']
     need += ['EBV_SFD']
     import pyarrow.parquet as pq
     files = [f for f in files if 'FILE' in pq.ParquetFile(f).schema_arrow.names]          # skip the empty per-file tables
@@ -197,7 +197,7 @@ def main():
     if 'EBV_3D' in df:
         e3 = df.EBV_3D.to_numpy(float); df['EBV_USED'] = np.where(np.isfinite(e3), e3, 0.86 * df.EBV_SFD.to_numpy(float))
         print(f'3D E(B-V) used for {np.isfinite(e3).sum():,} of {len(df):,} stars (SFD fallback for the rest)', flush=True)
-    df['SID'] = (df.PLATE.astype(str) + '-' + df.MJD.astype(str) + '-' + df.FIBERID.astype(str)) if a.survey == 'sdss' else df.TARGETID.astype(str)
+    df['SID'] = (df.PLATE.astype(str) + '-' + df.MJD.astype(str) + '-' + df.FIBERID.astype(str)) if a.survey == 'sdss' else starlib.desi_sid(df)
     df = df[df.SID.isin(mem.SID) & (df.SNR_ALL > a.snmin) & np.isfinite(df.ABS_SCALE)]
     # step 2b: joint spectrophotometric solution (scale A_FLUX, tilt) when it exists; else the Gaia-G scale alone
     sp = os.path.join(CACHE, f'spcal_{a.survey}.parquet')
