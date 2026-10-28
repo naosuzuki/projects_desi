@@ -65,6 +65,7 @@ STEPS = [
     dict(track='stars', name='Stars 5: HR grid, same-cell similarity test (SDSS, DESI)', kind='json', path=f'{STATUS_DIR}/step_star_cells.json', proc='step5_hr_cells'),
     dict(track='stars', name='Stars 6: stacks of the alike cells (SDSS, DESI)', kind='json', path=f'{STATUS_DIR}/step_star_stack.json', proc='step6_stack'),
     dict(track='stars', name='Stars 7: EM-PCA', kind='json', path=f'{STATUS_DIR}/step_star_empca.json', proc='step7_empca'),
+    dict(track='stars', name='Stars 8: Calibration 2 (DESI response per exposure and petal, per coadd)', kind='json', path=f'{STATUS_DIR}/step_star_response.json', proc='step8_response'),
 ]
 DISKS = {'internal (output)': HOME, 'exdisk2 (coadds)': '/Volumes/exdisk2', 'exdisk1 / My Book (overflow)': ['/Volumes/exdisk1', '/Volumes/My Book']}
 
