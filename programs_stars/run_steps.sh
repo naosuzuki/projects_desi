@@ -29,7 +29,8 @@ case "$1" in
             nice -n 10 python3 step7_empca.py --survey desi --tag desi_0.5x0.1_gspphot --individuals 5 --plot > $S/step7_desi.txt 2>&1
             echo "DESI chain finished $(date '+%F %T')" ;;
   desi67)   # step 6 from star_hook's store (filled inside the quasar-stack read) once the quasar DESI shards are done -> step 7
-            while pgrep -f "[0]5_stack.py --survey desi" >/dev/null; do sleep 60; done
+            # done = all three DESI shard status files say 'done' (a restart gap with no shard running must not count)
+            until [ $(cat $S/step_qso_stack_desi_shard*of3.json 2>/dev/null | grep -o '"status": "done"' | wc -l) -ge 3 ] && ! pgrep -f "[0]5_stack.py --survey desi" >/dev/null; do sleep 60; done
             nice -n 10 python3 step6_stack.py --survey desi --tag desi_0.5x0.1_gspphot --nmin 100 --snmin 5 --maxper ${MAXPER:-300} --from-store --onepass > $S/step6_desi.log 2>&1
             nice -n 10 python3 step7_empca.py --survey desi --tag desi_0.5x0.1_gspphot --individuals 5 --plot > $S/step7_desi.txt 2>&1
             echo "DESI steps 6-7 finished $(date '+%F %T')" ;;
