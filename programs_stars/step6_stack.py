@@ -175,7 +175,7 @@ def main():
     ap.add_argument('--maxper', type=int, default=0, help='at most N stars per stack (highest S/N, few files); 0 = all')
     ap.add_argument('--onepass', action='store_true', help='read each spectrum once, keep it in memory for passes A and B')
     a = ap.parse_args(); t0 = time.time(); os.makedirs(a.outdir, exist_ok=True)
-    cells, mem = members(a.tag, a.nmin)
+    _progress('stack', 0, 1, 'running', f'{a.survey}: reading the star tables'); cells, mem = members(a.tag, a.nmin)
     files = sorted(glob.glob(os.path.join(a.passdir or PASSDIR[a.survey], '*', '*.parquet')))
     need = ['FILE', 'Z', 'GAIA_DG', 'CAL_A', 'EBV_USED', 'ABS_SCALE', 'SNR_ALL', 'HALPHA_ST_EW', 'HALPHA_ST_EW_ERR', 'HBETA_LK_EW']
     need += ['PLATE', 'MJD', 'FIBERID', 'SURVEY'] if a.survey == 'sdss' else ['TARGETID', 'PROGRAM']
@@ -222,7 +222,7 @@ def main():
             if row.FILE != last:
                 last = row.FILE; k += 1
                 if k % 200 == 0:
-                    print(f'  {k:,}/{nfile:,} files, {time.time()-t0:.0f}s', flush=True); _progress('stack', 1, 2, 'running', f'DESI: {k:,}/{nfile:,} coadds read')
+                    print(f'  {k:,}/{nfile:,} files, {time.time()-t0:.0f}s', flush=True); _progress('stack', k, nfile, 'running', f'{a.survey}: {k:,}/{nfile:,} files read')
             spec, w = star_spectrum(row, f, iv, mk, rid0)
             yield row.STACK, spec, w
     if a.onepass:
