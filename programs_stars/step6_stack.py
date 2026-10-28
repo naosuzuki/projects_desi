@@ -25,6 +25,10 @@ in memory (float32) for passes A and B.
 Usage:
   python3 step6_stack.py --survey sdss --tag sdss_0.5x0.1_gspphot [--nmin 100] [--snmin 5] [--maxfiles N]
   python3 step6_stack.py --survey desi --tag desi_0.5x0.1_gspphot --maxper 300 --onepass
+DESI without an exdisk2 pass of its own (Nao: one read per coadd for all classes, 2026-10-27):
+  python3 step6_stack.py --survey desi --tag desi_0.5x0.1_gspphot --maxper 300 --select-only   -> step6_selection_<tag>.parquet
+  (star_hook.py, called inside the quasar stack's coadd read, writes the selected spectra to specstore_desi/)
+  python3 step6_stack.py --survey desi --tag desi_0.5x0.1_gspphot --from-store --onepass      -> reads exdisk2 only for coadds not in the store
 """
 import os, sys, glob, argparse, time
 import numpy as np, pandas as pd, fitsio
@@ -158,6 +162,24 @@ def select_per_stack(df, maxper, pool=3, batch=200):
     return pd.concat(chosen, ignore_index=True)
 
 
+def iter_store(df, maxfiles, store):
+    """spectra from star_hook's store (same arrays as iter_desi); coadds not in the store are read from exdisk2 at the end."""
+    missing = []
+    for k, (base, g) in enumerate(df.groupby('FILE')):
+        if maxfiles and k >= maxfiles: break
+        p = os.path.join(store, base.replace('.fits', '') + '.npz')
+        if not os.path.exists(p):
+            missing.append(base); continue
+        z = np.load(p); pos = {int(t): i for i, t in enumerate(z['TARGETID'])}; rid0 = int(z['RID0']); F_ = z['FLUX']; I_ = z['IVAR']
+        for _, row in g.iterrows():
+            i = pos.get(int(row.TARGETID))
+            if i is None: continue
+            yield row, F_[i].astype(float), I_[i].astype(float), (I_[i] <= 0).astype(np.int8), rid0
+    if missing:
+        print(f'  {len(missing):,} coadds not in the store: reading them from exdisk2', flush=True)
+        yield from iter_desi(df[df.FILE.isin(missing)], 0)
+
+
 def _progress(name, done, total, status='done', note=''):
     """progress file of the monitors (programs_monitor/monitor.py)."""
     try:
@@ -174,8 +196,27 @@ def main():
     ap.add_argument('--nsig', type=float, default=4.0); ap.add_argument('--maxfiles', type=int, default=0); ap.add_argument('--outdir', default=OUTDIR)
     ap.add_argument('--maxper', type=int, default=0, help='at most N stars per stack (highest S/N, few files); 0 = all')
     ap.add_argument('--onepass', action='store_true', help='read each spectrum once, keep it in memory for passes A and B')
+    ap.add_argument('--select-only', action='store_true', help='write the star selection (for star_hook.py) and stop')
+    ap.add_argument('--from-store', action='store_true', help="DESI: stack from star_hook's store + the selection file")
     a = ap.parse_args(); t0 = time.time(); os.makedirs(a.outdir, exist_ok=True)
     _progress('stack', 0, 1, 'running', f'{a.survey}: reading the star tables'); cells, mem = members(a.tag, a.nmin)
+    selp = os.path.join(CACHE, f'step6_selection_{a.tag}.parquet')
+    if a.from_store:
+        df = pd.read_parquet(selp); stacks = sorted(df.STACK.unique())
+        print(f'{a.survey}: selection {len(df):,} stars, {len(stacks)} stacks, {df.FILE.nunique():,} files (from {selp}); {time.time()-t0:.0f}s', flush=True)
+        if a.maxper:
+            n0, f0 = len(df), df.FILE.nunique(); df = select_per_stack(df, a.maxper)
+            print(f'--maxper {a.maxper}: {len(df):,} of {n0:,} stars from {df.FILE.nunique():,} of {f0:,} files', flush=True)
+    else:
+        df, stacks = select_stars(a, cells, mem, t0)
+        if a.select_only:
+            df.to_parquet(selp); print(f'written {selp}'); _progress('stack', 0, 1, 'waiting', f'{a.survey}: {len(df):,} stars selected; spectra from the quasar-stack read (star_hook)'); return
+    import star_hook
+    it = iter_sdss if a.survey == 'sdss' else (lambda d, m: iter_store(d, m, star_hook.STORE)) if a.from_store else iter_desi
+    run_stack(a, cells, mem, df, stacks, it, t0)
+
+
+def select_stars(a, cells, mem, t0):
     files = sorted(glob.glob(os.path.join(a.passdir or PASSDIR[a.survey], '*', '*.parquet')))
     need = ['FILE', 'Z', 'GAIA_DG', 'CAL_A', 'EBV_USED', 'ABS_SCALE', 'SNR_ALL', 'HALPHA_ST_EW', 'HALPHA_ST_EW_ERR', 'HBETA_LK_EW']
     need += ['PLATE', 'MJD', 'FIBERID', 'SURVEY'] if a.survey == 'sdss' else ['TARGETID', 'PROGRAM']
@@ -208,13 +249,16 @@ def main():
     else:
         df['A_FLUX'] = np.nan; df['TILT'] = np.nan; df['TILT_OK'] = False
     mem = split_cells(cells, mem, df)
-    df = df.merge(mem[['SID', 'CELL', 'STACK']], on='SID', how='inner')
+    df = df.merge(mem[['SID', 'CELL', 'STACK', 'FEH']], on='SID', how='inner')
     stacks = sorted(df.STACK.unique())
-    if a.maxper:
+    if a.maxper and not a.select_only:           # the store keeps every candidate; the cap is applied at stacking time
         n0, f0 = len(df), df.FILE.nunique(); df = select_per_stack(df, a.maxper)
         print(f'--maxper {a.maxper}: {len(df):,} of {n0:,} stars from {df.FILE.nunique():,} of {f0:,} files', flush=True)
     print(f'{a.survey}: {len(cells)} cells >= {a.nmin}, {len(stacks)} stacks after splits, {len(df):,} stars, {df.FILE.nunique()} files; {time.time()-t0:.0f}s', flush=True)
-    it = iter_sdss if a.survey == 'sdss' else iter_desi
+    return df, stacks
+
+
+def run_stack(a, cells, mem, df, stacks, it, t0):
     nfile = df.FILE.nunique()
     def spectra():
         last = None; k = 0
@@ -252,7 +296,7 @@ def main():
         base = s.split('_')[0] + '_' + s.split('_')[1] + '_' + s.split('_')[2]; c = cells[cells.CELL == base].iloc[0]
         g = df[df.STACK == s]
         rows.append({'STACK': s, 'CELL': base, 'SPLIT': s[len(base):].lstrip('_') or 'none', 'N': int(accB.nstar[accB.idx[s]]), 'MG0_MED': c.MG0_MED, 'COL0_MED': c.COL0_MED,
-                     'FEH_MED': mem[mem.STACK == s].FEH.median(), 'SNR_MED': g.SNR_ALL.median(), 'HOMOGENEOUS': bool(c.HOMOGENEOUS), 'CAUSES': c.CAUSES if isinstance(c.CAUSES, str) else ''})
+                     'FEH_MED': g.FEH.median(), 'SNR_MED': g.SNR_ALL.median(), 'HOMOGENEOUS': bool(c.HOMOGENEOUS), 'CAUSES': c.CAUSES if isinstance(c.CAUSES, str) else ''})
     tab = pd.DataFrame(rows)
     out = os.path.join(a.outdir, f'stacks_{a.tag}.fits')
     if os.path.exists(out): os.remove(out)
