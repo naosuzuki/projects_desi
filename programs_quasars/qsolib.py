@@ -368,7 +368,7 @@ def systemic_z(df):
 
 # Normalization windows (handover 8.24) and the luminosity axis (Nao, 2026-10-27): the normalization factor at the
 # window, as an absolute flux density F_lam,abs = f_lam(rest) * (d_L / 10 pc)^2 = L_lam / (4 pi (10 pc)^2); replaces M_i(z=2).
-NORM_WINDOWS = [(0.0, 0.8, 5100.0, 5130.0), (0.8, 2.1, 3000.0, 3050.0), (2.1, 9.9, 1275.0, 1290.0)]
+NORM_WINDOWS = [(0.0, 0.8, 5100.0, 5130.0), (0.8, 2.0, 3000.0, 3050.0), (2.0, 9.9, 1275.0, 1290.0)]   # 2.0 (not 2.1): a z-slice edge
 LOG_4PI_10PC2 = np.log10(4 * np.pi * (10 * 3.0856775814913673e18)**2)     # 40.078
 
 

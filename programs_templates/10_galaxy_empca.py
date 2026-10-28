@@ -23,37 +23,53 @@ sys.path.insert(0, os.path.join(HERE, '..', 'programs_stars'))
 from step7_empca import empca, explained          # weighted EM-PCA with missing data (stellar thread)
 
 
-def load_stacks(sdir, min_snr):
+def load_stacks(sdirs, min_snr):
     X, W, cells = [], [], []
-    for fn in sorted(glob.glob(os.path.join(sdir, 'stacks_z*.fits'))):
-        f = fitsio.FITS(fn)
-        fl, iv, c, wave = f['FLUX'].read(), f['IVAR'].read(), f['CELLS'].read(), f['WAVE'].read()
-        for i in range(len(c)):
-            good = np.isfinite(fl[i]) & (iv[i] > 0)
-            if good.sum() < 200:
-                continue
-            snr = np.median(fl[i][good] * np.sqrt(iv[i][good]))
-            if not np.isfinite(snr) or snr < min_snr:
-                continue
-            w = np.where(good, iv[i], 0.0); w = w / np.median(w[good])
-            X.append(np.where(good, fl[i], 0.0)); W.append(w)
-            cells.append({k: c[k][i] for k in c.dtype.names} | {'STACK_SNR': snr, 'NPIX': int(good.sum())})
+    for sdir in sdirs:
+      src = 'sdss' if 'passG_sdss' in sdir else 'desi'
+      for fn in sorted(glob.glob(os.path.join(sdir, 'stacks_z*.fits'))):
+          f = fitsio.FITS(fn)
+          fl, iv, c, wave = f['FLUX'].read(), f['IVAR'].read(), f['CELLS'].read(), f['WAVE'].read()
+          for i in range(len(c)):
+              good = np.isfinite(fl[i]) & (iv[i] > 0)
+              if good.sum() < 200:
+                  continue
+              snr = np.median(fl[i][good] * np.sqrt(iv[i][good]))
+              if not np.isfinite(snr) or snr < min_snr:
+                  continue
+              w = np.where(good, iv[i], 0.0); w = w / np.median(w[good])
+              X.append(np.where(good, fl[i], 0.0)); W.append(w)
+              cells.append({k: c[k][i] for k in c.dtype.names} | {'STACK_SNR': snr, 'NPIX': int(good.sum()), 'SOURCE': src})
     return np.array(X), np.array(W), pd.DataFrame(cells), wave
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--stacks', default=os.path.expanduser('~/data/sdssdesi_passC/stacks'))
+    ap.add_argument('--stacks', nargs='+', default=[os.path.expanduser('~/data/sdssdesi_passC/stacks')],
+                    help='one or more stack directories (09_merge_stacks.py output); each stack enters once')
     ap.add_argument('--out', default=os.path.expanduser('~/data/sdssdesi_passC/empca'))
     ap.add_argument('--tag', default='v1'); ap.add_argument('--nvec', type=int, default=10)
     ap.add_argument('--niter', type=int, default=25); ap.add_argument('--min-cover', type=int, default=20)
     ap.add_argument('--min-snr', type=float, default=5.0)
+    ap.add_argument('--renorm', type=int, default=1, help='passes that rescale each stack to the mean shape e0 (0 = off)')
     a = ap.parse_args()
     t0 = time.time()
     X, W, cells, wave = load_stacks(a.stacks, a.min_snr)
     print(f'stacks used: {len(X)} (S/N >= {a.min_snr}), pixels {X.shape[1]}, load {time.time()-t0:.0f}s', flush=True)
     nv = a.nvec + 1                                   # component 0 = mean shape (no centering)
     P, C, pixok = empca(X, W, nv, a.niter, min_cover=a.min_cover, min_frac=0.0, min_wfrac=0.0)
+    # common amplitude: the z-slice windows (normwin.py) give each slice its own flux scale, which leaks into the
+    # coefficients (c0 jumps x3 at z=0.60 in desi_v1). Rescale each stack so that its weighted projection on the mean
+    # shape e0 is 1 over the pixels it covers, then redo the decomposition.
+    scale = np.ones(len(X))
+    for r in range(a.renorm):
+        e0 = P[0]; s = (W * X * e0).sum(1) / np.maximum((W * e0**2).sum(1), 1e-30)
+        s = s * np.sign(np.median(s)); s = np.where(np.isfinite(s) & (s > 0), s, np.nan)
+        keep = np.isfinite(s); X, W, cells, s = X[keep], W[keep], cells[keep].reset_index(drop=True), s[keep]
+        X = X / s[:, None]; scale = scale[keep] * s          # W unchanged: each stack keeps median weight 1 (counts once)
+        print(f'renorm pass {r+1}: stacks {len(X)}, scale 5/50/95% {np.percentile(s, [5, 50, 95]).round(3)}', flush=True)
+        P, C, pixok = empca(X, W, nv, a.niter, min_cover=a.min_cover, min_frac=0.0, min_wfrac=0.0)
+    cells['RENORM'] = scale
     R2 = explained(X, W, P)
     print(f'EM-PCA done {time.time()-t0:.0f}s; pixels in basis {pixok.sum()} ({wave[pixok][0]:.0f}-{wave[pixok][-1]:.0f} A); '
           f'R^2 vs k: ' + ' '.join(f'{k+1}:{r:.4f}' for k, r in enumerate(R2)), flush=True)

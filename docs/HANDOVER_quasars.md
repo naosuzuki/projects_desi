@@ -458,3 +458,25 @@ started 21:51; 38 files/min on the bright files. Copies in programs_quasars/. Se
   even pooled (mostly z > 4 and the extreme L bins). SDSS alone was 537 stacks / 87.7 %. Fine bins: EW 98 %, slope
   100 %, oxygen 61 %, BAL known 94 %. Next: `05_stack.py` (window-mean normalization, sec. 8.24; needs the DESI
   quasar spectra again: one more read of the dark coadds, ~40 coadds/min from exdisk2), then `06_empca.py`.
+
+### 8.27 Stacks running (2026-10-27 22:45; `05_stack.py`, launcher `run_stack.sh`, resumable)
+- Normalization window switch moved from z=2.1 to **z=2.0** (a z-slice edge, so one window per stack; 1282.5 A at
+  z=2.0 is 3847 A observed, inside SDSS-I). Master tables' LOGFABS/LOGL refreshed, cells rebuilt: 1,818 stacks, 96.3 %.
+- Per training quasar: rest frame with Z_SYS, divided by the ivar-weighted window mean (power-law value if <50 % of
+  the window is good, NORM_SRC 1). Accumulators per cell (s1, s2, n, wf, w) in `~/data/sdssdesi_products/quasar/stack_acc/`,
+  normalized spectra (float16) in `/Volumes/exdisk3/sdssdesi_qso_restframe/<survey>/`. Verified: window mean = 1.000.
+- SDSS done in 2.5 min: 301,486 quasars (98 % window, 2 % power-law). DESI: 3 niced shards on exdisk2, 33,387 coadds,
+  ~100/min -> ~5.5 h. Then `python3 05_stack.py --merge` -> qso_stacks.npz + qso_stacks_cells.csv; then EM-PCA.
+- DESI flux zero point (Stellar, zp_desi.csv: LS g/r ~ -0.06 mag vs Gaia) not yet applied to LOGFABS_NORM (~0.024 dex).
+- **Acceleration (2026-10-28 00:30-00:55)**: exdisk2 is saturated (~90-97 MB/s). (1) DESI reads skip the *_MASK HDUs
+  (`NoMaskFITS`: masked pixels already have IVAR = 0 in the coadds, 1 pixel in 1e8 differs; combine_cameras output
+  identical): 41 -> 51 coadds/min. (2) Each shard does its dark coadds first (910k of the remaining 972k quasars in
+  16.5k of 28.7k coadds), bright after: 58/min on dark. Shard membership unchanged (sorted index), so no double counting.
+  The Stellar hook (`programs_stars/star_hook.py`) rides on the same read since 23:50 (one read per coadd).
+- `06_empca.py` (step7_empca.empca, galaxy conventions: no mean subtraction, nvec+1, per-stack weights median 1,
+  --min-cover 20; `--zrange` = one basis per normalization window). Test on partial stacks: R^2 0.991 (4 vectors),
+  coverage-edge steps in the global basis -> the per-window bases are produced alongside.
+- `after_stack.sh` (detached, log ~/data/sdssdesi_status/after_stack.log): when all DESI shards pass their dark coadds
+  (markers stack_acc/*.dark_done, ~05:30) -> `05_stack.py --merge --out qso_stacks_dark` + EM-PCA v1_dark (global,
+  _z0008, _z0820, _z2099); when all are done (~08:45) -> final merge `qso_stacks.npz` + EM-PCA v1. After a reboot rerun
+  `run_stack.sh` and `nohup zsh after_stack.sh &`.

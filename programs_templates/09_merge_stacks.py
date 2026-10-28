@@ -16,8 +16,10 @@ import fitsio
 ap = argparse.ArgumentParser()
 ap.add_argument('--passc', default=os.path.expanduser('~/data/sdssdesi_passC'))
 ap.add_argument('--floor', type=int, default=200)
+ap.add_argument('--acc', default='acc_shard*of*.npz', help="accumulator glob in <passc>/acc (SDSS: 'acc_dr8_*.npz', 'acc_dr17_*.npz', 'acc_dr*.npz')")
+ap.add_argument('--out', default='stacks', help='output subdirectory of <passc>')
 a = ap.parse_args()
-files = sorted(glob.glob(os.path.join(a.passc, 'acc', 'acc_shard*of*.npz')))
+files = sorted(glob.glob(os.path.join(a.passc, 'acc', a.acc)))
 assert files, 'no accumulators'
 tot = None; done = []
 for f in files:
@@ -38,7 +40,7 @@ with np.errstate(all='ignore'):
     snr = np.nanmedian(np.where(tot['w'] > 0, mean * np.sqrt(tot['w']), np.nan), axis=1)
 cells['STACK_SNR_MED'] = snr
 wave = 10.0**((meta['rid_min'] + np.arange(meta['nrest'])) * meta['dlog'])
-od = os.path.join(a.passc, 'stacks'); os.makedirs(od, exist_ok=True)
+od = os.path.join(a.passc, a.out); os.makedirs(od, exist_ok=True)
 keep = cells.N_STACKED >= a.floor
 for zb in sorted(cells[keep].ZB.unique()):
     r = np.where(keep & (cells.ZB == zb))[0]

@@ -58,6 +58,9 @@ class GalaxyHook:
             td = os.path.join(self.outdir, 'tables', prog); os.makedirs(td, exist_ok=True)
             out = os.path.join(td, f'hpx{hpx}.parquet'); tab.to_parquet(out + '.tmp'); os.replace(out + '.tmp', out)
             self.ngal += ng; self.nacc += na
+        else:                                         # empty table too: the monitor counts one table per coadd
+            td = os.path.join(self.outdir, 'tables', prog); os.makedirs(td, exist_ok=True)
+            out = os.path.join(td, f'hpx{hpx}.parquet'); df.to_parquet(out + '.tmp'); os.replace(out + '.tmp', out)
         self.done.add(key); self.since += 1
         if self.since >= CHECKPOINT_EVERY:
             self.checkpoint()
