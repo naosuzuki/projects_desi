@@ -241,6 +241,25 @@ pause at 17,462 for ≈7 h, then grow again with the rest of the walk (≈8 h mo
 coadd, writes a galaxy checkpoint); the 5-min grace in pre_shutdown.sh is enough. post_reboot.sh launches the same command.
 The DESI star steps (2b, 5, 6, 7, Calibration 2) wait for the walk to finish, ≈15 h from 00:05.
 
+## 10. 2026-10-27 evening: DESI joint fit, Calibration 2, DESI chain
+- The walk finished at 17:38 (all 34,508 coadds, none missing). An 08:36 crash/reboot cost ~20 min; post_reboot.sh now waits for
+  exdisk1 (fsck_exfat after an unclean stop) and aborts if it does not mount.
+- Step 2b on DESI: 6,569,156 coadds (ZWARN=0, S/N>3) -> 6,191,577 solved (the rest have no usable band). zp_desi.csv: LS-S g/r/z
+  -0.064/-0.058/-0.019, LS-N -0.066/-0.062/-0.023 mag (catalog - synthetic, Gaia anchored); per-star tilt median -0.21 mag/dex.
+  DESI star-spectrum id is now TARGETID-PROGRAM (starlib.desi_sid). Note: commit f1ac367 says ~380k stars had both programs
+  merged; that was wrong (TARGETID is unique across bright/dark; the rerun is identical). The id change is kept as harmless.
+- Step 5 reads only its ~50 columns for DESI (all 206 x 11.6 M rows would be ~19 GB) and de-duplicates gaia_desi_stars_hr.
+- Step 6 for DESI: --maxper 300 (highest S/N per stack, greedily from few coadds) --onepass (each coadd read once); without the
+  flags the SDSS output is bit-identical. Chain: `run_steps.sh desi` (2b -> 5 -> 6 -> 7).
+- Calibration 2, linear version (step8_response.py): per (EXPID, PETAL_LOC) A (mag at 6000 A) and B (mag/dex) from the per-star
+  (a, t) with the exposure-time-weighted exposure mix of each coadd; weighted sparse LSQ, weak prior, clipping. Published
+  response_exp_petal.parquet (142,975 exposure-petals; median 10 TILT_OK stars) and response_coadd_desi.parquet (53.3 M coadds,
+  keyed TARGETID, PROGRAM). Correction: flux x 10^(-0.4 (A + B log10(lambda/6000))). B median -0.207 mag/dex on every petal;
+  real exposure-petal spread ~0.06 mag/dex (0.095 observed incl. noise); A spread 0.017 mag. Hold-out (even -> odd TARGETIDs):
+  tilt sigma68 0.246 -> 0.235 mag/dex, scale 0.047 -> 0.046 mag: ~0.21 mag/dex of per-spectrum tilt is not predictable from
+  neighbours (per-fiber chromatic losses, photometric noise). Peak memory 30 GB: reduce before the refinement (stream the
+  per-coadd collapse). Refinement after DESI step 6: smooth curve from the residuals against the stacks, per-fiber term.
+
 ## 4. Decisions for Nao (ordered by when they block)
 1. Backup-program coadds: download (brightest stars, most XP) or dark+bright only? (blocks the final sample, not the pipeline)
 2. Downloads: Bayestar19 (dustmaps), DESI DR1 MWS VAC, Gaia XP coefficients for the DESI quality stars (sizes to be reported before fetching).
