@@ -1,6 +1,6 @@
 #!/bin/zsh
 # Stars thread: the steps in order (Nao, 2026-10-24). Each step is resumable; passes run detached and niced.
-# Usage: ./run_steps.sh <step>    steps: 1 | 2-3sdss | 2b | 3b | 2-3desi | 5 | 6 | chain | monitor
+# Usage: ./run_steps.sh <step>    steps: 1 | 2-3sdss | 2b | 3b | 2-3desi | 5 | 6 | chain | desi | monitor
 set -e
 cd ~/github/projects_desi/programs_stars
 S=~/data/sdssdesi_status; mkdir -p $S
@@ -21,6 +21,13 @@ case "$1" in
             [ -d ~/data/sdssdesi_passS ] && python3 step5_hr_cells_check.py --survey desi --nmin 100 --snmin 5 | tee $S/step5_desi.txt ;;
   6)        nohup nice -n 10 python3 step6_stack.py --survey sdss --tag sdss_0.5x0.1_gspphot --nmin 100 --snmin 5 >> $S/step6_sdss.log 2>&1 &
             echo "SDSS stacks started: tail -f $S/step6_sdss.log" ;;
+  desi)     # after the DESI walk (2026-10-27): 2b (if not already running/done) -> 5 -> 6 (capped, one read per coadd) -> 7, one after another
+            while pgrep -f "[s]tep2b_spcal.py --survey desi" >/dev/null; do sleep 30; done
+            [ -f ~/data/sdssdesi_cache/stars/spcal_desi.parquet ] || python3 step2b_spcal.py --survey desi > $S/step2b_desi.txt 2>&1
+            python3 step5_hr_cells_check.py --survey desi --nmin 100 --snmin 5 > $S/step5_desi.txt 2>&1
+            nice -n 10 python3 step6_stack.py --survey desi --tag desi_0.5x0.1_gspphot --nmin 100 --snmin 5 --maxper ${MAXPER:-300} --onepass > $S/step6_desi.log 2>&1
+            nice -n 10 python3 step7_empca.py --survey desi --tag desi_0.5x0.1_gspphot --individuals 5 --plot > $S/step7_desi.txt 2>&1
+            echo "DESI chain finished $(date '+%F %T')" ;;
   monitor)  echo "the stars track is on the main monitor: http://127.0.0.1:8765/monitor.html (programs_monitor/monitor.py)" ;;
-  *)        echo "usage: $0 1 | 2-3sdss | 2b | 3b | 2-3desi | 5 | 6 | chain | monitor" ;;
+  *)        echo "usage: $0 1 | 2-3sdss | 2b | 3b | 2-3desi | 5 | 6 | chain | desi | monitor" ;;
 esac

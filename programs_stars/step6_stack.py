@@ -18,8 +18,13 @@ pixel quality within a star); pass B repeats with pixels more than --nsig (4) si
 Output (OUTDIR): stacks_<tag>.fits with HDUs FLUX [ncell, npix] (erg/s/cm2/A at 10 pc), ERR (scatter / sqrt N), SCATTER,
 NSPEC, and a CELLS table (cell id, HR coordinates, [M/H], N, split label, homogeneity flags); members_<tag>.csv.
 Header: COEFF0 = log10 of the first pixel, COEFF1 = 1e-4 (sdsslib 2D convention).
+DESI (2026-10-27): ~10 M stars, spectra on exdisk2 (~1.4 s of disk per coadd). --maxper N keeps per stack at most N stars,
+the highest-S/N ones, chosen greedily to come from as few coadds as possible (candidates = the top 3N by S/N of each stack;
+files with the most candidates of unfilled stacks first); --onepass reads each coadd once and keeps the selected spectra
+in memory (float32) for passes A and B.
 Usage:
   python3 step6_stack.py --survey sdss --tag sdss_0.5x0.1_gspphot [--nmin 100] [--snmin 5] [--maxfiles N]
+  python3 step6_stack.py --survey desi --tag desi_0.5x0.1_gspphot --maxper 300 --onepass
 """
 import os, sys, glob, argparse, time
 import numpy as np, pandas as pd, fitsio
@@ -137,6 +142,22 @@ def iter_desi(df, maxfiles):
             yield row, rf[0] , ri[0], (ri[0] <= 0).astype(np.int8), int(rid[0])
 
 
+def select_per_stack(df, maxper, pool=3, batch=200):
+    """at most maxper stars per STACK, highest S/N, concentrated in few files (greedy over files)."""
+    cand = df.sort_values('SNR_ALL', ascending=False).groupby('STACK').head(pool * maxper)
+    need = cand.STACK.value_counts().clip(upper=maxper).to_dict()
+    chosen = []
+    while len(cand):
+        r = cand[cand.STACK.map(need) > 0]
+        if r.empty: break
+        top = r.FILE.value_counts().index[:batch]
+        take = r[r.FILE.isin(top)].sort_values('SNR_ALL', ascending=False)
+        take = take[take.groupby('STACK').cumcount() < take.STACK.map(need)]
+        for st, n in take.STACK.value_counts().items(): need[st] -= n
+        chosen.append(take); cand = cand[~cand.FILE.isin(top)]
+    return pd.concat(chosen, ignore_index=True)
+
+
 def _progress(name, done, total, status='done', note=''):
     """progress file of the monitors (programs_monitor/monitor.py)."""
     try:
@@ -151,6 +172,8 @@ def main():
     ap.add_argument('--survey', default='sdss', choices=['sdss', 'desi']); ap.add_argument('--tag', required=True)
     ap.add_argument('--passdir'); ap.add_argument('--nmin', type=int, default=100); ap.add_argument('--snmin', type=float, default=5.0)
     ap.add_argument('--nsig', type=float, default=4.0); ap.add_argument('--maxfiles', type=int, default=0); ap.add_argument('--outdir', default=OUTDIR)
+    ap.add_argument('--maxper', type=int, default=0, help='at most N stars per stack (highest S/N, few files); 0 = all')
+    ap.add_argument('--onepass', action='store_true', help='read each spectrum once, keep it in memory for passes A and B')
     a = ap.parse_args(); t0 = time.time(); os.makedirs(a.outdir, exist_ok=True)
     cells, mem = members(a.tag, a.nmin)
     files = sorted(glob.glob(os.path.join(a.passdir or PASSDIR[a.survey], '*', '*.parquet')))
@@ -187,20 +210,39 @@ def main():
     mem = split_cells(cells, mem, df)
     df = df.merge(mem[['SID', 'CELL', 'STACK']], on='SID', how='inner')
     stacks = sorted(df.STACK.unique())
+    if a.maxper:
+        n0, f0 = len(df), df.FILE.nunique(); df = select_per_stack(df, a.maxper)
+        print(f'--maxper {a.maxper}: {len(df):,} of {n0:,} stars from {df.FILE.nunique():,} of {f0:,} files', flush=True)
     print(f'{a.survey}: {len(cells)} cells >= {a.nmin}, {len(stacks)} stacks after splits, {len(df):,} stars, {df.FILE.nunique()} files; {time.time()-t0:.0f}s', flush=True)
     it = iter_sdss if a.survey == 'sdss' else iter_desi
+    nfile = df.FILE.nunique()
+    def spectra():
+        last = None; k = 0
+        for row, f, iv, mk, rid0 in it(df, a.maxfiles):
+            if row.FILE != last:
+                last = row.FILE; k += 1
+                if k % 200 == 0:
+                    print(f'  {k:,}/{nfile:,} files, {time.time()-t0:.0f}s', flush=True); _progress('stack', 1, 2, 'running', f'DESI: {k:,}/{nfile:,} coadds read')
+            spec, w = star_spectrum(row, f, iv, mk, rid0)
+            yield row.STACK, spec, w
+    if a.onepass:
+        mem_spec = [(st, sp.astype(np.float32), w.astype(np.float32)) for st, sp, w in spectra()]
+        print(f'read once: {len(mem_spec):,} spectra in memory, {time.time()-t0:.0f}s', flush=True)
+        source = lambda: iter(mem_spec)
+    else:
+        source = spectra
     accA = Accum(stacks)
-    for row, f, iv, mk, rid0 in it(df, a.maxfiles):
-        spec, w = star_spectrum(row, f, iv, mk, rid0); accA.add(row.STACK, spec, w)
+    for st, spec, w in source():
+        accA.add(st, spec, w)
     meanA, sigA = accA.mean()
     print(f'pass A done: {accA.nstar.sum():,} stars, {time.time()-t0:.0f}s', flush=True)
     accB = Accum(stacks)
-    for row, f, iv, mk, rid0 in it(df, a.maxfiles):
-        spec, w = star_spectrum(row, f, iv, mk, rid0); i = accB.idx[row.STACK]
+    for st, spec, w in source():
+        i = accB.idx[st]
         with np.errstate(all='ignore'):
             sig = np.where(np.isfinite(sigA[i]) & (sigA[i] > 0), sigA[i], np.inf)
             reject = np.abs(spec - meanA[i]) > a.nsig * sig
-        accB.add(row.STACK, spec, np.where(reject, 0.0, w))
+        accB.add(st, spec, np.where(reject, 0.0, w))
     mean, scatter = accB.mean()
     with np.errstate(all='ignore'):
         err = scatter / np.sqrt(np.where(accB.n > 0, accB.n, 1))
