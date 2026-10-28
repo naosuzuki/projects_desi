@@ -33,11 +33,17 @@ case "$1" in
             # with whatever is stored (--store-only: no exdisk2 reads); Nao wants the stars done before 08:30 (2026-10-28)
             P=~/data/sdssdesi_products/stars/star_priority_files.txt; ST=/Volumes/exdisk3/sdssdesi_star_spectra/desi
             until [ $(date +%H%M) -ge ${DEADLINE:-0715} ] && [ $(date +%H%M) -lt 1200 ] || \
-                  [ $(head -18875 $P | sed 's/.fits$/.npz/' | while read f; do [ -f $ST/$f ] || echo x; done | wc -l) -eq 0 ]; do sleep 120; done
+                  python3 store_ready.py 18875 >/dev/null; do sleep 120; done
             echo "step 6 starts $(date '+%F %T')"
             nice -n 5 python3 step6_stack.py --survey desi --tag desi_0.5x0.1_gspphot --nmin 100 --snmin 5 --maxper ${MAXPER:-300} --from-store --store-only --onepass > $S/step6_desi.log 2>&1
             nice -n 5 python3 step7_empca.py --survey desi --tag desi_0.5x0.1_gspphot --individuals 5 --plot > $S/step7_desi.txt 2>&1
             echo "DESI steps 6-7 finished $(date '+%F %T')" ;;
+  desi-early) # first DESI stacks + EM-PCA with 100 stars per stack as soon as the tier-1 coadds are stored (desi67 redoes them with 300)
+            until python3 store_ready.py 11288 >/dev/null; do sleep 120; done
+            echo "early step 6 (maxper 100) starts $(date '+%F %T')"
+            nice -n 5 python3 step6_stack.py --survey desi --tag desi_0.5x0.1_gspphot --nmin 100 --snmin 5 --maxper 100 --from-store --store-only --onepass > $S/step6_desi_early.log 2>&1
+            nice -n 5 python3 step7_empca.py --survey desi --tag desi_0.5x0.1_gspphot --individuals 5 --plot > $S/step7_desi_early.txt 2>&1
+            echo "early DESI steps 6-7 finished $(date '+%F %T')" ;;
   monitor)  echo "the stars track is on the main monitor: http://127.0.0.1:8765/monitor.html (programs_monitor/monitor.py)" ;;
   *)        echo "usage: $0 1 | 2-3sdss | 2b | 3b | 2-3desi | 5 | 6 | chain | desi | desi67 | monitor" ;;
 esac
