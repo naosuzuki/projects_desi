@@ -28,8 +28,9 @@ case "$1" in
             nice -n 10 python3 step6_stack.py --survey desi --tag desi_0.5x0.1_gspphot --nmin 100 --snmin 5 --maxper ${MAXPER:-300} --onepass > $S/step6_desi.log 2>&1
             nice -n 10 python3 step7_empca.py --survey desi --tag desi_0.5x0.1_gspphot --individuals 5 --plot > $S/step7_desi.txt 2>&1
             echo "DESI chain finished $(date '+%F %T')" ;;
-  desi67)   # resume after a reboot: step 6 (not resumable, starts over) -> 7
-            nice -n 10 python3 step6_stack.py --survey desi --tag desi_0.5x0.1_gspphot --nmin 100 --snmin 5 --maxper ${MAXPER:-300} --onepass > $S/step6_desi.log 2>&1
+  desi67)   # step 6 from star_hook's store (filled inside the quasar-stack read) once the quasar DESI shards are done -> step 7
+            while pgrep -f "[0]5_stack.py --survey desi" >/dev/null; do sleep 60; done
+            nice -n 10 python3 step6_stack.py --survey desi --tag desi_0.5x0.1_gspphot --nmin 100 --snmin 5 --maxper ${MAXPER:-300} --from-store --onepass > $S/step6_desi.log 2>&1
             nice -n 10 python3 step7_empca.py --survey desi --tag desi_0.5x0.1_gspphot --individuals 5 --plot > $S/step7_desi.txt 2>&1
             echo "DESI steps 6-7 finished $(date '+%F %T')" ;;
   monitor)  echo "the stars track is on the main monitor: http://127.0.0.1:8765/monitor.html (programs_monitor/monitor.py)" ;;
