@@ -259,6 +259,14 @@ The DESI star steps (2b, 5, 6, 7, Calibration 2) wait for the walk to finish, â‰
   tilt sigma68 0.246 -> 0.235 mag/dex, scale 0.047 -> 0.046 mag: ~0.21 mag/dex of per-spectrum tilt is not predictable from
   neighbours (per-fiber chromatic losses, photometric noise). Peak memory 30 GB: reduce before the refinement (stream the
   per-coadd collapse). Refinement after DESI step 6: smooth curve from the residuals against the stacks, per-fiber term.
+- DESI steps 6-7 (2026-10-28 07:16-07:22, 300 per stack from star_hook's internal store, 14,966 of 18,858 coadds stored by
+  07:15; the bright tier-2 coadds arrive with the quasar read ~09:00): 898 stacks, median N 230 (GK 369, M 425, WD 87, AF 12,
+  HOT 5). EM-PCA R2 with 1/2/3/10 vectors: WD .46/.965/.988/.999, HOT .78/.94/.97/.996, AF .79/.85/.91/.97,
+  GK .81/.93/.95/.986, M .90/.92/.93/.969.
+- step7 `--min-wfrac`: the empca weight cut (median weight >= 0.3 of typical, meant for the BOSS-only blue end) dropped the M
+  red end (photon-noise weights are low where M stars are bright). DESI: 0 (every pixel covered; M 3071 -> 4361 pixels).
+  SDSS M: 0.1 (3975 pixels, 3675-9202 A, bright sky lines masked; 0 lets the noisy BOSS ends dominate vectors 2-4); R2
+  .78/.83/.90/.958. The 0.3 versions are kept in ~/data/sdssdesi_stars/empca_{desi,sdss}_v1_wfrac0.3/.
 
 ## 4. Decisions for Nao (ordered by when they block)
 1. Backup-program coadds: download (brightest stars, most XP) or dark+bright only? (blocks the final sample, not the pipeline)

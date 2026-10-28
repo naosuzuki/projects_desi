@@ -155,7 +155,7 @@ def main():
     ap.add_argument('--nvec', type=int, default=10); ap.add_argument('--niter', type=int, default=25)
     ap.add_argument('--individuals', type=int, default=0, help='stars per stack with S/N > --snmin added to the PCA'); ap.add_argument('--snmin', type=float, default=20.0)
     ap.add_argument('--classes', default=','.join(CLASSES)); ap.add_argument('--plot', action='store_true')
-    ap.add_argument('--min-wfrac', type=float, default=0.3, help='weight cut of empca (meant for the BOSS-only blue end); 0 for DESI, where every pixel is covered: the cut drops the red end of M stars, whose photon-noise weights are low there at high S/N')
+    ap.add_argument('--min-wfrac', type=float, default=0.3, help='weight cut of empca (meant for the BOSS-only blue end); 0 for DESI, where every pixel is covered: the cut drops the red end of M stars, whose photon-noise weights are low there at high S/N; SDSS M: 0.1 (keeps 3675-9202 A, masks the bright sky lines; 0 lets the noisy BOSS ends dominate)')
     a = ap.parse_args(); t0 = time.time()
     fl, ivar, good, cells = load_stacks(a.tag)
     cls = np.array([star_class(r.MG0_MED, r.COL0_MED) for _, r in cells.iterrows()])
