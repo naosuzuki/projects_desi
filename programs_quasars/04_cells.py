@@ -3,7 +3,7 @@
 
 Axes (codes per object; -1 = unknown / not measurable -> the object goes to the collapsed cell of that axis):
   1 ZBIN   redshift slice: dz=0.1 (0-1), 0.2 (1-3), 0.5 (3-5)                                 24 slices
-  2 LBIN   M_i(z=2), 1 mag, floor(M_i) (e.g. -27 = [-27, -26))
+  2 LBIN   log10 F_lam,abs at the normalization window (erg/s/cm2/A at 10 pc), 0.4-dex bins (= 1 mag), floor(logF/0.4)
   3 EBIN   primary-line EW, 6 factor-2 bins centred on the measured per-slice median (qso_ew_quantiles_*.csv):
            edges med x [1/4, 1/2, 1, 2, 4]; line Halpha (z<0.4) / Hbeta (0.4-0.9) / Mg II (0.9-2.3) / C IV (>=2.3);
            fine bin only when EW/EW_ERR >= 3, else -1
@@ -37,6 +37,8 @@ FLOOR = 300
 MIN_LINE_SNR = 3.0
 
 
+LBIN_DEX = 0.4
+
 def line_for(z, table):
     out = np.full(len(z), '', dtype=object)
     for lo, hi, l in table:
@@ -65,21 +67,24 @@ def main():
         p = f'{PROD}/qso_master_{sv}.parquet'
         if not os.path.exists(p):
             print('missing', p); continue
-        cols = ['Z', 'ZWARN', 'SNR_ALL', 'QCUT', 'MABS_I_Z2', 'ALPHA_LAM', 'BAL_CLASS', 'Z_SYS', 'Z_SYS_SRC', 'SURVEY']
+        cols = ['Z', 'ZWARN', 'SNR_ALL', 'QCUT', 'LOGFABS_NORM', 'LOGL_NORM', 'ALPHA_LAM', 'BAL_CLASS', 'Z_SYS', 'Z_SYS_SRC', 'SURVEY']
         lines = sorted({l for _, _, l in PRIMARY} | {l for _, _, l in OXYGEN})
         for l in lines:
             cols += [f'{l}_EW', f'{l}_EW_ERR']
         ids = ['PLATE', 'MJD', 'FIBERID'] if sv == 'sdss' else ['TARGETID', 'PROGRAM']
-        d = pd.read_parquet(p, columns=[c for c in ids + cols])
+        d = pd.read_parquet(p, columns=[c for c in ids + cols] + (['SNR_SDSSPIX'] if sv == 'desi' else []))
+        if sv == 'desi':      # S/N per SDSS-size pixel (dlog 1e-4), comparable with the SDSS SNR_ALL
+            d['SNR_ALL'] = d.pop('SNR_SDSSPIX')
         tabs.append(d)
     d = pd.concat(tabs, ignore_index=True)
-    train = d.QCUT.to_numpy() & (d.SNR_ALL.to_numpy() > 5) & np.isfinite(d.MABS_I_Z2.to_numpy())
+    train = d.QCUT.to_numpy() & (d.SNR_ALL.to_numpy() > 5) & np.isfinite(d.LOGFABS_NORM.to_numpy())
     d['TRAIN'] = train
     z = d.Z.to_numpy(dtype=float)
     # --- axis 1, 2
     d['ZBIN'] = (np.digitize(z, ZEDGES) - 1).astype(np.int8)
     d.loc[(z < 0) | (z >= 5), 'ZBIN'] = -1
-    d['LBIN'] = np.where(np.isfinite(d.MABS_I_Z2), np.floor(d.MABS_I_Z2.fillna(0)), -99).astype(np.int16)
+    # luminosity (Nao, 2026-10-27): absolute flux density at the normalization window, 0.4-dex bins (= 1 mag)
+    d['LBIN'] = np.where(np.isfinite(d.LOGFABS_NORM), np.floor(d.LOGFABS_NORM.fillna(0) / LBIN_DEX), -99).astype(np.int16)
     # --- axis 3: per-slice median of the primary line (training set, detected) -> factor-2 bins
     pl = line_for(z, PRIMARY); ol = line_for(z, OXYGEN)
     d['PRIMARY_LINE'], d['OXYGEN_LINE'] = pl, ol
@@ -136,7 +141,7 @@ def main():
     d['STACK_CELL'] = np.where(train, ['z%d_L%d_E%d_S%d_O%d_B%d' % tuple(r) for r in cur], '')
     d['CELL'] = ['z%d_L%d_E%d_S%d_O%d_B%d' % tuple(r) for r in base]
     # --- stack-cell table
-    t = d[train].groupby('STACK_CELL').agg(n=('Z', 'size'), z_med=('Z', 'median'), Mi_med=('MABS_I_Z2', 'median'), snr_med=('SNR_ALL', 'median'),
+    t = d[train].groupby('STACK_CELL').agg(n=('Z', 'size'), z_med=('Z', 'median'), logL_med=('LOGL_NORM', 'median'), snr_med=('SNR_ALL', 'median'),
                                            ew_med=('PRIMARY_EW', 'median'), alpha_med=('ALPHA_LAM', 'median'), oxy_med=('OXYGEN_EW', 'median'),
                                            stage=('STACK_STAGE', 'max'), ZBIN=('STACK_ZBIN', 'first'), LBIN=('STACK_LBIN', 'first'),
                                            EBIN=('STACK_EBIN', 'first'), SBIN=('STACK_SBIN', 'first'), OBIN=('STACK_OBIN', 'first'), BBIN=('STACK_BBIN', 'first'),
@@ -147,7 +152,7 @@ def main():
     t.to_csv(f'{PROD}/qso_stack_cells_{tag}.csv', index=False); t.to_csv(f'{REPO}/qso_stack_cells_{tag}.csv', index=False)
     pd.DataFrame(med_table).to_csv(f'{REPO}/qso_primary_ew_medians_{tag}.csv', index=False)
     # --- summary
-    out = [f'survey {tag}: rows {len(d):,}; training (QCUT & S/N>5 & M_i) {train.sum():,}; floor {a.floor}']
+    out = [f'survey {tag}: rows {len(d):,}; training (QCUT & S/N>5 & L_norm) {train.sum():,}; floor {a.floor}']
     full = pd.DataFrame(base[train], columns=key_cols)
     n_full = full.groupby(key_cols).size()
     out.append(f'six-axis cells occupied: {len(n_full):,}; with >= floor: {(n_full >= a.floor).sum():,} holding {int(n_full[n_full >= a.floor].sum()):,} quasars')

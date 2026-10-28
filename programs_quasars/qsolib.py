@@ -351,14 +351,49 @@ def measure_rest(df, rflux, rivar):
         df[zc] = z + (1 + z) * df[f'{line}_VOFF'].to_numpy(dtype=float) / CKMS          # centroid-based
         df[zc + '_PK'] = z + (1 + z) * df[f'{line}_VPEAK'].to_numpy(dtype=float) / CKMS  # peak-based
     df['Z_OI_PK'] = z + (1 + z) * df['OI_1304_VPEAK'].to_numpy(dtype=float) / CKMS
-    # systemic redshift (Nao, 2026-10-24): peak of [O III] 5007 (z<0.9), else peak of Mg II (0.9-2.3), else peak of
-    # O I 1304 when detected (z>2.3), else the pipeline z. Z_SYS_SRC: 1 OIII, 2 MgII, 3 OI, 0 pipeline.
+    df['Z_SYS'], df['Z_SYS_SRC'] = systemic_z(df)
+    return df
+
+
+def systemic_z(df):
+    """Systemic redshift (Nao, 2026-10-24; O I 1304 dropped 2026-10-27, MAD 600-900 km/s vs DR16Q): peak of
+    [O III] 5007, else peak of Mg II, else the pipeline z. Z_SYS_SRC: 1 OIII, 2 MgII, 0 pipeline."""
+    z = df['Z'].to_numpy(dtype=float)
     zsys = z.copy(); src = np.zeros(len(df), np.int8)
-    for code, col in ((3, 'Z_OI_PK'), (2, 'Z_MGII_PK'), (1, 'Z_OIII_PK')):
+    for code, col in ((2, 'Z_MGII_PK'), (1, 'Z_OIII_PK')):
         v = df[col].to_numpy(dtype=float); use = np.isfinite(v) & (np.abs(v - z) < 0.01 * (1 + z))
         zsys = np.where(use, v, zsys); src = np.where(use, code, src)
-    df['Z_SYS'], df['Z_SYS_SRC'] = zsys, src
-    return df
+    return zsys, src
+
+
+# Normalization windows (handover 8.24) and the luminosity axis (Nao, 2026-10-27): the normalization factor at the
+# window, as an absolute flux density F_lam,abs = f_lam(rest) * (d_L / 10 pc)^2 = L_lam / (4 pi (10 pc)^2); replaces M_i(z=2).
+NORM_WINDOWS = [(0.0, 0.8, 5100.0, 5130.0), (0.8, 2.1, 3000.0, 3050.0), (2.1, 9.9, 1275.0, 1290.0)]
+LOG_4PI_10PC2 = np.log10(4 * np.pi * (10 * 3.0856775814913673e18)**2)     # 40.078
+
+
+def norm_window(z):
+    z = np.asarray(z, float); lam = np.full(len(z), np.nan)
+    for zlo, zhi, lo, hi in NORM_WINDOWS:
+        lam = np.where((z >= zlo) & (z < zhi), 0.5 * (lo + hi), lam)
+    return lam
+
+
+def abs_norm_flux(df, fiber_scale=False):
+    """From the pass-Q power-law continuum (CONT_LOGF3000 = rest f_lam (1+z) at 3000 A, calibrated, dereddened, cgs;
+    ALPHA_LAM): LAM_NORM, LOGFABS_NORM = log10 F_lam,abs at the window (erg/s/cm2/A at 10 pc), LOGL_NORM = log10 L_lam
+    (erg/s/A), NORM_IN_FIT = window inside the fitted continuum range. fiber_scale: DESI rest spectra are on the fiber
+    scale (x MEAN_PSF_TO_FIBER_SPECFLUX); divided out to total (point source). The stacks measure the window mean itself."""
+    z = df['Z'].to_numpy(dtype=float)
+    lam = norm_window(z)
+    logf = df['CONT_LOGF3000'].to_numpy(dtype=float) + df['ALPHA_LAM'].to_numpy(dtype=float) * np.log10(lam / 3000.0)
+    if fiber_scale:
+        p = df['MEAN_PSF_TO_FIBER_SPECFLUX'].to_numpy(dtype=float)
+        logf = logf - np.log10(np.where(np.isfinite(p) & (p > 0), p, np.nan))
+    dm = passB.COSMO.distmod(np.clip(np.nan_to_num(z, nan=1e-4), 1e-4, None)).value
+    logfa = logf + 0.4 * dm
+    inside = (lam >= 0.98 * df['CONT_LAMMIN'].to_numpy(dtype=float)) & (lam <= 1.02 * df['CONT_LAMMAX'].to_numpy(dtype=float))
+    return dict(LAM_NORM=lam, LOGFABS_NORM=logfa, LOGL_NORM=logfa + LOG_4PI_10PC2, NORM_IN_FIT=inside)
 
 
 def measure_qso_chunk_desi(df, w, flux, ivar, mask):

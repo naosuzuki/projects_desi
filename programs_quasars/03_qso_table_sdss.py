@@ -3,6 +3,7 @@
 needed real measurements (docs/HANDOVER_quasars.md sec. 8.15 step C):
   1. concatenate ~/data/sdssdesi_passQ_sdss/{dr17,dr8}/*.parquet (selected columns), apply the quality cuts
      (ZWARN == 0, PLATEQUALITY == good, 0 < z < 5), keep the rest flagged;
+  1b. Z_SYS without O I 1304 (qsolib.systemic_z); luminosity = absolute flux at the normalization window (qsolib.abs_norm_flux);
   2. match DR16Q_v4 by (PLATE, MJD, FIBERID): BAL_PROB, BI_CIV, AI_CIV, BI_SIIV, AI_SIIV, Z_PCA, Z_MGII, Z_CIV, Z_HBETA, Z_VI;
   3. checks: Z_SYS vs DR16Q Z_MGII / Z_PCA; our BAL_CLASS vs BAL_PROB / BI_CIV; slope by survey and z; EW distributions
      per redshift slice -> proposed bin centres (median) for the six-axis grid;
@@ -15,6 +16,7 @@ import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
 import fitsio
+import qsolib as Q
 
 HOME = os.path.expanduser('~')
 PASSQ = f'{HOME}/data/sdssdesi_passQ_sdss'
@@ -63,6 +65,9 @@ def main():
     d = pd.concat(parts, ignore_index=True); del parts
     d['QCUT'] = (d.ZWARN == 0) & (d.PLATEQUALITY == 'good') & (d.Z > 0) & (d.Z < 5)
     out.append(f'pass-Q SDSS rows: {len(d):,} (DR17 {(d.SURVEY=="dr17").sum():,}, DR8 {(d.SURVEY=="dr8").sum():,}); after cuts {d.QCUT.sum():,}')
+    d['Z_SYS'], d['Z_SYS_SRC'] = Q.systemic_z(d)                      # O I 1304 dropped (2026-10-27)
+    for k, v in Q.abs_norm_flux(d).items():                             # luminosity axis (replaces M_i(z=2) in the grid)
+        d[k] = v
     status(len(files), len(files) + 3, 'running', 'matching DR16Q')
     # --- DR16Q
     q = fitsio.read(DR16Q, columns=['PLATE', 'MJD', 'FIBERID', 'Z', 'Z_PCA', 'Z_MGII', 'Z_CIV', 'Z_HBETA', 'Z_VI', 'BAL_PROB', 'BI_CIV', 'AI_CIV', 'BI_SIIV', 'AI_SIIV', 'IS_QSO_FINAL'])
@@ -80,7 +85,7 @@ def main():
     out.append(f'S/N>5 after cuts: {len(g):,} (DR17 {(g.SURVEY=="dr17").sum():,}, DR8 {(g.SURVEY=="dr8").sum():,})')
     # --- check 1: Z_SYS vs DR16Q
     out.append('\n== Z_SYS vs DR16Q (km/s; (z_ours - z_ref)/(1+z) c), S/N>5, |dv|<3000 for the statistics')
-    for src, name in ((1, '[O III] peak'), (2, 'Mg II peak'), (3, 'O I 1304 peak')):
+    for src, name in ((1, '[O III] peak'), (2, 'Mg II peak'), (0, 'pipeline z')):
         s = g[g.Z_SYS_SRC == src]
         for ref in ['DR16Q_Z_MGII', 'DR16Q_Z_PCA', 'DR16Q_Z_VI']:
             dv = (s.Z_SYS - s[ref]) / (1 + s[ref]) * CKMS; dv = dv[(s[ref] > 0) & np.isfinite(dv)]; dv = dv[np.abs(dv) < 3000]

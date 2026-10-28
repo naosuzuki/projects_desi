@@ -432,3 +432,29 @@ Overlaps (0.2–0.9, 1.8–2.2) tie the scales together; 1700–1720 (1.12–4.7
 `~/data/sdssdesi_status/stop_before_shutdown.sh` (scheduled, pid 10770) and `resume_after_reboot.sh` (run once after
 the reboot; it relaunches the walk `02_passQ_desi.py --all --with-stars --expfibermap`, 4 shards, resumable). Walk
 started 21:51; 38 files/min on the bright files. Copies in programs_quasars/. See COORDINATION.md §5.
+
+### 8.26 Walk finished; DESI master table; O I dropped; luminosity = absolute normalization flux (2026-10-27)
+- **Walk** (`02_passQ_desi.py --all --with-stars --expfibermap --with-galaxies`, 4 shards) finished 17:38: passQ and
+  passC tables 34,508/34,508, missing 0. Survived an accidental reboot at 08:36 (writes are tmp+rename; galaxy
+  accumulators checkpoint every 100 coadds; resumed 08:47 with `post_reboot.sh`). Throughput limit = exdisk2 itself:
+  88 MB/s sequential uncontended (22 TB, 100 % full); ~150 MB of B/R/Z FLUX/IVAR/MASK per coadd -> ~40 coadds/min.
+  A per-disk read lock was tried and gave no gain (reverted).
+- **Z_SYS without O I 1304** (Nao): `qsolib.systemic_z` = [O III] peak -> Mg II peak -> pipeline z (Z_SYS_SRC 1/2/0).
+  Recomputed in both master tables from the stored peak columns; pass Q itself unchanged (Z_OI_PK kept as a column).
+- **Luminosity axis** (Nao): the stack normalization factor as a luminosity, no filter / K-correction.
+  `qsolib.abs_norm_flux`: LAM_NORM (5115 / 3025 / 1282.5 A by z, sec. 8.24), LOGFABS_NORM = log10 F_lam,abs =
+  CONT_LOGF3000 + ALPHA_LAM log10(lam/3000) + 0.4 DM [- log10 MEAN_PSF_TO_FIBER_SPECFLUX for DESI, fiber -> total],
+  erg/s/cm2/A at 10 pc; LOGL_NORM = +40.078 (erg/s/A); NORM_IN_FIT. On SDSS DR17 it tracks M_i(z=2) with
+  -0.37..-0.39 dex/mag, 0.06-0.075 dex scatter. Grid axis 2 = 0.4-dex bins (`04_cells.py`, LBIN_DEX). The stack step
+  measures the window mean itself and stores it as the definitive normalization factor.
+- **DESI master table** `03_qso_table_desi.py` -> `~/data/sdssdesi_products/quasar/qso_master_desi.parquet`
+  (2,903,199 rows; QCUT = ZCAT_PRIMARY & ZWARN 0 & COADD_FIBERSTATUS 0 & 0<z<5: 2,724,989; SNR_SDSSPIX>5: 984,337).
+  Checks `qso_checks_desi.txt`: vs DESI DR1 QSO cat. (824k matched) Mg II peak +16 km/s, MAD 301; our BAL catches
+  98.4 % of DR1 BI_CIV>0, 16.4 % false positives (SDSS 14.5 %). For DESI the S/N cut uses SNR_SDSSPIX (per dlog 1e-4 pixel).
+- SDSS master table rebuilt with the same two functions (`03_qso_table_sdss.py`).
+- **Combined cells** (`04_cells.py --survey all`, 2026-10-27 22:40): 4,043,815 rows (SDSS + DESI, repeat observations
+  not merged), training (QCUT & S/N>5 & finite L_norm) 1,284,634; 943 full six-axis cells >= 300; after merging
+  BAL -> oxygen -> slope: **1,825 stack cells holding 1,237,087 (96.3 %)**; 752 cells / 47,547 quasars below the floor
+  even pooled (mostly z > 4 and the extreme L bins). SDSS alone was 537 stacks / 87.7 %. Fine bins: EW 98 %, slope
+  100 %, oxygen 61 %, BAL known 94 %. Next: `05_stack.py` (window-mean normalization, sec. 8.24; needs the DESI
+  quasar spectra again: one more read of the dark coadds, ~40 coadds/min from exdisk2), then `06_empca.py`.
