@@ -105,7 +105,10 @@ def eta_epoch(store=STORE, nshard=3, tier1=11288):
         try:
             fs = sorted({os.path.basename(l.strip()) for l in open(f'{QSO_STATUS}/qso_desi_files_shard{i}of{nshard}.txt') if l.strip()},
                         key=lambda f: (phase(f), rank.get(f, 10**9), f))
-            gone = {l.split()[1] for l in open(f'{QSO_STATUS}/qso_stack_desi{i}.log', errors='replace') if l.startswith('MISSING ')}
+            gone = set()                # MISSING in the shard's current run only
+            for l in open(f'{QSO_STATUS}/qso_stack_desi{i}.log', errors='replace'):
+                if 'files already done' in l: gone = set()
+                elif l.startswith('MISSING '): gone.add(l.split()[1])
             pos = [k for k, f in enumerate(fs) if f in need and f not in gone]
             if not pos:
                 continue
