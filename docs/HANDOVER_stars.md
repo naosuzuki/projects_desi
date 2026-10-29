@@ -286,6 +286,10 @@ The DESI star steps (2b, 5, 6, 7, Calibration 2) wait for the walk to finish, â‰
 - Stellar v1 frozen (~/data/sdssdesi_stars/v1_20261029/, tag stars-v1). The v1 internal store was deleted (disk full); v1 code
   falls back to the exdisk3 archive (same coadds). v2: native spectra from the shared walk -> native_to_v2.py -> rest-frame
   store on exdisk3 (desi_v2_store, symlinked as specstore_desi_v2); step6/step7 --v2.
+- rest_shift coverage fix (Galaxy thread, 2026-10-29, 8f6be95): when one of the two neighbours was masked the rest pixel got
+  nothing, so each isolated masked pixel (BOSS sky lines) cost two rest pixels (plate 10242: 0.976 of the integer shift's
+  coverage). Now the nearer pixel is taken if good (= restframe.sdss_rest). v1 keeps the loss (noise at sky lines only). SDSS v2
+  rerun: +0.36 % star-pixels, stacks unchanged to 0.001 sigma; README in ~/data/sdssdesi_stars/v2. DESI v2 (desi_rest) unaffected.
 
 ## 4. Decisions for Nao (ordered by when they block)
 1. Backup-program coadds: download (brightest stars, most XP) or dark+bright only? (blocks the final sample, not the pipeline)
