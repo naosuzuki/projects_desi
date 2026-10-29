@@ -204,6 +204,20 @@ def main():
             for k in range(min(4, nvec)):
                 axes[k + 1].plot(SWAVE, P[k], lw=0.6); axes[k + 1].set_title(f'eigenvector {k+1}: {var[k] - (var[k-1] if k else 0):.3f} of the weighted variance', fontsize=9, loc='left')
             axes[-1].set_xlabel('wavelength [A]'); fig.tight_layout(); fig.savefig(os.path.join(OUTDIR, f'empca_{a.tag}_{c}.png'), dpi=100); plt.close(fig)
+    gauge()
+
+
+def gauge():
+    """monitor gauge (programs_monitor/monitor.py, 'Stars 7'): one unit per survey whose EM-PCA bases exist."""
+    try:
+        import json, glob
+        have = [sv for sv in ('sdss', 'desi') if glob.glob(os.path.join(OUTDIR, f'empca_{sv}_*_GK.fits'))]
+        S = os.path.expanduser('~/data/sdssdesi_status')
+        json.dump({'done': len(have), 'total': 2, 'status': 'done' if len(have) == 2 else 'waiting',
+                   'note': 'EM-PCA bases: ' + ', '.join(f"{sv} {time.strftime('%m-%d %H:%M', time.localtime(max(os.path.getmtime(f) for f in glob.glob(os.path.join(OUTDIR, f'empca_{sv}_*.fits')))))}" for sv in have)},
+                  open(f'{S}/step_star_empca.json', 'w'))
+    except Exception:
+        pass
 
 
 if __name__ == '__main__':

@@ -342,7 +342,9 @@ def run_stack(a, cells, mem, df, stacks, it, t0):
     df[['SID', 'CELL', 'STACK', 'FILE', 'SNR_ALL']].to_csv(os.path.join(a.outdir, f'members_{a.tag}.csv'), index=False)
     print(f'written {out}: {len(stacks)} stacks x {NPIX} pixels; median N per stack {int(np.median(accB.nstar))}; {time.time()-t0:.0f}s')
     print(tab.head(10).to_string())
-    _progress('stack', 1 if a.survey == 'sdss' else 2, 2, 'waiting' if a.survey == 'sdss' else 'done', f'{a.survey}: {len(stacks)} stacks' + ('; DESI after pass B' if a.survey == 'sdss' else ''))
+    other = 'desi' if a.survey == 'sdss' else 'sdss'           # done when both surveys have their stacks (either may finish last)
+    both = os.path.exists(os.path.join(OUTDIR, f'stacks_{a.tag.replace(a.survey, other)}.fits'))
+    _progress('stack', 2 if both else 1, 2, 'done' if both else 'waiting', f'{a.survey}: {len(stacks)} stacks' + ('' if both else f'; {other.upper()} still to come'))
 
 
 if __name__ == '__main__':
