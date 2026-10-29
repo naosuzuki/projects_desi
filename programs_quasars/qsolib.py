@@ -20,6 +20,8 @@ import pandas as pd
 HERE = os.path.dirname(os.path.abspath(__file__))
 _spec = importlib.util.spec_from_file_location('passB', os.path.join(HERE, '..', 'programs_templates', '02_passB_measure.py'))
 passB = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(passB)
+sys.path.insert(0, os.path.join(HERE, '..', 'programs_templates'))
+import restframe as RF            # v2 exact sub-pixel rest frame (shared with the galaxy and star threads)
 
 # SDSS and DESI wavelengths are in vacuum; pass B's optical line list is in AIR wavelengths (found 2026-10-24 from the
 # +76 km/s offset of our [O III] peak against DR16Q). Override here with vacuum values (Morton 1991 / NIST) without
@@ -73,9 +75,12 @@ BAL_NSIG = 2.0                    # smoothed flux must be this many sigma below 
 
 
 # ---------------------------------------------------------------- rest-frame spectrum on the quasar grid
-def quasar_rest(df, w, flux, ivar, mask):
+def quasar_rest(df, w, flux, ivar, mask, exact=False):
     """Re-apply the pass-B calibration (CAL_A, CAL_B from df) and extinction, rebin and shift to the quasar
-    rest grid QWAVE. Returns rflux, rivar [n, QNREST] (F_lam * (1+z), erg/s/cm2/A) and the coverage mask."""
+    rest grid QWAVE. Returns rflux, rivar [n, QNREST] (F_lam * (1+z), erg/s/cm2/A) and the coverage mask.
+    exact=False (v1): rebin to the observed log grid, then a whole-pixel shift round(log10(1+z)/DLOG) (+-35 km/s).
+    exact=True (v2, 2026-10-29): ONE flux-conserving rebin from the native pixels to the rest lattice at the exact z
+    (programs_templates/restframe.desi_rest, shared with the galaxy and star threads)."""
     n = len(df)
     good = (ivar > 0) & (mask == 0)
     psf2fib = df['MEAN_PSF_TO_FIBER_SPECFLUX'].to_numpy(dtype=float)
@@ -91,6 +96,11 @@ def quasar_rest(df, w, flux, ivar, mask):
     f = flux * corr * 10**(0.4 * A)
     iv = np.where(good, ivar / corr**2 * 10**(-0.8 * A), 0.0)
     del corr, A
+    if exact:
+        z = df['Z'].to_numpy(dtype=float); z = np.where(np.isfinite(z) & (z > -0.005), np.clip(z, -0.004, None), np.nan)
+        rflux, rivar = RF.desi_rest(w, f, iv, mask, z, QRID_MIN, QNREST)
+        zf = np.nan_to_num(z)
+        return (rflux * (1 + zf)[:, None]).astype(F32), (rivar / ((1 + zf)**2)[:, None]).astype(F32)
     rid_obs, rflux_o, rivar_o = passB.rebin(w, f, iv, mask)
     del f, iv
     z = df['Z'].to_numpy(dtype=float); zok = np.isfinite(z) & (z > -0.005)
@@ -307,17 +317,24 @@ def forest_and_bal(rflux, rivar, cont):
 
 
 # ---------------------------------------------------------------- SDSS: spectra already on the log10 grid
-def rest_from_loggrid(rid0, flux, ivar, mask, z, scale, ebv):
+def rest_from_loggrid(rid0, flux, ivar, mask, z, scale, ebv, coeff0=None):
     """spPlate arrays [n, npix] on the log10 grid starting at pixel id rid0 (= round(COEFF0/DLOG); COEFF1 must be
     1e-4). scale [n]: multiplicative calibration (CAL_A); ebv [n]: SFD E(B-V). Flux unit 1e-17 -> cgs.
-    Returns rflux, rivar [n, QNREST] = F_lam * (1+z), dereddened (F99, R_V=3.1, 0.86 E(B-V)), shifted by Z."""
+    Returns rflux, rivar [n, QNREST] = F_lam * (1+z), dereddened (F99, R_V=3.1, 0.86 E(B-V)), shifted by Z.
+    coeff0 given (v2, 2026-10-29): sub-pixel shift at the exact z and the exact COEFF0 (restframe.sdss_rest, Lanczos-3);
+    otherwise (v1) a whole-pixel shift on the rounded lattice."""
     n, npix = flux.shape
-    w = 10.0**((rid0 + np.arange(npix)) * DLOG)
+    w = 10.0**((rid0 + np.arange(npix)) * DLOG) if coeff0 is None else 10.0**(coeff0 + np.arange(npix) * DLOG)
     good = (ivar > 0) & (mask == 0)
     corr = (np.nan_to_num(scale, nan=1.0) * passB.FLUX_UNIT)[:, None]
     A1 = passB.extinction.fitzpatrick99(w, 1.0, 3.1)
     A = (3.1 * 0.86 * np.nan_to_num(ebv))[:, None] * A1[None, :]
     f = flux * corr * 10**(0.4 * A); iv = np.where(good, ivar / corr**2 * 10**(-0.8 * A), 0.0)
+    if coeff0 is not None:
+        z = np.where(np.isfinite(z) & (z > -0.005), np.clip(z, -0.004, None), np.nan)
+        rflux, rivar = RF.sdss_rest(coeff0, f, iv, (~good).astype(np.int8), z, QRID_MIN, QNREST)
+        zf = np.nan_to_num(z)
+        return (rflux * (1 + zf)[:, None]).astype(F32), (rivar / ((1 + zf)**2)[:, None]).astype(F32)
     rflux = np.zeros((n, QNREST), F32); rivar = np.zeros((n, QNREST), F32)
     zok = np.isfinite(z) & (z > -0.005)
     shift = np.where(zok, np.round(np.log10(1 + np.clip(z, -0.004, None)) / DLOG), 0).astype(int)
@@ -401,3 +418,20 @@ def measure_qso_chunk_desi(df, w, flux, ivar, mask):
     df = passB.measure_chunk(df, w, flux, ivar, mask)
     rflux, rivar = quasar_rest(df, w, flux, ivar, mask)
     return measure_rest(df, rflux, rivar)
+
+
+# ---------------------------------------------------------------- coadd read without the MASK HDUs
+class _NoMaskHDU:
+    def __init__(self, shape): self.shape = shape
+    def read(self): return np.zeros(self.shape, np.int32)
+
+
+class NoMaskFITS:
+    """Coadd view whose *_MASK HDUs are not read (zeros): in the DESI coadds a masked pixel already has IVAR = 0
+    (test 2026-10-28: 1 pixel in 1e8 differs), so combine_cameras' good = (ivar > 0) & (mask == 0) is unchanged, and
+    each read is a third smaller (exdisk2 is the bottleneck at ~90 MB/s)."""
+    def __init__(self, f): self.f = f
+    def __getitem__(self, k):
+        if k.endswith('_MASK'):
+            return _NoMaskHDU(self.f[k.replace('_MASK', '_IVAR')].get_dims())
+        return self.f[k]

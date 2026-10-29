@@ -12,9 +12,14 @@ DR8 + DR17, built by a weighted EM-PCA of 5-axis cell stacks. Paper: `~/github/p
 | `galaxy_empca_desi_v1.fits` | 7,641 DESI stacks | no | superseded: normalization-window jump at z = 0.60, noisy blue end |
 | `galaxy_empca_desi_v2.fits` | 7,641 DESI stacks | no | provisional (DESI-only comparison) |
 | `galaxy_empca_desisdss_v2.fits` | 7,641 DESI + 1,231 SDSS stacks | no | provisional |
-| `galaxy_empca_desisdss_v3.fits` | 7,641 DESI (tilt-corrected) + 1,231 SDSS stacks | DESI: yes | **current**, copied here when its run finishes |
+| `galaxy_empca_desisdss_v3.fits` | 7,641 DESI (tilt-corrected) + 1,231 SDSS stacks | DESI: yes | **current** |
+| `galaxy_eigenspectra_v1.fits` | = `galaxy_empca_desisdss_v3.fits` (byte-identical copy) | DESI: yes | **release v1** (Nao, 2026-10-29) |
 
 Each `.png` shows e0–e5 of the matching file.
+
+Release naming: `galaxy_eigenspectra_v<N>` counts released bases; `galaxy_empca_<inputs>_v<N>` are the build iterations.
+Release v1 de-redshifts by a whole-pixel shift (round(log10(1+z)/1e-4)). The next release (v2) redoes everything from the
+original spectra with a sub-pixel shift on the same 1e-4 dex grid (`programs_templates/restframe.py`).
 
 FITS extensions (all files):
 
@@ -27,7 +32,7 @@ FITS extensions (all files):
 | `WAVE` | [8496] rest-frame **vacuum** wavelength in Å: 10^(i × 1e-4), log-uniform, Δlog λ = 1e-4 (69 km/s), 1400–9900 Å |
 | `CELLS` | one row per stack: cell indices ZB, MB, CB, EB, DB; N; Z_MED, MABS_MED, …; STACK_SNR; NPIX; SOURCE (`desi`/`sdss`, v2 DESI+SDSS and later); RENORM (v2 and later) |
 
-Basis wavelength range: v1 1400–9799 Å; v2 DESI 1470–9703 Å; v2 DESI+SDSS 1470–9790 Å.
+Basis wavelength range: v1 1400–9799 Å; v2 DESI 1470–9703 Å; v2 and v3 DESI+SDSS 1470–9790 Å (8,237 pixels).
 
 **Using them:** model a rest-frame galaxy spectrum as f(λ) = Σ_k a_k EIGVEC[k](λ) with a_k free (including a_0,
 which carries the amplitude). Fit only pixels with PIXMASK = 1. The vectors are dimensionless shapes; overall flux
@@ -143,7 +148,7 @@ Five axes:
   - After the fix the coefficients are continuous across all window switches.
 - **Pixel criterion:** a pixel enters the basis if ≥ 200 stacks cover it (v1: 20). Below about 1550 Å only 38–280 faint high-z stacks contribute, and their noise dominated e2 in v1.
 - **Settings:** 25 iterations, float64.
-- **Runtimes:** v1 16 min; v2 DESI 32 min; v2 DESI+SDSS 40 min (6 threads, 6.6 GB).
+- **Runtimes:** v1 16 min; v2 DESI 32 min; v2 DESI+SDSS 40 min; v3 29 min (6 threads, 6.6 GB).
 
 ## Results so far
 
@@ -154,24 +159,38 @@ Weighted R² vs number of vectors:
 | desi_v1 | 0.904 | 0.942 | 0.960 | 0.968 | 0.986 | 0.996 | 0.9992 |
 | desi_v2 | 0.784 | 0.934 | 0.954 | 0.983 | 0.993 | 0.997 | 0.9988 |
 | desisdss_v2 | 0.861 | 0.911 | 0.978 | 0.984 | 0.993 | 0.997 | 0.9988 |
+| **desisdss_v3** | 0.895 | 0.951 | 0.983 | 0.987 | 0.994 | 0.998 | 0.9989 |
 
-v1's high first term is mostly the arbitrary window scale; v2's first term is shape only.
+v1's high first term is mostly the arbitrary window scale; from v2 on the first term is shape only. With the tilt
+correction (v3) the basis is more compact: more variance in the first 2–4 vectors than v2 with the same inputs.
 
-Physical reading of desi_v2:
+Physical reading of desisdss_v3 (the signs are arbitrary):
 
 | vector | content |
 |---|---|
 | e0 | mean galaxy (continuum, 4000 Å break, [O II], Hβ, [O III], Hα) |
-| e1 | UV-to-red continuum slope (age / star-formation sequence) |
-| e2–e4 | [O III]/Hβ strength with different continua |
-| e5 | Hα+[N II] vs [O III] (ionization / metallicity) |
+| e1 | smooth UV-to-red continuum slope with [O II] (age / star-formation sequence) |
+| e2 | red continuum (> 7000 Å) vs [O III] |
+| e3 | [O III] vs [O II] and Hα ([O III]/[O II]: ionization) |
+| e4 | [O III] + Hβ + Hα strength |
+| e5 | [O II] and Hα+[N II] vs [O III] (metallicity / ionization) |
 
-**DESI vs SDSS (desisdss_v2, 1,168 shared cells):** c_k/c0 differ by medians of −0.047, +0.039, −0.037 and −0.002
-(k = 1–4), with NMAD 0.04–0.085. The spread across DESI cells is 0.11–0.55, so both surveys land in the same place in
-the eigenspace. The small c1/c3 offsets may be the DESI tilt; recheck them with v3.
+(desi_v2: e0 mean, e1 continuum slope, e2–e4 [O III]/Hβ, e5 Hα+[N II] vs [O III].)
+
+**DESI vs SDSS in the 1,168 cells stacked by both surveys** (c_k/c0, SDSS − DESI):
+
+| | v2 (no tilt) median / NMAD | v3 (DESI tilt-corrected) median / NMAD | v3 spread across DESI cells |
+|---|---|---|---|
+| c1/c0 | −0.047 / 0.085 | +0.033 / 0.061 | 0.577 |
+| c2/c0 | +0.039 / 0.066 | −0.032 / 0.055 | 0.246 |
+| c3/c0 | −0.037 / 0.080 | −0.008 / 0.050 | 0.151 |
+| c4/c0 | −0.002 / 0.040 | +0.004 / 0.023 | 0.102 |
+
+The tilt correction cuts the survey-to-survey scatter by 25–45 %. The offsets are now ≤ 13 % of the real spread across
+cells (c1: 6 %, c3: 5 %). The vectors are reordered between v2 and v3, so compare row by row only loosely.
 
 ## Known issues / to do
-- The blue end (< 1600 Å) is still somewhat noisy in e1, e3, e5 (few faint z > 1.4 stacks).
+- The blue end (< 1600 Å) is still somewhat noisy in e1, e3, e5 (few faint z > 1.4 stacks), less so in v3.
 - Features > 9300 Å, probably sky residuals; consider a red cut at ~9300 Å.
 - The lowest z slice (z < 0.05) has a c0 outlier (−1.5 vs about −0.8); check those cells (aperture effects in nearby galaxies).
 - DR8 M_R is missing for 0.28 < z < 0.35 (DR8 spectra end at 9200 Å, before the band switch at 0.35). BOSS stacks only 62 % of its galaxies (cells missing from the DESI-based cell table).

@@ -5,7 +5,9 @@ Per galaxy (SPECTYPE=GALAXY, ZWARN=0, COADD_FIBERSTATUS=0, ZCAT_PRIMARY, DELTACH
   Step 1  fiber-photometry scale (as pass B; if the +-0.5 mag check fails the scale is 1 and CALC=0 - such
           spectra are kept, because every spectrum is renormalized below and K is scale-free)
   Step 2  Milky Way extinction (F99, R_V=3.1, 0.86 x SFD)
-  Step 3  rest frame on the log10 grid (dlog=1e-4, 1400-9900 A), F_lambda*(1+z)
+  Step 3  rest frame on the log10 grid (dlog=1e-4, 1400-9900 A), F_lambda*(1+z). v2 (Nao 2026-10-29): ONE flux-conserving
+          rebin from the native 0.8 A pixels straight onto the rest bins at the exact z (restframe.desi_rest, sub-pixel);
+          v1 rebinned onto the observed log grid and shifted by round(log10(1+z)/dlog) whole pixels (v1 outputs: ~/data/sdssdesi_passC)
   Step 4  K-corrections from the galaxy's own spectrum; band-switched absolute magnitude from the whole-galaxy flux
   Step 5  lines re-measured with the VACUUM table; Dn4000; cell indices (gridcells.py)
   Step 6  normalization to unit mean F_lambda in the line-free window of the z slice (normwin.py);
@@ -14,12 +16,12 @@ Optional (--store DIR): the normalized rest-frame spectra (float16 flux and ivar
 written per coadd, for median stacks and the EM-PCA.
 
 Outputs
-  ~/data/sdssdesi_passC/tables/<program>/hpx<N>.parquet   per-galaxy table (atomic; also the record of done files)
-  ~/data/sdssdesi_passC/acc/acc_shard<i>of<n>.npz         accumulator checkpoint (atomic) + list of files included
+  ~/data/sdssdesi_passC_v2/tables/<program>/hpx<N>.parquet   per-galaxy table (atomic; also the record of done files)
+  ~/data/sdssdesi_passC_v2/acc/acc_shard<i>of<n>.npz         accumulator checkpoint (atomic) + list of files included
 Resumable: a file is skipped when it is in the shard's accumulator checkpoint; files whose table exists but which
 are not in the checkpoint are processed again (their table is rewritten identically).
 
-Usage: OPENBLAS_NUM_THREADS=1 python3 08_passC_stack.py --all --shard i/4 [--store /Volumes/exdisk3/sdssdesi_restframe]
+Usage: OPENBLAS_NUM_THREADS=1 python3 08_passC_stack.py --all --shard i/4 [--store /Volumes/exdisk3/sdssdesi_restframe_v2]
        python3 08_passC_stack.py --files <coadd paths> --outdir <test dir>
 """
 import os, sys, time, json, argparse, signal, warnings
@@ -32,11 +34,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import importlib
 pb = importlib.import_module('02_passB_measure')
-import normwin
+import normwin, restframe
 import gridcells as gc
 
 assert getattr(pb, 'LINES_FRAME', 'air') == 'vacuum', 'pass C requires the vacuum LINES table'
-OUTDIR = os.path.expanduser('~/data/sdssdesi_passC')
+OUTDIR = os.path.expanduser('~/data/sdssdesi_passC_v2')        # v1 (whole-pixel shift): ~/data/sdssdesi_passC
 CELLTABLE = os.path.expanduser('~/data/sdssdesi_products/galaxy_cell_table.csv')
 ACC_MIN_N = 100                 # accumulate cells that had >= 100 members in the pass-B assignment
 CHECKPOINT_EVERY = 100          # files
@@ -114,16 +116,13 @@ def process_chunk(df, w, flux, ivar, mask):
         if rows.any():
             m_obs_r[rows], _ = pb.ab_mags(pb.filt(names[sf][1]), w, fder[rows], good[rows])
     # Step 3
-    rid_obs, rflux_o, rivar_o = pb.rebin(w, fder, ider, mask)
-    del fder, ider
     z = df.Z.to_numpy(float)
-    rflux = np.zeros((n, NREST), F32); rivar = np.zeros((n, NREST), F32); rin = np.zeros((n, NREST), bool)
-    shift = np.round(np.log10(1 + z) / DLOG).astype(int)
-    for i in range(n):
-        r0 = rid_obs - shift[i] - pb.RID_MIN
-        ok = (r0 >= 0) & (r0 < NREST)
-        rflux[i, r0[ok]] = rflux_o[i, ok] * (1 + z[i]); rivar[i, r0[ok]] = rivar_o[i, ok] / (1 + z[i])**2; rin[i, r0[ok]] = True
-    del rflux_o, rivar_o
+    rflux, rivar = restframe.desi_rest(w, fder, ider, mask, z, pb.RID_MIN, NREST)
+    del fder, ider
+    rflux *= (1 + z)[:, None].astype(F32); rivar /= ((1 + z)**2)[:, None].astype(F32)
+    lobs = RWAVE[None, :] * (1 + z)[:, None]
+    rin = (lobs >= w[0]) & (lobs <= w[-1])                        # inside the observed range (band coverage for the K terms)
+    del lobs
     # Step 4
     DM = pb.COSMO.distmod(np.clip(z, 1e-4, None)).value
     with np.errstate(all='ignore'):

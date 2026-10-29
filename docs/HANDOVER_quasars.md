@@ -480,3 +480,44 @@ started 21:51; 38 files/min on the bright files. Copies in programs_quasars/. Se
   (markers stack_acc/*.dark_done, ~05:30) -> `05_stack.py --merge --out qso_stacks_dark` + EM-PCA v1_dark (global,
   _z0008, _z0820, _z2099); when all are done (~08:45) -> final merge `qso_stacks.npz` + EM-PCA v1. After a reboot rerun
   `run_stack.sh` and `nohup zsh after_stack.sh &`.
+
+### 8.28 Shutdown 2026-10-28 08:23 — how to resume
+- DESI stack shards stopped by SIGTERM with clean checkpoints (stack_acc/acc_desi_shard*of3.npz 08:23): 6,553 / 6,496 / 6,525 of
+  11,129 files each, 528,276 DESI quasars; SDSS stacks complete (301,486). No .dark_done marker yet (phase 1, dark, still running).
+- after_stack.sh (waiter) was killed too; step_qso_empca.json says "waiting" (the earlier "done" was the 00:54 test: 357,304 quasars,
+  299 stacks, test files deleted).
+- Resume after reboot (exdisk2 and exdisk3 mounted):
+    cd ~/github/projects_desi/programs_quasars && ./run_stack.sh      # resumable; SDSS shards exit at once
+    nohup ./after_stack.sh > ~/data/sdssdesi_status/after_stack.log 2>&1 &
+- Resumed 2026-10-29 ~01:05. Fix: 05_stack.py --survey desi now resolves paths with passB.local_path (the 969 overflow
+  coadds live on exdisk1); before the fix 164 overflow coadds were reported MISSING (never marked done), and they were
+  re-read after the 01:15 restart. after_stack.sh was relaunched (pid 3201).
+
+### 8.29 v1 final; v2 started (2026-10-29)
+- v1 finished 06:38: qso_stacks.npz (1,302,315 quasars, 1,822 stacks with n>=300), qso_empca_v1{,_z0008,_z0820,_z2099}.fits.
+  Kept as is. Caveat: the R^2-vs-k curves of v1 are not monotone in the usual way (global: 0.05, 0.06, 0.92, 0.98 ...),
+  i.e. the EM-PCA vectors are not ordered by explained variance (the mean shape is not e0); check before anyone truncates.
+- v2 (Nao): sub-pixel shift on the uniform log lattice (dlog 1e-4), from the original spectra, SDSS and DESI, quasars and
+  stars (and galaxies), with ONE DESI read for all three threads.
+  - Rest frame: qsolib.quasar_rest(..., exact=True) / rest_from_loggrid(..., coeff0=COEFF0) call the shared
+    programs_templates/restframe.py (Galaxy thread): DESI = one flux-conserving overlap rebin from the native 0.8 A pixels
+    to the rest lattice at the exact z; SDSS = Lanczos-3 sub-pixel shift with the exact COEFF0. Synthetic test (200 lines,
+    z 0.4-2.4): centroid error v1 rms 19.8 / max 34 km/s, v2 rms 0.0 / max 0.4 km/s; flux conserved to 1e-4.
+  - Shared walk: run_walk_v2.sh = 02_passQ_desi.py --all --with-native --with-galaxies --gal-store
+    /Volumes/exdisk3/sdssdesi_restframe_v2 --shard i/4 (started 09:06, ~60 coadds/min, ~9.5 h). --with-native
+    (native_hook.py) stores the native combine_cameras spectra (uncalibrated, no resampling) of every quasar pass-Q row and
+    every main dark+bright SPECTYPE STAR row (10.16 M spectra, ~630 GB; target table native_targets_desi.parquet) to
+    /Volumes/exdisk3/sdssdesi_native/desi/<coadd>.npz. The walk now reads through qsolib.NoMaskFITS (MASK HDUs skipped).
+  - 05_stack.py --v2: SDSS from the spPlates (run 09:20), DESI from the native store; outputs quasar/v2/ (stack_acc,
+    qso_stacks.npz), store /Volumes/exdisk3/sdssdesi_qso_restframe_v2, gauge step_qso_stack_v2.json.
+  - after_walk_v2.sh (detached): when the walk is done -> DESI v2 stacks -> --v2 --merge -> EM-PCA tags v2, v2_z0008/_z0820/_z2099.
+  - Resume after a reboot: ./run_walk_v2.sh (skips stored coadds and the galaxy hook's done set), then relaunch
+    after_walk_v2.sh detached.
+- 2026-10-29 ~09:15: the internal disk filled up (ENOSPC); all 4 walk shards and the SDSS v2 stacks died. Moved v1
+  stack_acc + qso_stacks_dark* to /Volumes/exdisk3/sdssdesi_qso_v1_intermediate (stack_acc is a symlink) and v2 stack_acc
+  to /Volumes/exdisk3/sdssdesi_qso_v2_acc (symlink). SDSS v2 restarted 09:20. The walk waits until Galaxy's passC_v2
+  (~23 GB over the walk) and Stellar's v2 store are off the internal disk; then ./run_walk_v2.sh (resumable).
+- 2026-10-29 10:05: gauge rows split into Quasar stacks/EM-PCA v1 (done) and v2 (step_qso_stack_v2.json with 'waiting'
+  placeholders for the DESI v2 shards; step_qso_empca_v2.json, 'done' only after the last of the 4 bases via
+  EMPCA_SERIES_LAST); common row "v2 shared DESI walk" counts the native npz. v1 bases copied to
+  data_eigenspectra/quasar_eigenspectra_v1{,_z0008,_z0820,_z2099}.fits/.png (same naming as galaxy_eigenspectra_v1).

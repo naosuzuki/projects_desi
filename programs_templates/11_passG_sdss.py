@@ -11,15 +11,16 @@ by the point-source fiber fraction. Reference = fiber magnitude (DR8: FIBERMAG 3
 spAll) + the plate's point-source offset DELTA_PLATE = median(PSFMAG - FIBERMAG) of the plate's stars (r band; g from
 its own median), the analogue of DESI's MEAN_PSF_TO_FIBER_SPECFLUX. Scale-only, ivar-weighted over g and r; spectra
 failing the +-0.5 mag check keep scale 1 (flag CALC=0) and are still stacked.
-Step 2: F99, R_V=3.1, 0.86 x SFD (plugmap SFD_EBV). Step 3: spPlate grid is already log10 (dlog=1e-4) -> integer shift.
+Step 2: F99, R_V=3.1, 0.86 x SFD (plugmap SFD_EBV). Step 3: spPlate grid is already log10 (dlog=1e-4) -> v2 (Nao 2026-10-29): sub-pixel Lanczos-3
+shift at the exact z and COEFF0 (restframe.sdss_rest); v1 shifted by round(log10(1+z)/dlog) whole pixels (~/data/sdssdesi_passG_sdss).
 Step 4: K from the spectrum (SDSS r observed vs rest DECam r/g, SDSS u, NUV tophat); M from CMODELMAG r dereddened
 (A_r = 2.285 E(B-V), SF11). Colour axis: CMODELMAG g-r (z<0.5) / r-z (z>=0.5), dereddened with SF11 coefficients.
 Step 5: lines (vacuum), Dn4000. Step 6: normalize, accumulate.
 
 Usage:
   python3 11_passG_sdss.py --prep                                  # build the galaxy catalog + plate offsets (once, ~3 min)
-  OPENBLAS_NUM_THREADS=1 python3 11_passG_sdss.py --survey dr8 --shard 0/2 [--store /Volumes/exdisk3/sdssdesi_restframe_sdss]
-Outputs: ~/data/sdssdesi_passG_sdss/{tables/<survey>/<plate>.parquet, acc/acc_<survey>_shard<i>of<n>.npz}
+  OPENBLAS_NUM_THREADS=1 python3 11_passG_sdss.py --survey dr8 --shard 0/2 [--store /Volumes/exdisk3/sdssdesi_restframe_sdss_v2]
+Outputs: ~/data/sdssdesi_passG_sdss_v2/{tables/<survey>/<plate>.parquet, acc/acc_<survey>_shard<i>of<n>.npz}
 """
 import os, sys, glob, time, json, argparse, signal, warnings
 import numpy as np
@@ -31,13 +32,13 @@ HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)
 import importlib
 pb = importlib.import_module('02_passB_measure')
 pc = importlib.import_module('08_passC_stack')
-import normwin, gridcells as gc
+import normwin, restframe, gridcells as gc
 
 assert pb.LINES_FRAME == 'vacuum'
 SPECTRO = os.path.expanduser('~/sdssredux')
 CAT = os.path.expanduser('~/data/sdssdesi_products/sdss_galaxy_catalog.parquet')
 OFFS = os.path.expanduser('~/data/sdssdesi_products/sdss_plate_psf_offsets.parquet')
-OUTDIR = os.path.expanduser('~/data/sdssdesi_passG_sdss')
+OUTDIR = os.path.expanduser('~/data/sdssdesi_passG_sdss_v2')   # v1 (whole-pixel shift): ~/data/sdssdesi_passG_sdss
 PLATE_DIRS = {'dr17': [f'{SPECTRO}/v5_13_2'], 'dr8': [f'{SPECTRO}/DR8/26', f'{SPECTRO}/DR8/103', f'{SPECTRO}/DR8/104']}
 OBS_RANGE = {'dr8': (3800.0, 9200.0), 'dr17': (3600.0, 10300.0)}
 SF11 = {'u': 4.239, 'g': 3.303, 'r': 2.285, 'i': 1.698, 'z': 1.263}
@@ -96,13 +97,13 @@ def process_plate(path, survey, cat, offs, cellmap, acc, store_dir):
         return pd.DataFrame(), 0, time.time() - t0
     F = fitsio.FITS(path); h = F[0].read_header()
     assert abs(float(h['COEFF1']) - DLOG) < 1e-9
-    rid0 = int(round(float(h['COEFF0']) / DLOG))
+    coeff0 = float(h['COEFF0']); rid0 = int(round(coeff0 / DLOG))
     fib = rows.FIBERID.to_numpy() - 1
     flux = F[0].read()[fib].astype(float); ivar = F[1].read()[fib].astype(float); mask = F[2].read()[fib]
     plug = F[5].read(columns=['FIBERID', 'SFD_EBV']); F.close()
     plug = plug[np.argsort(plug['FIBERID'])][fib]
     df = rows.reset_index(drop=True).copy(); df['EBV'] = plug['SFD_EBV'].astype(float)
-    n, npix = flux.shape; w = 10.0**((rid0 + np.arange(npix)) * DLOG)
+    n, npix = flux.shape; w = 10.0**(coeff0 + np.arange(npix) * DLOG)
     good = (ivar > 0) & (mask == 0)
     with np.errstate(all='ignore'):
         df['SNR_SDSSPIX'] = np.nanmedian(np.where(good, flux * np.sqrt(ivar), np.nan), axis=1)
@@ -126,14 +127,13 @@ def process_plate(path, survey, cat, offs, cellmap, acc, store_dir):
     A = (3.1 * 0.86 * ebv)[:, None] * pb.extinction.fitzpatrick99(w, 1.0, 3.1)[None, :]
     fder = fl * a[:, None] * 10**(0.4 * A); ider = np.where(good, iv / a[:, None]**2 * 10**(-0.8 * A), 0.0)
     m_obs_r, _ = pb.ab_mags(pb.filt('sdss2010-r'), w, fder, good)
-    # Step 3: integer shift on the native log grid
+    # Step 3: sub-pixel shift on the native log grid (Lanczos-3)
     z = df.Z.to_numpy(float)
-    rflux = np.zeros((n, NREST), F32); rivar = np.zeros((n, NREST), F32); rin = np.zeros((n, NREST), bool)
-    shift = np.round(np.log10(1 + z) / DLOG).astype(int); rid_obs = rid0 + np.arange(npix)
-    for i in range(n):
-        r0 = rid_obs - shift[i] - pb.RID_MIN; ok = (r0 >= 0) & (r0 < NREST)
-        rflux[i, r0[ok]] = fder[i, ok] * (1 + z[i]); rivar[i, r0[ok]] = ider[i, ok] / (1 + z[i])**2; rin[i, r0[ok]] = True
-    del fder, ider, fl, iv
+    rflux, rivar = restframe.sdss_rest(coeff0, fder, ider, (~good).astype(np.int8), z, pb.RID_MIN, NREST)
+    rflux *= (1 + z)[:, None].astype(F32); rivar /= ((1 + z)**2)[:, None].astype(F32)
+    lobs = RWAVE[None, :] * (1 + z)[:, None]
+    rin = (lobs >= w[0]) & (lobs <= w[-1])
+    del fder, ider, fl, iv, lobs
     # Step 4
     DM = pb.COSMO.distmod(np.clip(z, 1e-4, None)).value
     m_tot = df.CMOD_r.to_numpy(float) - SF11['r'] * ebv

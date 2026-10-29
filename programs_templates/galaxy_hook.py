@@ -7,7 +7,7 @@ State is the SAME as the standalone pass C with N shards: accumulators ~/data/sd
 shard i/N and run_passC.sh N use the same manifest split, so whatever the walk does, a later `run_passC.sh N` skips.
 
 Use in the walk:
-    G = galaxy_hook.GalaxyHook(shard_i, shard_n, store='/Volumes/exdisk3/sdssdesi_restframe', zl=zl, offsets=offsets)
+    G = galaxy_hook.GalaxyHook(shard_i, shard_n, store='/Volumes/exdisk3/sdssdesi_restframe_v2', zl=zl, offsets=offsets)
     if G.needs(prog, hpx): ... read FIBERMAP (galaxy_hook.FM_COLS) before closing the FITS, then after combine_cameras:
         G.process(path, fm, w, flux, ivar, mask, prog, hpx)
     G.close()      # at the end and on SIGTERM: writes the accumulator checkpoint

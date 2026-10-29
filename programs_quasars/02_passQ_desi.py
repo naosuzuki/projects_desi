@@ -64,7 +64,7 @@ def dump_expfibermap(f, path, program, outdir, overwrite=False):
 
 
 def process_file(path, zl, program, star_lookup=None, want_stars=False, want_q=True, expfm_dir=None, overwrite=False,
-                 G=None, need_g=False, hpx=None):
+                 G=None, need_g=False, hpx=None, NH=None, need_n=False):
     """One read of the coadd: quasar measurements for the QSO rows (returned), the Stellar thread's hook for the STAR
     rows (written by S.write_star_file) and the EXP_FIBERMAP dump. Returns (qso_df, n_star, n_expfm, t_read)."""
     t0 = time.time()
@@ -76,14 +76,16 @@ def process_file(path, zl, program, star_lookup=None, want_stars=False, want_q=T
     qso = zl[(zl.SPECTYPE == 'QSO') & zl.ZCAT_PRIMARY]
     qrows = np.where(np.isin(tid, qso.TARGETID.to_numpy()))[0] if want_q else np.array([], int)
     nstar_rows = int(np.isin(tid, zl[(zl.SPECTYPE == 'STAR') & zl.ZCAT_PRIMARY].TARGETID.to_numpy()).sum()) if want_stars else 0
-    if len(qrows) == 0 and nstar_rows == 0 and not need_g:
+    if len(qrows) == 0 and nstar_rows == 0 and not need_g and not need_n:
         f.close()
         return pd.DataFrame(), 0, n_expfm, time.time() - t0
-    w, flux, ivar, mask, percam = Q.passB.combine_cameras(f)
+    w, flux, ivar, mask, percam = Q.passB.combine_cameras(Q.NoMaskFITS(f))   # MASK HDUs skipped: masked pixels have IVAR = 0
     f.close()
     t_read = time.time() - t0
     if need_g:
         G.process(path, gfm, w, flux, ivar, mask, program, hpx)
+    if need_n:
+        NH.process(path, tid, w, flux, ivar)                              # v2 native-pixel store (quasars + stars)
     n_star = 0
     if want_stars:
         n_star = STARS.write_star_file(path, fm, w, flux, ivar, mask, percam, zl, star_lookup, program, outdir=STAR_OUTDIR_RUN, overwrite=overwrite)
@@ -114,7 +116,8 @@ def main():
     ap.add_argument('--expfibermap', action='store_true', help='dump EXP_FIBERMAP of every coadd (all rows) to --expfm-outdir')
     ap.add_argument('--expfm-outdir', default=EXPFM_OUTDIR)
     ap.add_argument('--with-galaxies', action='store_true', help="also run the Galaxy thread's pass-C hook (programs_templates/galaxy_hook.py) on the same read")
-    ap.add_argument('--gal-store', default='/Volumes/exdisk3/sdssdesi_restframe', help='rest-frame spectrum store of the galaxy hook')
+    ap.add_argument('--with-native', action='store_true', help='v2: store the native-pixel quasar + star spectra on exdisk3 (native_hook.py)')
+    ap.add_argument('--gal-store', default='/Volumes/exdisk3/sdssdesi_restframe_v2', help='rest-frame spectrum store of the galaxy hook')
     ap.add_argument('--gal-outdir', default=None, help='override the galaxy hook state dir (testing only; default = pass C state)')
     a = ap.parse_args()
     global STARS, STAR_OUTDIR_RUN
@@ -148,6 +151,10 @@ def main():
             kw['outdir'] = os.path.expanduser(a.gal_outdir)
         G = GH.GalaxyHook(si, sn, **kw)
         print(f'galaxy hook: shard {si}/{sn}, {len(G.done):,} coadds already in the accumulator', flush=True)
+    NH = None
+    if a.with_native:
+        import native_hook; NH = native_hook.NativeHook()
+        print(f'native hook: {len(NH.by_file):,} coadds with quasar/star rows', flush=True)
     # graceful stop: SIGTERM only sets a flag; the loop finishes the current coadd, then checkpoints and exits, so the
     # galaxy accumulator is never saved half-way through a coadd (a redone coadd would otherwise be counted twice)
     stop = {'flag': False}
@@ -165,7 +172,8 @@ def main():
         need_s = a.with_stars and (a.overwrite or not os.path.exists(sout))
         need_e = a.expfibermap and (a.overwrite or not os.path.exists(eout))
         need_g = G is not None and G.needs(prog, int(hpx))
-        if not (need_q or need_s or need_e or need_g):
+        need_n = NH is not None and os.path.basename(p) in NH.by_file and not os.path.exists(native_hook.out(p))
+        if not (need_q or need_s or need_e or need_g or need_n):
             continue
         lp = Q.passB.local_path(p)
         if lp is None:
@@ -179,12 +187,12 @@ def main():
             zsub['PROGRAM'] = prog
             qdf, n_star, n_expfm, t_read = process_file(lp, zsub, prog, star_lookup=star_lookup, want_stars=need_s, want_q=need_q,
                                                         expfm_dir=(a.expfm_outdir if need_e else None), overwrite=a.overwrite,
-                                                        G=G, need_g=need_g, hpx=int(hpx))
+                                                        G=G, need_g=need_g, hpx=int(hpx), NH=NH, need_n=need_n)
             if need_q:
                 qdf.to_parquet(out + '.tmp'); os.replace(out + '.tmp', out)
             done += 1; nq += len(qdf)
             print(f'{k+1}/{len(paths)} {os.path.basename(lp)} nqso={len(qdf)}' + (f' nstar={n_star}' if need_s else '') + (f' nexp={n_expfm}' if need_e else '')
-                  + (' gal' if need_g else '')
+                  + (' gal' if need_g else '') + (' nat' if need_n else '')
                   + f' read {t_read:.1f}s total {time.time()-t0:.0f}s', flush=True)
         except Exception as e:
             import traceback; traceback.print_exc()
