@@ -267,12 +267,21 @@ The DESI star steps (2b, 5, 6, 7, Calibration 2) wait for the walk to finish, �
   red end (photon-noise weights are low where M stars are bright). DESI: 0 (every pixel covered; M 3071 -> 4361 pixels).
   SDSS M: 0.1 (3975 pixels, 3675-9202 A, bright sky lines masked; 0 lets the noisy BOSS ends dominate vectors 2-4); R2
   .78/.83/.90/.958. The 0.3 versions are kept in ~/data/sdssdesi_stars/empca_{desi,sdss}_v1_wfrac0.3/.
+- Sub-pixel RV shift (Nao, 2026-10-29; decision 4 of section 4): step6 rest_shift() interpolates each star onto the rest grid with
+  a Lanczos-3 kernel (linear where one of the 6 pixels is masked; integer shifts reproduce the old output bit for bit). Linear
+  interpolation was rejected: over the random sub-pixel offsets of a stack it blurs more than integer rounding (simulated
+  sigma = 0.8 px lines: integer 0.851, linear 0.897, Lanczos-3 0.800). Restack 2026-10-29 08:35, both surveys: line depths
+  +0.3 % (Ca K), +1.8 % (Mg b, Na D), +2.2 % (Halpha), +2.7 % (Ca T) in SDSS (same stars), EW unchanged within 1 %.
+  DESI restacked from the complete store (300 cap; Nao: fewer than 300 is fine, the full store simply costs nothing):
+  898 stacks, 188,985 stars, median N 274, S/N 58/96/123. SDSS 315 stacks, 91,726 stars, S/N 59/90/150. EM-PCA R2 at 10:
+  DESI WD .999 HOT .996 AF .971 GK .988 M .972; SDSS WD .978 AF .990 GK .987 M .962 (M with --min-wfrac 0.1).
+  Integer-shift products kept in ~/data/sdssdesi_stars/v2_intshift_20261029/.
 
 ## 4. Decisions for Nao (ordered by when they block)
 1. Backup-program coadds: download (brightest stars, most XP) or dark+bright only? (blocks the final sample, not the pipeline)
 2. Downloads: Bayestar19 (dustmaps), DESI DR1 MWS VAC, Gaia XP coefficients for the DESI quality stars (sizes to be reported before fetching).
 3. Pass S runs inside the pass-Q DESI walk (recommended) or as its own pass (another ≈13 h of disk reads)?
-4. RV shift: integer pixel (as galaxies) or sub-pixel for stars (recommended)?
+4. RV shift: decided 2026-10-29 - sub-pixel (Lanczos-3) for SDSS and DESI, done.
 5. Grid: 0.5 × 0.1 × [M/H]4 at floor 300 (≈710 cells) or 0.25 × 0.05 (≈1,600)? One EM-PCA basis per temperature class (recommended) or one basis?
 
 ## 5. Conventions (unchanged)

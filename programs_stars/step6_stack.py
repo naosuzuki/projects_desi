@@ -6,7 +6,8 @@ tables of steps 2-3 (per-star calibration, RV shift, distance, extinction), and 
 Per star, before it enters its cell:
   step 2  flux x A_FLUX and, where TILT_OK, x 10^(-0.4 TILT log10(lambda/5500)) from the joint fit of step2b_spcal.py
           (fallback: 10^(-0.4 GAIA_DG), i.e. the Gaia-G scale alone; CAL_A when no Gaia G)
-  step 3  integer-pixel shift by the pipeline RV onto the common log grid (starlib.SWAVE, 3550-9880 A)
+  step 3  sub-pixel shift by the pipeline RV onto the common log grid (starlib.SWAVE, 3550-9880 A; rest_shift; integer
+          pixels until 2026-10-29)
   step 3b dereddening with EBV_USED (F99, R_V = 3.1; the 3D value where step3b_ebv3d.py has run)
   step 4  x ABS_SCALE = (d / 10 pc)^2  -> F_lambda at 10 pc
 Mixed cells (HOMOGENEOUS = False) are split along SPLIT_AXIS before stacking: FEH (two halves at the cell median [M/H]),
@@ -88,6 +89,34 @@ class Accum:
         return m, np.sqrt(np.clip(var, 0, None))
 
 
+def rest_shift(f, iv, good, rid0, shift):
+    """observed log-grid spectrum (first pixel rid0, i.e. log10 lambda = rid0 * DLOG) -> rest frame on SWAVE, shifted by
+    `shift` pixels (= log10(1 + z) / DLOG, any real number; Nao 2026-10-29: sub-pixel for SDSS and DESI). Rest pixel k takes
+    observed position k + SRID_MIN - rid0 + shift = j0 + a, interpolated with a Lanczos-3 kernel (6 pixels j0-2 .. j0+3,
+    normalized; variance sum w^2 / iv); where one of the 6 is masked but j0 and j0+1 are good, linear interpolation.
+    Why not linear everywhere: linear interpolation smooths (kernel variance a(1-a)), and over the random sub-pixel offsets of
+    a stack that blurs lines MORE than the old integer rounding (simulated stack of sigma = 0.8 px lines: true 0.800 px,
+    integer 0.851, linear 0.897, Lanczos-3 0.800). a = 0: j0 alone, identical to the old integer shift. a is the same for
+    every pixel of a star, so after the per-star renormalization of the weights (median 1) no star gains weight from it."""
+    n = int(np.floor(shift)); a = shift - n
+    j0 = np.arange(NPIX) + SRID_MIN - rid0 + n
+    out = np.zeros(NPIX); w = np.zeros(NPIX)
+    if a < 1e-6:
+        ok = (j0 >= 0) & (j0 < len(f)); ok[ok] = good[j0[ok]]
+        out[ok] = f[j0[ok]]; w[ok] = iv[j0[ok]]
+        return out, w
+    with np.errstate(all='ignore'):
+        var = np.where(good, 1.0 / iv, np.inf)
+    x = np.arange(-2, 4) - a; L = np.sinc(x) * np.sinc(x / 3); L /= L.sum()
+    ok6 = (j0 - 2 >= 0) & (j0 + 3 < len(f)); k6 = np.flatnonzero(ok6); J = j0[k6][:, None] + np.arange(-2, 4)[None, :]
+    g6 = good[J].all(axis=1); k = k6[g6]; J = J[g6]
+    out[k] = f[J] @ L; w[k] = 1.0 / (var[J] @ L**2)
+    ok2 = (j0 >= 0) & (j0 + 1 < len(f)) & (w == 0); k2 = np.flatnonzero(ok2); jj = j0[k2]
+    g2 = good[jj] & good[jj + 1]; k2 = k2[g2]; jj = jj[g2]
+    out[k2] = (1 - a) * f[jj] + a * f[jj + 1]; w[k2] = 1.0 / ((1 - a)**2 * var[jj] + a**2 * var[jj + 1])
+    return out, w
+
+
 def star_spectrum(row, f, iv, mask, rid0):
     """pipeline spectrum of one star (flux unit 1e-17, log grid from rid0) -> F_lambda at 10 pc on SWAVE, with weights."""
     good = (iv > 0) & (mask == 0)
@@ -97,10 +126,9 @@ def star_spectrum(row, f, iv, mask, rid0):
         scale = passB.FLUX_UNIT * (10**(-0.4 * row.GAIA_DG) if np.isfinite(row.GAIA_DG) else (row.CAL_A if np.isfinite(row.CAL_A) else 1.0))
     tilt = 10**(-0.4 * row.TILT * X5500) if (bool(row.TILT_OK) and np.isfinite(row.TILT)) else 1.0    # mag per dex -> flux factor on the grid
     A = 3.1 * row.EBV_USED * A1_F99                               # on the rest grid (RV shift < 0.4 %: negligible for the curve)
-    z = np.clip(row.Z if np.isfinite(row.Z) else 0.0, -0.004, 0.004); shift = int(np.round(np.log10(1 + z) / DLOG))
-    r0 = rid0 + np.arange(len(f)) - shift - SRID_MIN; ok = (r0 >= 0) & (r0 < NPIX) & good
-    out = np.zeros(NPIX); w = np.zeros(NPIX)
-    out[r0[ok]] = f[ok] * scale; w[r0[ok]] = iv[ok] / scale**2
+    z = np.clip(row.Z if np.isfinite(row.Z) else 0.0, -0.004, 0.004)
+    out, w = rest_shift(f, iv, good, rid0, np.log10(1 + z) / DLOG)
+    out *= scale; w /= scale**2
     out *= tilt * 10**(0.4 * A) * row.ABS_SCALE; w *= 10**(-0.8 * A) / (tilt * row.ABS_SCALE)**2
     med = np.median(w[w > 0]) if (w > 0).any() else 1.0
     return out, w / med                                           # every star counts once; pixel quality inside the star
