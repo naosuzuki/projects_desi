@@ -26,7 +26,7 @@ def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--follow', action='store_true', help='keep following the walk until it ends')
     a = ap.parse_args(); t0 = time.time()
     SH = star_hook.StarHook(archive='')            # internal v2 store only: the native store on exdisk3 is the archive
-    todo = sorted(SH.by_file); n = 0
+    todo = sorted(SH.by_file); n = 0; seen = time.time()
     print(f'{len(todo):,} coadds hold step-6 stars; v2 store {SH.store}', flush=True)
     while not STOP['flag']:
         pend = [f for f in todo if SH.needs(f)]
@@ -39,8 +39,10 @@ def main():
             SH.process(f, z['TARGETID'], w, fl, iv, (iv <= 0).astype(np.int8)); n += 1
             if n % 200 == 0:
                 print(f'  {n:,} converted, {len(pend) - len(ready):,} waiting for the walk; {time.time()-t0:.0f}s', flush=True)
-        if not a.follow or (not walk_running() and not [f for f in todo if SH.needs(f) and os.path.exists(os.path.join(NATIVE, f.replace('.fits', '.npz')))]):
-            break
+        if walk_running():
+            seen = time.time()
+        if not a.follow or (time.time() - seen > 3600 and not [f for f in todo if SH.needs(f) and os.path.exists(os.path.join(NATIVE, f.replace('.fits', '.npz')))]):
+            break                                  # the walk has been gone for an hour (finished, or stopped for good) and nothing is left
         time.sleep(120)
     SH.gauge()
     left = [f for f in todo if SH.needs(f)]
