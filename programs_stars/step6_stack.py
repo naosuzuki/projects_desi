@@ -114,6 +114,11 @@ def rest_shift(f, iv, good, rid0, shift):
     ok2 = (j0 >= 0) & (j0 + 1 < len(f)) & (w == 0); k2 = np.flatnonzero(ok2); jj = j0[k2]
     g2 = good[jj] & good[jj + 1]; k2 = k2[g2]; jj = jj[g2]
     out[k2] = (1 - a) * f[jj] + a * f[jj + 1]; w[k2] = 1.0 / ((1 - a)**2 * var[jj] + a**2 * var[jj + 1])
+    # one of j0, j0+1 masked: the nearer pixel if it is good, as the integer shift did (Galaxy thread 2026-10-29, as in
+    # restframe.lanczos_shift). Without it every isolated masked pixel (BOSS sky lines) costs two rest pixels.
+    k1 = np.flatnonzero(w == 0); jn = j0[k1] + int(a >= 0.5)
+    inr = (jn >= 0) & (jn < len(f)); k1 = k1[inr]; jn = jn[inr]; g1 = good[jn]; k1 = k1[g1]; jn = jn[g1]
+    out[k1] = f[jn]; w[k1] = iv[jn]
     return out, w
 
 
