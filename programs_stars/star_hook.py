@@ -83,12 +83,69 @@ class StarHook:
         return len(want)
 
     def gauge(self):
-        """monitor gauge for step 6: coadds whose star spectra are in the store, out of all coadds with selected stars."""
+        write_gauge(self.store, len(self.by_file), self.started)
+
+
+QSO_STATUS = os.path.expanduser('~/data/sdssdesi_status')
+PRIORITY = os.path.expanduser('~/data/sdssdesi_products/stars/star_priority_files.txt')
+
+
+def eta_epoch(store=STORE, nshard=3, tier1=11288):
+    """when the last pending step-6 coadd will have been read by the quasar shards: each shard's read order as in
+    programs_quasars/05_stack.py (phase 0 = star tier 1, 1 = other dark, 2 = bright; star rank within a phase), the position of
+    its last pending star coadd, the shard's rate since its restart. (The recent arrival rate is useless: almost no star coadds
+    arrive while the shards read the dark quasar coadds.) None when it cannot be estimated."""
+    now = time.time()
+    rank = {l.strip(): i for i, l in enumerate(open(PRIORITY)) if l.strip()}
+    have = {e.name[:-4] + '.fits' for e in os.scandir(store) if e.name.endswith('.npz') and '.tmp' not in e.name}
+    need = set(pd.read_parquet(SEL300, columns=['FILE']).FILE) - have
+    phase = lambda f: 0 if rank.get(f, 10**9) < tier1 else (1 if 'dark' in f else 2)
+    worst = 0.0
+    for i in range(nshard):
         try:
-            n = sum(1 for e in os.scandir(self.store) if e.name.endswith('.npz') and '.tmp' not in e.name); tot = len(self.by_file)
-            note = (f'DESI: step-6 star spectra stored for {n:,} / {tot:,} coadds (inside the quasar-stack read + fill_store.py; '
-                    f'no extra pass); step 6 starts when all are stored or at 07:15')
-            tmp = f'{GAUGE}.{os.getpid()}.tmp'
-            json.dump({'done': n, 'total': tot, 'status': 'running', 'note': note, 'started': self.started}, open(tmp, 'w')); os.replace(tmp, GAUGE)
+            fs = sorted({os.path.basename(l.strip()) for l in open(f'{QSO_STATUS}/qso_desi_files_shard{i}of{nshard}.txt') if l.strip()},
+                        key=lambda f: (phase(f), rank.get(f, 10**9), f))
+            gone = {l.split()[1] for l in open(f'{QSO_STATUS}/qso_stack_desi{i}.log', errors='replace') if l.startswith('MISSING ')}
+            pos = [k for k, f in enumerate(fs) if f in need and f not in gone]
+            if not pos:
+                continue
+            j = json.load(open(f'{QSO_STATUS}/step_qso_stack_desi_shard{i}of{nshard}.json'))
+            if j.get('status') != 'running':
+                return None
+            d0 = [int(l.split(';')[1].split()[0]) for l in open(f'{QSO_STATUS}/qso_stack_desi{i}.log', errors='replace') if 'files already done' in l][-1]
+            rate = (j['done'] - d0) / max(now - j['started'], 1.0)
+            if rate <= 0:
+                return None
+            worst = max(worst, (pos[-1] + 1 - j['done']) / rate)
         except Exception:
-            pass
+            return None
+    return now + worst
+
+
+def write_gauge(store=STORE, tot=None, started=None):
+    """monitor gauge for step 6: coadds whose star spectra are in the store, out of all coadds with step-6 stars; ETA from the
+    shards' read order (eta_epoch), not from the recent rate."""
+    try:
+        if tot is None:
+            tot = pd.read_parquet(SEL300, columns=['FILE']).FILE.nunique()
+        if started is None:
+            started = float(open(os.path.join(os.path.dirname(store), 'started_desi.txt')).read().strip())
+        n = sum(1 for e in os.scandir(store) if e.name.endswith('.npz') and '.tmp' not in e.name)
+        eta = eta_epoch(store)
+        note = (f'DESI stacks done 10-28 07:22 (898 stacks, median 230 stars); filling the rest of the 300-per-stack set for an '
+                f'optional restack: {n:,} / {tot:,} coadds stored, inside the quasar-stack read (bright coadds come last in its order)'
+                + (f'; last one ~{time.strftime("%H:%M", time.localtime(eta))}' if eta else ''))
+        tmp = f'{GAUGE}.{os.getpid()}.tmp'
+        json.dump({'done': n, 'total': tot, 'status': 'running', 'note': note, 'started': started, 'eta_epoch': eta}, open(tmp, 'w')); os.replace(tmp, GAUGE)
+    except Exception:
+        pass
+
+
+if __name__ == '__main__':      # python3 star_hook.py --gauge [SECONDS]: refresh the gauge (once, or every SECONDS until the store is full)
+    if '--gauge' in sys.argv:
+        every = int(sys.argv[-1]) if sys.argv[-1].isdigit() else 0
+        while True:
+            write_gauge(); j = json.load(open(GAUGE))
+            if not every or j['done'] >= j['total']:
+                break
+            time.sleep(every)

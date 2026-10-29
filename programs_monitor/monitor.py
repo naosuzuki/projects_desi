@@ -95,7 +95,7 @@ def step_progress(step, hist, workers):
         status = 'done' if done >= total else ('running' if recent and recent[-1] > now - 600 else ('stalled' if done else 'idle'))
         last = mt[-1] if mt else None
     else:
-        p = step.get('path')
+        p = step.get('path'); j = {}
         if p and os.path.exists(p):
             try:
                 j = json.load(open(p))
@@ -114,6 +114,8 @@ def step_progress(step, hist, workers):
     if status == 'idle' and ws: status = 'running'
     remaining = max(total - done, 0)
     eta_min = remaining / rate if (rate > 0 and status != 'done') else (0.0 if status == 'done' else None)
+    if step['kind'] == 'json' and status != 'done' and j.get('eta_epoch'):      # the step knows better (e.g. Stars 6: its inputs arrive in a known read order)
+        eta_min = max((j['eta_epoch'] - now) / 60, 0.0)
     return dict(track=step['track'], name=step['name'], done=done, total=total, pct=(100.0 * done / total if total else 0.0), status=status,
                 rate_per_min=rate, eta_min=eta_min, eta_at=(time.strftime('%a %H:%M', time.localtime(now + eta_min * 60)) if eta_min else None),
                 started=(time.strftime('%m-%d %H:%M', time.localtime(started)) if started else None),
