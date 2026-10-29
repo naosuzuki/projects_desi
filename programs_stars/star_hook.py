@@ -18,6 +18,8 @@ TAG = 'desi_0.5x0.1_gspphot'
 SEL = os.path.expanduser(f'~/data/sdssdesi_products/stars/step6_selection_{TAG}.parquet')
 ARCHIVE = '/Volumes/exdisk3/sdssdesi_star_spectra/desi'      # exdisk3 (Nao, 2026-10-27): every candidate star, ~35 GB (slow to read back)
 STORE = os.path.expanduser('~/data/sdssdesi_stars/specstore_desi')   # internal: the stars step 6 stacks (300 per stack), ~7 GB, fast
+if not os.path.isdir(STORE):      # deleted 2026-10-29 to free the internal disk (Nao): the exdisk3 archive holds the same coadds (every candidate)
+    STORE = ARCHIVE
 SEL300 = SEL.replace('.parquet', '_max300.parquet')
 # v2 (Nao, 2026-10-29): one resampling from the native 0.8 A pixels straight onto the REST-frame lattice at each star's
 # pipeline RV (programs_templates/restframe.desi_rest; sub-pixel), stored as RID0 = SRID_MIN, FRAME = 'rest'; step6 --v2

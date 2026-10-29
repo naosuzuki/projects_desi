@@ -276,6 +276,16 @@ The DESI star steps (2b, 5, 6, 7, Calibration 2) wait for the walk to finish, â‰
   898 stacks, 188,985 stars, median N 274, S/N 58/96/123. SDSS 315 stacks, 91,726 stars, S/N 59/90/150. EM-PCA R2 at 10:
   DESI WD .999 HOT .996 AF .971 GK .988 M .972; SDSS WD .978 AF .990 GK .987 M .962 (M with --min-wfrac 0.1).
   Integer-shift products kept in ~/data/sdssdesi_stars/v2_intshift_20261029/.
+- Calibration 2 refinement (step8b_shape.py, 2026-10-29): star / stack residual curves of 195,284 DESI stars (Legendre C0..C5
+  over 3600-9800 A, Balmer/Ca/Na/telluric masked) fitted as per-fiber + per-petal-and-half-year terms + intrinsic covariates.
+  NEGATIVE: on held-out stars the fitted terms make every component slightly worse (C0 0.0706 -> 0.0729 mag, curve rms 0.098 ->
+  0.109); the residuals are star-to-star (in-cell colour/luminosity spread: beta_dCOL = -0.95 on the tilt term), not
+  fiber/petal structure at this precision. Not applied; the linear step-8 A, B stay. The fiber/petal tables are kept as
+  diagnostics; the per-coadd table was deleted. Note: star/stack can only see differences between fibers/petals/periods - a
+  response error common to all fibers is inside the stacks (needs SDSS / Gaia XP / CALSPEC as reference).
+- Stellar v1 frozen (~/data/sdssdesi_stars/v1_20261029/, tag stars-v1). The v1 internal store was deleted (disk full); v1 code
+  falls back to the exdisk3 archive (same coadds). v2: native spectra from the shared walk -> native_to_v2.py -> rest-frame
+  store on exdisk3 (desi_v2_store, symlinked as specstore_desi_v2); step6/step7 --v2.
 
 ## 4. Decisions for Nao (ordered by when they block)
 1. Backup-program coadds: download (brightest stars, most XP) or dark+bright only? (blocks the final sample, not the pipeline)
