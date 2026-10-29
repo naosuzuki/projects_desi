@@ -22,6 +22,7 @@ HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)
 import starlib
 passB = starlib.passB
 OUTDIR = os.path.expanduser('~/data/sdssdesi_stars')
+V2 = False
 SWAVE = starlib.SWAVE; NPIX = len(SWAVE); DLOG = starlib.DLOG; SRID_MIN = starlib.SRID_MIN
 CLASSES = ['WD', 'HOT', 'AF', 'GK', 'M']
 
@@ -125,7 +126,7 @@ def load_individuals(tag, cells, k_per_stack, snmin, survey):
         import star_hook
         df = pd.read_parquet(selp); df = df[df.SID.isin(mem.SID)]
         specs, ws, ids, stacks = [], [], [], []
-        for row, f, iv, mk, rid0 in S6.iter_store(df, 0, star_hook.STORE):
+        for row, f, iv, mk, rid0 in S6.iter_store(df, 0, star_hook.STORE_V2 if V2 else star_hook.STORE):
             s, w = S6.star_spectrum(row, f, iv, mk, rid0); specs.append(s); ws.append(w); ids.append(row.SID); stacks.append(row.STACK)
         return (np.array(specs), np.array(ws), ids, stacks) if specs else (np.zeros((0, NPIX)), np.zeros((0, NPIX)), [], [])
     files = sorted(__import__('glob').glob(os.path.join(S6.PASSDIR[survey], '*', '*.parquet')))
@@ -155,8 +156,13 @@ def main():
     ap.add_argument('--nvec', type=int, default=10); ap.add_argument('--niter', type=int, default=25)
     ap.add_argument('--individuals', type=int, default=0, help='stars per stack with S/N > --snmin added to the PCA'); ap.add_argument('--snmin', type=float, default=20.0)
     ap.add_argument('--classes', default=','.join(CLASSES)); ap.add_argument('--plot', action='store_true')
+    ap.add_argument('--v2', action='store_true', help='v2: stacks from OUTDIR/v2, individuals from star_hook.STORE_V2 (rest frame)')
     ap.add_argument('--min-wfrac', type=float, default=0.3, help='weight cut of empca (meant for the BOSS-only blue end); 0 for DESI, where every pixel is covered: the cut drops the red end of M stars, whose photon-noise weights are low there at high S/N; SDSS M: 0.1 (keeps 3675-9202 A, masks the bright sky lines; 0 lets the noisy BOSS ends dominate)')
     a = ap.parse_args(); t0 = time.time()
+    global OUTDIR, V2
+    V2 = a.v2
+    if a.v2:
+        OUTDIR = os.path.join(OUTDIR, 'v2')
     fl, ivar, good, cells = load_stacks(a.tag)
     cls = np.array([star_class(r.MG0_MED, r.COL0_MED) for _, r in cells.iterrows()])
     gf, mg, mg_ab = g_flux(fl, good)

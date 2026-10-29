@@ -199,9 +199,12 @@ def iter_store(df, maxfiles, store):
         if not os.path.exists(p):
             missing.append(base); continue
         z = np.load(p); pos = {int(t): i for i, t in enumerate(z['TARGETID'])}; rid0 = int(z['RID0']); F_ = z['FLUX']; I_ = z['IVAR']
+        rest = 'FRAME' in z.files and str(z['FRAME']) == 'rest'      # v2 store: already at the star's rest frame
         for _, row in g.iterrows():
             i = pos.get(int(row.TARGETID))
             if i is None: continue
+            if rest:
+                row = row.copy(); row['Z'] = 0.0
             yield row, F_[i].astype(float), I_[i].astype(float), (I_[i] <= 0).astype(np.int8), rid0
     if missing:
         print(f'  {len(missing):,} coadds not in the store: reading them from exdisk2', flush=True)
@@ -226,15 +229,22 @@ def main():
     ap.add_argument('--onepass', action='store_true', help='read each spectrum once, keep it in memory for passes A and B')
     ap.add_argument('--select-only', action='store_true', help='write the star selection (for star_hook.py) and stop')
     ap.add_argument('--from-store', action='store_true', help="DESI: stack from star_hook's store + the selection file")
+    ap.add_argument('--v2', action='store_true', help='v2 (Nao 2026-10-29): DESI spectra from star_hook.STORE_V2 (rest frame, one resampling at the pipeline RV, no further shift); outputs in OUTDIR/v2')
     ap.add_argument('--store-only', action='store_true', help='with --from-store: use only the coadds already in the store (no exdisk2 reads); the cap applies to those')
-    a = ap.parse_args(); t0 = time.time(); os.makedirs(a.outdir, exist_ok=True)
+    a = ap.parse_args(); t0 = time.time()
+    global STORE
+    import star_hook
+    STORE = star_hook.STORE_V2 if a.v2 else star_hook.STORE
+    if a.v2:
+        a.outdir = os.path.join(OUTDIR, 'v2'); globals()['OUTDIR'] = a.outdir
+    os.makedirs(a.outdir, exist_ok=True)
     _progress('stack', 0, 1, 'running', f'{a.survey}: reading the star tables'); cells, mem = members(a.tag, a.nmin)
     selp = os.path.join(CACHE, f'step6_selection_{a.tag}.parquet')
     if a.from_store:
         df = pd.read_parquet(selp); stacks = sorted(df.STACK.unique())
         if a.store_only:
             import star_hook
-            have = {e.name[:-4] + '.fits' for e in os.scandir(star_hook.STORE) if e.name.endswith('.npz') and '.tmp' not in e.name}
+            have = {e.name[:-4] + '.fits' for e in os.scandir(STORE) if e.name.endswith('.npz') and '.tmp' not in e.name}
             n0 = len(df); df = df[df.FILE.isin(have)]
             print(f'--store-only: {len(have):,} coadds in the store hold {len(df):,} of {n0:,} candidate stars', flush=True)
         print(f'{a.survey}: selection {len(df):,} stars, {len(stacks)} stacks, {df.FILE.nunique():,} files (from {selp}); {time.time()-t0:.0f}s', flush=True)
@@ -246,7 +256,7 @@ def main():
         if a.select_only:
             df.to_parquet(selp); print(f'written {selp}'); _progress('stack', 0, 1, 'waiting', f'{a.survey}: {len(df):,} stars selected; spectra from the quasar-stack read (star_hook)'); return
     import star_hook
-    it = iter_sdss if a.survey == 'sdss' else (lambda d, m: iter_store(d, m, star_hook.STORE)) if a.from_store else iter_desi
+    it = iter_sdss if a.survey == 'sdss' else (lambda d, m: iter_store(d, m, STORE)) if a.from_store else iter_desi
     run_stack(a, cells, mem, df, stacks, it, t0)
 
 

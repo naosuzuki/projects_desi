@@ -19,17 +19,31 @@ SEL = os.path.expanduser(f'~/data/sdssdesi_products/stars/step6_selection_{TAG}.
 ARCHIVE = '/Volumes/exdisk3/sdssdesi_star_spectra/desi'      # exdisk3 (Nao, 2026-10-27): every candidate star, ~35 GB (slow to read back)
 STORE = os.path.expanduser('~/data/sdssdesi_stars/specstore_desi')   # internal: the stars step 6 stacks (300 per stack), ~7 GB, fast
 SEL300 = SEL.replace('.parquet', '_max300.parquet')
+# v2 (Nao, 2026-10-29): one resampling from the native 0.8 A pixels straight onto the REST-frame lattice at each star's
+# pipeline RV (programs_templates/restframe.desi_rest; sub-pixel), stored as RID0 = SRID_MIN, FRAME = 'rest'; step6 --v2
+# reads it without a further shift. v1 (STORE/ARCHIVE above) stays as it is: observed log grid, shifted in step 6.
+STORE_V2 = os.path.expanduser('~/data/sdssdesi_stars/specstore_desi_v2')
+ARCHIVE_V2 = '/Volumes/exdisk3/sdssdesi_star_spectra/desi_v2'
 GAUGE = os.path.expanduser('~/data/sdssdesi_status/step_star_stack.json')
 GAUGE_EVERY = 25          # coadds per hook instance between gauge updates (the count is the store itself, so shards agree)
 
 
 class StarHook:
     """writes STORE/<coadd>.npz (the step-6 stars, internal disk) and ARCHIVE/<coadd>.npz (every candidate, exdisk3)."""
-    def __init__(self, sel=SEL, store=STORE, sel300=SEL300, archive=ARCHIVE):
+    def __init__(self, sel=SEL, store=None, sel300=SEL300, archive=None, version=2):
         import starlib
-        self.passB = starlib.passB
-        s = pd.read_parquet(sel, columns=['FILE', 'TARGETID'])
+        self.passB = starlib.passB; self.version = version
+        if store is None:
+            store = STORE_V2 if version == 2 else STORE
+        if archive is None:
+            archive = ARCHIVE_V2 if version == 2 else ARCHIVE
+        if version == 2:
+            sys.path.insert(0, os.path.join(HERE, '..', 'programs_templates')); import restframe
+            self.restframe = restframe; self.srid_min, self.npix = starlib.SRID_MIN, len(starlib.SWAVE)
+            assert abs(restframe.DLOG - starlib.DLOG) < 1e-12, 'restframe and starlib lattices differ'
+        s = pd.read_parquet(sel, columns=['FILE', 'TARGETID', 'Z'])
         self.by_file_all = {f: g.TARGETID.to_numpy(np.int64) for f, g in s.groupby('FILE')}
+        self.z = dict(zip(s.TARGETID.to_numpy(np.int64), s.Z.to_numpy(float)))
         s = pd.read_parquet(sel300, columns=['FILE', 'TARGETID'])
         self.by_file = {f: g.TARGETID.to_numpy(np.int64) for f, g in s.groupby('FILE')}
         self.store = store; os.makedirs(store, exist_ok=True)
@@ -37,7 +51,7 @@ class StarHook:
         if archive:
             os.makedirs(archive, exist_ok=True)
         self.nfile = 0; self.nstar = 0
-        sp = os.path.join(os.path.dirname(store), 'started_desi.txt')
+        sp = os.path.join(os.path.dirname(store), 'started_desi.txt' if version == 1 else 'started_desi_v2.txt')
         if not os.path.exists(sp):
             open(sp, 'w').write(str(time.time()))
         self.started = float(open(sp).read().strip() or time.time())
@@ -65,13 +79,20 @@ class StarHook:
         if len(want):
             rows = pos.loc[want].to_numpy()
             rows = rows if rows.ndim == 1 else rows.ravel()
-            rid, rf, ri = self.passB.rebin(w, flux[rows].astype(float), ivar[rows].astype(float), mask[rows])
-            rid0 = int(rid[0]); rf = rf.astype(np.float32); ri = ri.astype(np.float32)
+            if self.version == 2:            # rest frame at the pipeline RV, one resampling (|z| clipped at 0.004 as in step 6)
+                zz = np.clip(np.nan_to_num(np.array([self.z.get(int(t), 0.0) for t in want]), nan=0.0), -0.004, 0.004)
+                rf, ri = self.restframe.desi_rest(w, flux[rows], ivar[rows], mask[rows], zz, self.srid_min, self.npix)
+                rid0 = self.srid_min
+            else:
+                rid, rf, ri = self.passB.rebin(w, flux[rows].astype(float), ivar[rows].astype(float), mask[rows])
+                rid0 = int(rid[0]); zz = np.zeros(len(want))
+            rf = rf.astype(np.float32); ri = ri.astype(np.float32)
         else:
-            rf = ri = np.zeros((0, 1), np.float32); rid0 = 0
+            rf = ri = np.zeros((0, 1), np.float32); rid0 = 0; zz = np.zeros(0)
+        frame = 'rest' if self.version == 2 else 'observed'
         def save(d, keep):
             p = self.out(fname, d); tmp = p + '.tmp.npz'
-            np.savez(tmp, TARGETID=want[keep], RID0=rid0, FLUX=rf[keep], IVAR=ri[keep]); os.replace(tmp, p)
+            np.savez(tmp, TARGETID=want[keep], RID0=rid0, FLUX=rf[keep], IVAR=ri[keep], Z=zz[keep], FRAME=frame); os.replace(tmp, p)
         if fname in self.by_file and not os.path.exists(self.out(fname)):
             save(self.store, np.isin(want, self.by_file[fname]))
         if self.archive and fname in self.by_file_all and not os.path.exists(self.out(fname, self.archive)):
@@ -132,8 +153,14 @@ def write_gauge(store=STORE, tot=None, started=None):
         if tot is None:
             tot = pd.read_parquet(SEL300, columns=['FILE']).FILE.nunique()
         if started is None:
-            started = float(open(os.path.join(os.path.dirname(store), 'started_desi.txt')).read().strip())
+            started = float(open(os.path.join(os.path.dirname(store), 'started_desi_v2.txt' if store == STORE_V2 else 'started_desi.txt')).read().strip())
         n = sum(1 for e in os.scandir(store) if e.name.endswith('.npz') and '.tmp' not in e.name)
+        if store == STORE_V2:            # v2: the shared walk reads uniformly, the monitor's rate is fine
+            n = sum(1 for e in os.scandir(store) if e.name.endswith('.npz') and '.tmp' not in e.name)
+            note = f'v2 (rest frame, one resampling at the pipeline RV): star spectra stored for {n:,} / {tot:,} coadds, inside the shared DESI walk'
+            tmp = f'{GAUGE}.{os.getpid()}.tmp'
+            json.dump({'done': n, 'total': tot, 'status': 'running', 'note': note, 'started': started}, open(tmp, 'w')); os.replace(tmp, GAUGE)
+            return
         eta = eta_epoch(store)
         note = (f'DESI stacks done 10-28 07:22 (898 stacks, median 230 stars); filling the rest of the 300-per-stack set for an '
                 f'optional restack: {n:,} / {tot:,} coadds stored, inside the quasar-stack read (bright coadds come last in its order)'
