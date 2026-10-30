@@ -521,3 +521,5 @@ started 21:51; 38 files/min on the bright files. Copies in programs_quasars/. Se
   placeholders for the DESI v2 shards; step_qso_empca_v2.json, 'done' only after the last of the 4 bases via
   EMPCA_SERIES_LAST); common row "v2 shared DESI walk" counts the native npz. v1 bases copied to
   data_eigenspectra/quasar_eigenspectra_v1{,_z0008,_z0820,_z2099}.fits/.png (same naming as galaxy_eigenspectra_v1).
+
+**SDSS v2 rerun (2026-10-29 18:14–18:58).** Galaxy fixed restframe.sdss_rest at 18:12: an isolated masked pixel now falls back to the nearer good neighbour instead of blanking two rest pixels. The SDSS v2 stacks (first run 09:19–09:23) were redone with the fix. Pre-fix accumulators, logs and status files are in `old_pre_sdss_rest_fix/` under /Volumes/exdisk3/sdssdesi_qso_v2_acc and ~/data/sdssdesi_status. Same 301,486 quasars. The power-law norm fallback is now 6,605 (2.19%), down from 9,991 (3.3%), matching v1's 2.2%. That settles the "higher fallback in SDSS v2" item: it was the masked-pixel loss. after_walk_v2.sh is unchanged and still waits for the walk.
