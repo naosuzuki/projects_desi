@@ -152,6 +152,9 @@ def iter_sdss(df, maxfiles):
         F = fitsio.FITS(path); h = F[0].read_header(); rid0 = int(round(float(h['COEFF0']) / DLOG))
         fib = g.FIBERID.to_numpy() - 1
         flux = F[0].read()[fib]; ivar = F[1].read()[fib]; mask = F[2].read()[fib]; F.close()
+        # shared SDSS artifact mask (Galaxy thread 2026-10-30, restframe.SDSS_BAD_RID): DR17 sky-subtraction wiggle 6322.7-6335.8 A
+        sys.path.insert(0, os.path.join(HERE, '..', 'programs_templates')); import restframe
+        mask = np.where(restframe.sdss_badpix_ok(float(h['COEFF0']), mask.shape[1], 'dr17' if g.SURVEY.iloc[0] == 'dr17' else 'dr8')[None, :], mask, 1)
         for j, (_, row) in enumerate(g.iterrows()):
             yield row, flux[j].astype(float), ivar[j].astype(float), mask[j], rid0
 

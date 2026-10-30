@@ -290,6 +290,9 @@ The DESI star steps (2b, 5, 6, 7, Calibration 2) wait for the walk to finish, â‰
   nothing, so each isolated masked pixel (BOSS sky lines) cost two rest pixels (plate 10242: 0.976 of the integer shift's
   coverage). Now the nearer pixel is taken if good (= restframe.sdss_rest). v1 keeps the loss (noise at sky lines only). SDSS v2
   rerun: +0.36 % star-pixels, stacks unchanged to 0.001 sigma; README in ~/data/sdssdesi_stars/v2. DESI v2 (desi_rest) unaffected.
+- SDSS artifact mask (2026-10-30, shared with Galaxy/Quasar via programs_templates/restframe.SDSS_BAD_RID): DR17 sky-subtraction
+  wiggle at 6322.66-6335.78 A observed (peak 6331.40), masked in step6.iter_sdss (also step 7's individuals); DR8 has none.
+  6565 A was checked and is stellar Halpha (kept). SDSS v2 rebuilt; v1 keeps the artifact.
 
 ## 4. Decisions for Nao (ordered by when they block)
 1. Backup-program coadds: download (brightest stars, most XP) or dark+bright only? (blocks the final sample, not the pipeline)
