@@ -304,11 +304,12 @@ The DESI star steps (2b, 5, 6, 7, Calibration 2) wait for the walk to finish, â‰
 - HANDOVER_normalization (2026-10-31) for stars: one window (synthetic G) for every star, so nothing to chain. Per-object window
   colours (cached individuals, S/N > 20; scratch star_windows.py): DESI - BOSS in matched 0.5 x 0.1 cells <= 0.005 dex at
   4500-9700 A (9400 A: -0.005), i.e. no red-end excess in stars; 3700 A: -0.039 dex (-0.050 at equal [M/H]; WD -0.039), a
-  DESI/BOSS blue-end difference, 285 BOSS stars. Stack means = per-object medians to < 0.002 dex (DESI), < 0.006 (BOSS).
+  hint of a DESI/BOSS blue-end difference from 285 BOSS stars, NOT confirmed by quasars (fixed-M per object: +0.020 / -0.009 dex). Stack means = per-object medians to < 0.002 dex (DESI), < 0.006 (BOSS).
   step7 --min-member-frac 0.5 (recipe step 6): SDSS stacks jump at the member-subset edges (+0.01 dex at 9205, up to +0.035
   at 3810 A); SDSS bases now 3810-9200 A. It also fixed a weighting bug (ERR = scatter/sqrt(N) ~ 0 at 1-2-member pixels: 0.1 %
   of pixels held 49-100 % of the weight; individuals over-weighted ~16x; edge spikes in the eigenvectors). v1 has the bug.
   NORM table now has NORM_SRC and W<lo>/COV<lo> for step7_empca.NORM_WINDOWS. v2 bases rerun; previous in v2_pre_membfrac/.
+  Quasar's ivar-patch warning (8850-9200 A): stars clean (individual W <= 28x median; no single-star-dominated stack pixels).
 
 ## 4. Decisions for Nao (ordered by when they block)
 1. Backup-program coadds: download (brightest stars, most XP) or dark+bright only? (blocks the final sample, not the pipeline)
