@@ -63,7 +63,7 @@ def g_flux(flux, good):
     return np.where(ok, gf, np.nan), np.where(ok, m_ab - starlib.GAIA_AB_MINUS_VEGA['G'], np.nan), np.where(ok, m_ab, np.nan)
 
 
-def empca(X, W, nvec, niter, min_cover=5, min_frac=0.5, min_wfrac=0.3, n_ref=None):
+def empca(X, W, nvec, niter, min_cover=5, min_frac=0.5, min_wfrac=0.3, n_ref=None, trim_edge=0):
     """STABLE INTERFACE (imported by programs_templates/10_galaxy_empca.py): empca(X, W, nvec, niter, min_cover, min_frac,
     min_wfrac[, n_ref]) -> (P, C, pixok); explained(X, W, P) -> R^2 per truncation. Add keywords only with defaults.
     Weighted EM-PCA (Bailey 2012). X [n, p] data (mean already subtracted), W [n, p] weights (0 = missing).
@@ -78,6 +78,10 @@ def empca(X, W, nvec, niter, min_cover=5, min_frac=0.5, min_wfrac=0.3, n_ref=Non
     Wr = W[:n_ref] if n_ref else W; nr = Wr.shape[0]
     cover = (Wr > 0).sum(axis=0); wmed = np.median(Wr, axis=0); wtyp = np.median(Wr[Wr > 0]) if (Wr > 0).any() else 1.0
     pixok = (cover >= max(min_cover, int(min_frac * nr))) & (wmed >= min_wfrac * wtyp)
+    # trim_edge: drop the first/last trim_edge basis pixels; the grid ends, where the RV shift leaves part-covered pixels, otherwise
+    # carry 10-40x the typical eigenvector amplitude (stars v2, 2026-10-30)
+    if trim_edge:
+        ip = np.flatnonzero(pixok); pixok[ip[:trim_edge]] = False; pixok[ip[-trim_edge:]] = False
     W = np.where(pixok[None, :], W, 0.0); X = np.where(W > 0, X, 0.0)
     U, s, Vt = np.linalg.svd(X, full_matrices=False); P = Vt[:nvec].copy()
     C = np.zeros((n, nvec)); eye = np.eye(nvec)
@@ -117,10 +121,25 @@ def load_stacks(tag):
 
 def load_individuals(tag, cells, k_per_stack, snmin, survey):
     """up to k stars per stack with S/N > snmin, read and calibrated exactly as in step 6 (absolute flux at 10 pc)."""
-    import importlib.util
-    spec = importlib.util.spec_from_file_location('step6', os.path.join(HERE, 'step6_stack.py')); S6 = importlib.util.module_from_spec(spec); spec.loader.exec_module(S6)
     mem = pd.read_csv(os.path.join(OUTDIR, f'members_{tag}.csv'))
     mem = mem[mem.SNR_ALL > snmin].sort_values('SNR_ALL', ascending=False).groupby('STACK').head(k_per_stack)
+    # cache of the calibrated individuals (OUTDIR/individuals_<tag>_<k>_<snmin>.npz): the v2 DESI store is on exdisk3, ~2 h to
+    # read; reused only when it holds exactly the selected SIDs (delete it after the store or the calibration changes)
+    cp = os.path.join(OUTDIR, f'individuals_{tag}_{k_per_stack}_{snmin:g}.npz')
+    if os.path.exists(cp):
+        z = np.load(cp, allow_pickle=False)
+        if set(z['IDS'].tolist()) == set(mem.SID.astype(str)):
+            print(f'  individuals from the cache {cp}', flush=True)
+            return z['FLUX'].astype(float), z['W'].astype(float), z['IDS'].tolist(), z['STACKS'].tolist()
+    out = _load_individuals(mem, survey, tag)
+    if len(out[2]):
+        np.savez(cp, FLUX=out[0].astype(np.float32), W=out[1].astype(np.float32), IDS=np.array(out[2], dtype=str), STACKS=np.array(out[3], dtype=str))
+    return out
+
+
+def _load_individuals(mem, survey, tag):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('step6', os.path.join(HERE, 'step6_stack.py')); S6 = importlib.util.module_from_spec(spec); spec.loader.exec_module(S6)
     selp = os.path.join(S6.CACHE, f'step6_selection_{tag}.parquet')
     if survey == 'desi' and os.path.exists(selp):          # the step-6 selection has every column; spectra from star_hook's store
         import star_hook
@@ -156,6 +175,7 @@ def main():
     ap.add_argument('--nvec', type=int, default=10); ap.add_argument('--niter', type=int, default=25)
     ap.add_argument('--individuals', type=int, default=0, help='stars per stack with S/N > --snmin added to the PCA'); ap.add_argument('--snmin', type=float, default=20.0)
     ap.add_argument('--classes', default=','.join(CLASSES)); ap.add_argument('--plot', action='store_true')
+    ap.add_argument('--trim-edge', type=int, default=0, help='drop the first/last N basis pixels (v2: 3; the grid ends carry part-covered pixels)')
     ap.add_argument('--v2', action='store_true', help='v2: stacks from OUTDIR/v2, individuals from star_hook.STORE_V2 (rest frame)')
     ap.add_argument('--min-wfrac', type=float, default=0.3, help='weight cut of empca (meant for the BOSS-only blue end); 0 for DESI, where every pixel is covered: the cut drops the red end of M stars, whose photon-noise weights are low there at high S/N; SDSS M: 0.1 (keeps 3675-9202 A, masks the bright sky lines; 0 lets the noisy BOSS ends dominate)')
     a = ap.parse_args(); t0 = time.time()
@@ -191,12 +211,12 @@ def main():
         mean = np.where(np.isfinite(mean), mean, 0.0)
         Xc = X - mean[None, :]
         nvec = min(a.nvec, len(X) - 1)
-        P, C, pixok = empca(Xc, W, nvec, a.niter, min_wfrac=a.min_wfrac, n_ref=len(sel))
+        P, C, pixok = empca(Xc, W, nvec, a.niter, min_wfrac=a.min_wfrac, n_ref=len(sel), trim_edge=a.trim_edge)
         var = explained(np.where(pixok[None, :], Xc, 0.0), np.where(pixok[None, :], W, 0.0), P)
         mean = np.where(pixok, mean, 0.0)
         out = os.path.join(OUTDIR, f'empca_{a.tag}_{c}.fits')
         if os.path.exists(out): os.remove(out)
-        hdr = {'COEFF0': SRID_MIN * DLOG, 'COEFF1': DLOG, 'CLASS': c, 'NORM': 'synthetic Gaia G flux = 1 (see NORM table)', 'NVEC': nvec, 'NITER': a.niter, 'NOBS': len(X), 'TAG': a.tag}
+        hdr = {'COEFF0': SRID_MIN * DLOG, 'COEFF1': DLOG, 'CLASS': c, 'NORM': 'synthetic Gaia G flux = 1 (see NORM table)', 'NVEC': nvec, 'NITER': a.niter, 'TRIMEDGE': a.trim_edge, 'NOBS': len(X), 'TAG': a.tag}
         with fitsio.FITS(out, 'rw') as F:
             F.write(mean.astype(np.float32), header=hdr, extname='MEAN'); F.write(P.astype(np.float32), extname='EIGVEC')
             F.write(C.astype(np.float32), extname='COEFF'); F.write(var.astype(np.float32), extname='VARIANCE'); F.write(pixok.astype(np.int8), extname='PIXMASK')

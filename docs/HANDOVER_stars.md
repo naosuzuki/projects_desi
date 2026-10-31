@@ -296,7 +296,11 @@ The DESI star steps (2b, 5, 6, 7, Calibration 2) wait for the walk to finish, â‰
 - DESI v2 built (2026-10-30): native_to_v2 stored 18,858/18,858 coadds; step6 --v2 (same 898 stacks, 195,284 stars) and
   step7 --v2. Stacks = v1 to 0.24 % (|diff|/err 0.13). R2 at 10: WD .999 HOT .996 AF .947 GK .992 M .972; the AF drop (v1 .971)
   is v1's red-edge single-pixel ev2/ev3 inflating the total, not a worse fit (stack residuals equal or smaller except AF, noise
-  level). Edge pixels (first/last ~3) still 10-40x typical amplitude. README_desi.txt in ~/data/sdssdesi_stars/v2.
+  level). README_desi.txt in ~/data/sdssdesi_stars/v2.
+- step7 --trim-edge N (2026-10-30; empca(trim_edge=0) keyword, default unchanged for Galaxy): v2 bases (DESI and SDSS) rerun
+  with 3; the first/last basis pixels had carried 10-40x the typical eigenvector amplitude (DESI AF 41 -> 18, GK 8 -> 3, no
+  single-pixel spikes left). R2 unchanged within 0.01-0.03 at k = 1, 0.002 at k = 10. Untrimmed: v2_pre_edgetrim/. step7 caches
+  the calibrated individuals in OUTDIR/individuals_<tag>_<k>_<snmin>.npz (DESI v2 store is on exdisk3); delete after a store change.
 
 ## 4. Decisions for Nao (ordered by when they block)
 1. Backup-program coadds: download (brightest stars, most XP) or dark+bright only? (blocks the final sample, not the pipeline)
