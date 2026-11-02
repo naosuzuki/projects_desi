@@ -43,3 +43,5 @@ mean with one 4-sigma outlier pass. EM-PCA per class, 10 vectors; pixel cut `--m
 
 Next release (v2): DESI spectra resampled once from the native pixels straight onto the rest-frame 1e-4 dex grid at the
 pipeline RV (`programs_templates/restframe.desi_rest`), from the shared v2 walk; SDSS unchanged at 1e-4.
+
+v2 is now in this directory (`star_eigenspectra_v2_*`, 2026-11-02); dated record and the v2 table in `00README`.

@@ -1,1 +1,178 @@
-Record
+data_eigenspectra: eigenspectra of galaxies, quasars and stars from SDSS (DR8, DR17) and DESI DR2
+=================================================================================================
+
+Written by the Galaxy Template thread, 2026-11-02 (Nao: "describe what you've done so far with dates").
+Only released bases and their build iterations are committed here (a few MB each); stacks, per-galaxy tables and
+work-in-progress bases live under ~/data/ and /Volumes/exdisk3/ and are not in git. The detailed recipes are in
+HANDOVER.md (galaxies, 2026-10-28), STARS.md, docs/HANDOVER_normalization.md and docs/PLAN_telluric.md; the paper is
+~/github/papers/26_sdssdesi_spectra/ms.tex.
+
+File naming: <class>_eigenspectra_v<N>.fits counts released bases; <class>_empca_<inputs>_v<N>.fits are build iterations.
+Format (all classes): EIGVEC [nvec, npix] (row 0 = the mean shape), COEFF [nstack, nvec], PIXMASK, VARIANCE, WAVE
+(rest, vacuum, log10 grid with dlog = 1e-4, i.e. 69 km/s pixels), CELLS (the stacks' cell table). Galaxy bases from
+release 3 on also carry EIGVEC_ORTHO / COEFF_ORTHO (the orthonormal EM-PCA basis) and the header keys REF_LO / REF_HI.
+
+
+Galaxies (0 < z < 1.6; files galaxy_*; HANDOVER.md)
+----------------------------------------------------
+
+2026-10-24   Pass B / pass C design: one read of the 34,508 DESI DR2 coadds (dark + bright), per-galaxy measurements
+             (S/N per pixel, synthetic magnitudes, K-corrections from the spectrum, lines, Dn4000), stacking into
+             5-axis cells (z, luminosity, Dn4000, line EW, color). Vacuum line table from 2026-10-25.
+2026-10-27   Release 1 pipeline committed (08_passC_stack.py, 11_passG_sdss.py, 09_merge_stacks.py, 10_galaxy_empca.py).
+             Rest frame by a whole-pixel shift. First bases the same evening:
+             galaxy_empca_desi_v1.fits (7,641 DESI stacks; superseded: window jump at z = 0.60, noisy blue end),
+             galaxy_empca_desi_v2.fits, galaxy_empca_desisdss_v2.fits (+ 1,231 SDSS stacks).
+2026-10-28   galaxy_empca_desisdss_v3.fits: DESI stacks with the spectrophotometric tilt correction from the Stellar
+             thread, + SDSS; 11 vectors, 1400-9900 A. Copied byte-identical to galaxy_eigenspectra_v1.fits =
+             RELEASE v1 (Nao, 2026-10-29). HANDOVER.md written. This basis is still the per-galaxy model used by the
+             telluric correction (tellhook.py, 2026-11-02).
+2026-10-29   Release 2 plan (all three threads): redo from the original spectra with a sub-pixel (Lanczos-3, 1e-4 dex)
+             rest-frame rebin in one shared DESI walk; rest-frame stores on exdisk3 (sdssdesi_restframe_v2,
+             sdssdesi_restframe_sdss_v2). Galaxy hook in the shared walk (galaxy_hook.py).
+2026-10-30   Two-window normalization: unit mean F_lambda in 5400-5500 A (z < 0.30) or 3000-3100 A (z >= 0.30), with the
+             normalization record kept per galaxy (normwin.py). The link R = F(3050)/F(5450) measured on 11.5 million
+             galaxies that cover both windows, per Dn4000 bin against photometric M_g, uniform sample over program x z
+             strata, line / softplus / sigmoid fits by BIC (18_gal_ratio_fit.py). Chaining of the z >= 0.30 stacks to
+             5400-5500 A, re-typing of the stacks by line EW where Dn4000 is unreliable (z > 0.8, faint red stacks).
+2026-10-31   Release 3 re-read started (run_v3.sh, 4 shards; --v3 in 08/11): every galaxy into TWO grids in one read,
+             version G (luminosity axis = photometric MABS_G, whole galaxy) and version 5450 (M_AB(5450) from the
+             spectrum, fiber light), DB_EFF re-typing by EW, two-window normalization per galaxy. SDSS DR8 + DR17 the
+             same day (1,259 / 1,173 stacks). Home disk filled (ENOSPC, 14:41); outputs moved to exdisk3
+             (~/data/sdssdesi_passC_v3 -> /Volumes/exdisk3/sdssdesi_passC_v3), shards resumed from checkpoints.
+2026-11-01   DESI release-3 read complete (~08:00; 8,627 files, 25.2 million galaxies; 7,284 stacks G, 6,834 stacks
+             5450). Merge, chaining with the per-galaxy lookup, luminosity composites in AB magnitude and F_lambda
+             (21_plot_lum.py; plots_v3_*). EM-PCA changes (10_galaxy_empca.py): no mean subtraction (the mean shape
+             is the first vector), every scale factor recorded (EMPCA_SCALE, TO_STACK), reference-window basis change
+             (e0 = 1 and e1..eN = 0 in 5400-5500 A; --ref-win), edge cuts (--min-member-frac 0.5, --min-cover-frac
+             0.2 -> basis 1862-8119 A), two-point plots (24_plot_empca.py). Preliminary bases galaxy_empca_v3pre_G /
+             _5450 (R^2 0.977 / 0.968 with 11 vectors; not committed). Observed-frame check of the stacks
+             (25_obs_residuals.py): no telluric band, OH group or sky line above 0.1-0.3 %; a telluric mask was
+             tried and dropped. Telluric Phase 0 export of galaxy residuals for the Stellar thread
+             (26_telluric_phase0.py; 19,484 SDSS + 12,287 DESI galaxies). Chaining offset diagnosed: the DESI stacks
+             sit +0.07 dex above the per-galaxy lookup because inverse-variance stacking favors the members bright at
+             3000 A (stack vs its median galaxy +0.067 dex). Nao: "option 1", measure the link on the stacks.
+2026-11-02   Stack-measured chaining (27_chain_v3_stacks.py): direct ratio per stack with IVAR error, stack-level
+             lookup per type (sigmoid / line fits, 0.07-0.15 dex scatter), per-survey offset about the joint fit
+             (DESI +0.003, SDSS -0.063 dex), inverse-variance combination; direct vs lookup 0.000 dex in both surveys.
+             Bases galaxy_empca_v3s_G / _5450 (in ~/data/sdssdesi_passC_v3/empca/, not yet committed): R^2 0.9988 /
+             0.9989 with 11 vectors; e1 = star-forming vs passive tilt + lines, e3 = emission lines, e4-e6 smooth
+             continuum shapes; small-scale noise only in e7-e10. Luminosity composites plots_v3s_* -> paper figures.
+             07:25: release 3t started = the same re-read with the per-spectrum telluric correction
+             (tellhook.py -> programs_telluric/tellapply.py, Stellar thread's per-survey telluric eigenspectra;
+             C = 1 + T0 (+ sum a_k T_k on DR8); a_k recorded per galaxy as TELL_A0..6), outputs *_v3t on exdisk3,
+             then merge, chaining, plots and EM-PCA v3t_G / v3t_5450 (after_v3t.sh). Pending decisions for Nao:
+             version G vs 5450, stack weighting (equal vs sqrt N), rotation of e0 to the mean galaxy; the chosen basis
+             becomes galaxy_eigenspectra_v2.fits here.
+
+
+Quasars (0 < z < 5; files quasar_*; Quasar Template thread)
+-----------------------------------------------------------
+
+2026-10-29   quasar_eigenspectra_v1.fits (all z) and the redshift pieces _z0008, _z0820, _z2099: release v1 from the
+             pass-Q stacks (six-axis cells, 3000-3050 A normalization chained through overlapping quasars).
+2026-10-30 - 2026-11-02   Release 3 by that thread (direct 3000-3050 A normalization, pivoted EM-PCA, template
+             normalization, run 4 bins from corrected template amplitudes; run 5 = telluric-corrected, 2026-11-02).
+             See that thread's handover (docs/HANDOVER_quasars.md); nothing newer committed here yet.
+
+
+Stars (files star_*; Stellar Template thread; STARS.md)
+-------------------------------------------------------
+
+2026-10-29   star_eigenspectra_v1_desi_{WD,HOT,AF,GK,M}.fits: release v1 per class from the DESI step-7 stacks
+             (Gaia + DESI, 3D extinction, joint spectrophotometric fit).
+2026-11-01 - 2026-11-02   Telluric work by that thread: telluric structure found in the higher stellar vectors
+             (mostly SDSS water / O2), per-survey telluric-only eigenspectra from featureless white dwarfs, quasars
+             and galaxies (programs_telluric/02_basis.py; /Volumes/exdisk3/sdssdesi_telluric/basis/telluric_{dr8,dr17,
+             desi}.fits), and the shared apply function tellapply.py (ready 2026-11-02). Stellar v2 bases are on
+             ~/data/sdssdesi_stars/v2/, not committed here.
+
+================================================================================
+Stars and telluric (Stellar Template thread). Last updated 2026-11-02.
+================================================================================
+
+Files added here on 2026-11-02 are byte-identical copies; the working copies stay where they were.
+
+  star_eigenspectra_v1_<survey>_<class>.fits   release v1, frozen 2026-10-29, code tag stars-v1. Has the weighting bug fixed on 2026-10-31.
+  star_eigenspectra_v2_<survey>_<class>.fits   current uncorrected stellar bases (last rebuilt 2026-10-31). From ~/data/sdssdesi_stars/v2/empca_*.
+  telluric_eigenspectra_<survey>.fits          dr8, dr17, desi (built 2026-11-02). From /Volumes/exdisk3/sdssdesi_telluric/basis/telluric_*.
+  STARS.md                                     format of the stellar files and how v1 was built.
+
+NOT here yet: the telluric-corrected stellar bases, in /Volumes/exdisk3/sdssdesi_stars/v2_tell. They have not been compared with v2.
+Plots of the telluric bases and their tables: plots_telluric_<survey>.png / .csv in the repo root.
+Paper: ~/github/papers/26_sdssdesi_spectra/ms.tex, sec:telluric. More detail: docs/HANDOVER_stars.md, docs/PLAN_telluric.md,
+README_desi.txt and README_sdss.txt in ~/data/sdssdesi_stars/v2.
+
+
+Stellar v2 bases
+----------------
+Format as in STARS.md; the NORM table also has NORM_SRC and W<lo>/COV<lo>. R2 at 1/2/3/10 vectors:
+
+  survey class  stacks + stars   pixels   R2
+  DESI   WD        87 +  432     4354     .521 .963 .984 .999
+  DESI   HOT        5 +   25     4353     .707 .929 .970 .996
+  DESI   AF        12 +   60     4353     .675 .870 .903 .960
+  DESI   GK       369 + 1832     4353     .559 .969 .991 .997
+  DESI   M        425 + 2033     4353     .797 .959 .973 .988
+  SDSS   WD        39 +  195     2822     .855 .929 .960 .992
+  SDSS   AF        29 +  145     3813     .737 .874 .925 .990
+  SDSS   GK       179 +  895     3823     .768 .974 .987 .998
+  SDSS   M         68 +  340     3788     .849 .883 .948 .981
+
+Coverage: DESI 3602-9815 A; SDSS 3810-9200 A, WD 4324-9209 A with a gap at 4357-4638 A. There is no SDSS HOT basis.
+
+
+Telluric eigenspectra
+---------------------
+HDUs: MEAN [4447] = T0; EIGVEC [7, 4447] in the order O2 1-3, H2O 1-4, zero outside the bands; PIXMASK [4447]; COEFF = KEY (the observation) and C1-C7.
+Grid: observed-frame vacuum log10 lambda = 3.5502 + 1e-4 i. Vectors are residuals R = f / model - 1.
+Use through programs_telluric/tellapply.py: f_corr = f / C, ivar_corr = ivar C^2.
+
+  survey  C                       no correction red of   observations  objects (galaxy, quasar, featureless WD)
+  dr8     1 + T0 + sum a_k T_k    9200 A                  639          14,396 (10,605, 6,062, 96)
+  dr17    1 + T0                  9280 A                 1377          17,078 (8,879, 12,565, 127)
+  desi    1 + T0                  9280 A                 2539          23,936 (12,287, 20,000, 628)
+
+dr8 = SDSS-I/II (MJD < 55025), dr17 = BOSS / eBOSS (MJD >= 55025). The object counts are those entering the observation means; the populations
+in brackets are all objects loaded before that cut, so they sum to more than the total.
+On dr17 and desi the a_k are fitted and recorded but do not enter C. dr17 H2O 1 is sky-line spikes and is never used.
+
+  var / null of each component (var >= 1.5 x null selects it), and correlation with the guide optical depth:
+           O2 1          O2 2          O2 3          H2O 1         H2O 2         H2O 3         H2O 4
+  dr8      22.32 +0.83   2.61 -0.12    2.22 +0.02    4.80 +0.15    5.46 -0.04    5.15 +0.60    3.29 +0.19
+  dr17      1.88 +0.95   2.34 -0.28    1.92 -0.01    2.18  0.00    2.37 +0.50    2.38 +0.35    2.06 +0.02
+  desi      1.58 +0.96   1.04 +0.20    1.16 -0.20    1.30 +0.45    1.90 +0.37    1.95 +0.11    1.68 +0.08
+
+Known limits: the 9280-9880 A water band is uncorrected (sky-dominated). DESI components are not confirmed between populations
+(galaxy x quasar coefficients r <= 0.135 on the same tiles). T0 cannot separate the atmosphere from any other fixed observed-frame
+residual. On DR8 a small stellar contribution to C is not excluded (a_k against TiO and Ca triplet strength, |r| up to 0.24).
+
+
+Record, by date
+---------------
+2026-10-24  Stellar steps 1-6: tables, 3D extinction, joint spectrophotometric fit, SDSS stacks.
+2026-10-25  Step 7: weighted EM-PCA, one basis per class, inputs normalized to Gaia G flux = 1 with the factor stored.
+2026-10-27  DESI: Calibration 2 (response per EXPID and petal). Step 6 stops needing its own read: star_hook stores star spectra during the shared walk.
+2026-10-28  DESI stacks and EM-PCA. --min-wfrac fix: the weight cut was dropping the red end of M stars (DESI 0, SDSS M 0.1).
+2026-10-29  Sub-pixel RV shift (Lanczos-3) in step 6: line depths +2-3 % at equal EW. Step 8b refinement tested: negative result.
+            Release v1 at Nao's request (tag stars-v1), frozen. Plan for v2: all spectra again from the originals, resampled once.
+            SDSS rest-shift coverage fix (nearest-pixel fallback at masked pixels). v2 star store built from the shared native store.
+2026-10-30  DESI v2 stacks and EM-PCA: 195,284 stars, 898 stacks; median |v2 / v1 - 1| 0.24 %.
+            SDSS: DR17 sky-subtraction artifact masked (6322.7-6335.8 A observed). --trim-edge 3 on both surveys.
+2026-10-31  --min-member-frac 0.5 on both surveys. This fixes a weighting bug: pixels with 1-2 members had ERR near 0 and held 49-99 % of the
+            PCA weight on DESI. Means change (GK F(4500) / F(7000) 1.20 -> 0.81). v1 still has this bug.
+            Luminosity-binned stellar spectra, AB and f_lambda.
+2026-11-01  Telluric check at Nao's request: weak telluric structure in higher-order stellar eigenvectors, mostly SDSS. Plan and first
+            cross-population tests with Quasar and Galaxy (docs/PLAN_telluric.md).
+            Nao's three steps, per survey: telluric-only eigenspectra, correct each spectrum before stacking, stack and PCA again.
+            First-pass bases committed (574abd5); now out of date.
+2026-11-02  Final bases: DR17 airmass from plates-dr17.fits; continuous per-band curve (removed a false step at 9540 A); red limit 9280 A on
+            DR17 and DESI; DR17 H2O 1 dropped. tellapply.py written; all three threads use it.
+            Held-out test: fitted components beat shifted eigenvectors on DR8 and not on DR17 or DESI. T0 holds across populations on all three.
+            Nao accepted the recipe (DR8 T0 + a_k; DR17 and DESI T0 alone), changing the original per-spectrum plan on those two surveys.
+            Telluric section written into ms.tex (uncommitted; Nao commits ms.tex).
+            Stars: SDSS restacked with the correction (91,726 stars, 84,018 fitted, the rest T0 only), EM-PCA done, not yet compared with v2.
+            DESI restack running (195,284 stars). Its stack file in v2_tell is from a 150-file test until that run finishes.
+            Stellar v2 and telluric eigenspectra copied here (this entry).
+
+Not done: step 3 is unfinished. Nothing yet shows that the telluric structure has left the eigenspectra.
