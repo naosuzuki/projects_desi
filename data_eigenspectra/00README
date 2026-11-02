@@ -100,7 +100,7 @@ Files added here on 2026-11-02 are byte-identical copies; the working copies sta
   STARS.md                                     format of the stellar files and how v1 was built.
 
 NOT here yet: the telluric-corrected stellar bases, in /Volumes/exdisk3/sdssdesi_stars/v2_tell. They have not been compared with v2.
-Plots of the telluric bases and their tables: plots_telluric_<survey>.png / .csv in the repo root.
+Plots of the telluric bases and their tables: plots_luminosity/plots_telluric_<survey>.png, csv_files/plots_telluric_<survey>.csv.
 Paper: ~/github/papers/26_sdssdesi_spectra/ms.tex, sec:telluric. More detail: docs/HANDOVER_stars.md, docs/PLAN_telluric.md,
 README_desi.txt and README_sdss.txt in ~/data/sdssdesi_stars/v2.
 
