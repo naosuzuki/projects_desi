@@ -14,7 +14,17 @@ Axes (codes per object; -1 = unknown / not measurable -> the object goes to the 
 Cells: CELL = 'z{ZBIN}_L{LBIN}_E{EBIN}_S{SBIN}_O{OBIN}_B{BBIN}'. Merging to the floor (training set = QCUT & S/N > 5):
 a six-axis cell below the floor is collapsed along BAL, then oxygen, then slope (code -> -1) until it reaches the
 floor; what is still below the floor ends in the (z, L, EW) pool cell. STACK_CELL is the resulting label.
+v3 (--chain, Nao 2026-10-31): no redshift axis. Each quasar keeps its own normalization window, and the stacker divides
+its normalized spectrum by the window-to-3025 A ratio R(M) fitted on DESI (11_ratio_fit.py: R1 = F3025/F5115 softplus for
+z < 0.8, R2 = F3025/F1282 line for z >= 2.0; M = M_AB(3025), clamped to the fitted range) -- or, since the 2026-10-31
+measurement pass (05_stack.py --v3 --measure -> v3/qso_norm_table.parquet), by its own MEASURED ratio wherever 3000-3050 A
+has >= 50 % good pixels (CHAIN_SRC 0: a direct 3000-3050 A normalization; the fit, CHAIN_SRC 1, only for z < ~0.19 and
+z > ~2.25, where the window is off the spectrum). Every quasar then reads ~1 at
+3000-3050 A, and a cell mixes all redshifts into one continuous spectrum. LBIN is log F_lam,abs at 3025 A (no jump at
+z = 0.8, 2.0). New columns CHAIN_LOGR (log R; 0 for 0.8 <= z < 2.0) and LOGFABS_3025. Labels 'L_E_S_O_B', outputs
+qso_cells_v3_<survey>.*. EW / oxygen bins as before (each relative to its own line's per-slice median).
 Usage:
+  python3 04_cells.py --survey all --chain    # v3
   python3 04_cells.py --survey sdss          # ~/data/sdssdesi_products/quasar/qso_master_sdss.parquet
   python3 04_cells.py --survey all           # sdss + desi master tables
 Output: qso_cells_<survey>.parquet (per-object labels), qso_stack_cells_<survey>.csv (one row per stack cell with
@@ -55,10 +65,74 @@ def ew_bins_from_median(ew, err, med):
     return np.where(ok, code, -1).astype(np.int8)
 
 
+C_AA = 2.99792458e18
+RATIO_FIT = f'{PROD}/checks/qso_ratio_fit.json'
+
+
+NORM_TABLE_V3 = f'{PROD}/v3/qso_norm_table.parquet'      # 05_stack.py --v3 --measure --merge: per-quasar own-window and 3025 A means
+NORM_TABLE_TPL = f'{PROD}/v3/qso_norm_table_template.parquet'   # 05_stack.py --v3 --template: per-quasar template amplitude (flux at 3025 A)
+
+
+def measured_ratio(d, path=NORM_TABLE_V3, min_cov=0.5, tpl=None):
+    """log10 of the measured R = F(3025)/F(own window) per quasar from the v3 measurement pass (NaN where the quasar is not in
+    the table or 3000-3050 A has < min_cov good pixels; 0 for the quasars whose own window is 3000-3050 A). Exact IDs.
+    tpl (--template-bins, 2026-11-01): the template-amplitude table of 05_stack.py --v3 --template; R = NORM / NORM_OWN, the
+    amplitude of the member's stack template (unit mean at 3000-3050 A) fitted to all its good pixels over its own-window mean,
+    for every quasar with a template fit (NORM_SRC 0), at any redshift. Binning on the 25-pixel window mean at the DESI blue
+    edge (z 0.19-0.3) had filled the faint bins with quasars whose window noise was low (template 2-7x brighter)."""
+    out = np.full(len(d), np.nan)
+    if not os.path.exists(path):
+        print('no v3 norm table, fitted ratios only:', path); return out
+    n = pd.read_parquet(path, columns=['ID', 'SURVEY', 'TARGETID', 'PROGRAM', 'PLATE', 'MJD', 'FIBERID', 'NORM_OWN', 'W3025', 'COV3025'])
+    with np.errstate(all='ignore'):
+        n['LOGR'] = np.where((n.COV3025 >= min_cov) & (n.W3025 > 0), np.log10(n.W3025), np.nan)
+    if tpl is not None:
+        t = pd.read_parquet(tpl, columns=['ID', 'NORM', 'NORM_SRC'])
+        n = n.merge(t, on='ID', how='left')
+        with np.errstate(all='ignore'):
+            lt = np.where((n.NORM_SRC == 0) & (n.NORM > 0) & (n.NORM_OWN > 0), np.log10(n.NORM / n.NORM_OWN), np.nan)
+        print(f'template-amplitude ratio for {np.isfinite(lt).sum():,} of {len(n):,} quasars in the table (window mean for the rest)')
+        n['LOGR'] = np.where(np.isfinite(lt), lt, n.LOGR)
+    desi = (d.SURVEY == 'desi').to_numpy()
+    k = pd.DataFrame({'TARGETID': d.TARGETID, 'PROGRAM': d.PROGRAM}).reset_index()
+    m = k[desi].merge(n.loc[n.SURVEY == 'desi', ['TARGETID', 'PROGRAM', 'LOGR']].drop_duplicates(['TARGETID', 'PROGRAM']), on=['TARGETID', 'PROGRAM'], how='left')
+    out[m['index'].to_numpy()] = m.LOGR.to_numpy()
+    k = pd.DataFrame({'PLATE': d.PLATE, 'MJD': d.MJD, 'FIBERID': d.FIBERID}).reset_index()
+    m = k[~desi].merge(n.loc[n.SURVEY != 'desi', ['PLATE', 'MJD', 'FIBERID', 'LOGR']].drop_duplicates(['PLATE', 'MJD', 'FIBERID']), on=['PLATE', 'MJD', 'FIBERID'], how='left')
+    out[m['index'].to_numpy()] = m.LOGR.to_numpy()
+    return out
+
+
+def chain_to_3025(z, logf, fit=RATIO_FIT, niter=8, meas=None, meas_all=False):
+    """(log R, log F_lam,abs at 3025 A, source) for each quasar from its own-window LOGFABS_NORM, R = F(3025)/F(own window):
+    the MEASURED ratio (meas, from the v3 measurement pass) wherever 3000-3050 A is covered (source 0), otherwise the DESI
+    fits of 11_ratio_fit.py at M_AB(3025), solved by iteration (M depends on F3025; source 1); 0 for 0.8 <= z < 2.0 (source 2)."""
+    f = json.load(open(fit))
+    def r1(M):
+        p = f['R1']['params']; M = np.clip(M, *f['R1']['M_range'])
+        return p['a'] + p['s_bright'] * (M - p['M0']) + (p['s_faint'] - p['s_bright']) * p['w'] * np.logaddexp(0, (M - p['M0']) / p['w'])
+    def r2(M):
+        p = f['R2']['params']; M = np.clip(M, *f['R2']['M_range'])
+        return p['a'] + p['b'] * (M + 25)
+    z = np.asarray(z, float); logf = np.asarray(logf, float)
+    lo, hi = z < 0.8, z >= 2.0
+    meas = np.full(len(z), np.nan) if meas is None else np.asarray(meas, float)
+    use = np.isfinite(meas) if meas_all else (lo | hi) & np.isfinite(meas)   # meas_all: template amplitudes at every z
+    logr = np.zeros(len(z))
+    for _ in range(niter):
+        M = -2.5 * (logf + logr + 2 * np.log10(3025.0) - np.log10(C_AA)) - 48.60
+        logr = np.where(use, meas, np.where(lo, r1(M), np.where(hi, r2(M), 0.0)))
+    src = np.where(use, 0, np.where(lo | hi, 1, 2)).astype(np.int8)
+    return logr, logf + logr, src
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--survey', default='sdss', choices=['sdss', 'desi', 'all'])
     ap.add_argument('--floor', type=int, default=FLOOR)
+    ap.add_argument('--chain', action='store_true', help='v3: no z axis, chained to 3025 A with the fitted ratios')
+    ap.add_argument('--template-bins', action='store_true', help='v3: luminosity from the template amplitude (v3/qso_norm_table_template.parquet) instead of the window mean')
+    ap.add_argument('--template-table', default=NORM_TABLE_TPL, help='amplitude table for --template-bins (default v3/qso_norm_table_template.parquet; 14_template_rebin.py writes a corrected one)')
     a = ap.parse_args()
     t0 = time.time()
     json.dump(dict(done=0, total=4, status='running', note='reading', started=t0), open(STATUS, 'w'))
@@ -75,6 +149,12 @@ def main():
         d = pd.read_parquet(p, columns=[c for c in ids + cols] + (['SNR_SDSSPIX'] if sv == 'desi' else []))
         if sv == 'desi':      # S/N per SDSS-size pixel (dlog 1e-4), comparable with the SDSS SNR_ALL
             d['SNR_ALL'] = d.pop('SNR_SDSSPIX')
+        # keep the IDs exact (Nao 2026-10-31): the concat fills SDSS TARGETID / DESI PLATE with NaN, which made them float64, and
+        # float64 cannot hold a DESI TARGETID (~4e16, spacing 8): neighbouring targets collapsed and 05_stack merged 1.8 % of the
+        # DESI members with the wrong quasar (another redshift, another cell). Nullable Int64, cast before the concat, keeps them exact.
+        for c in ids:
+            if c != 'PROGRAM':
+                d[c] = d[c].astype('Int64')
         tabs.append(d)
     d = pd.concat(tabs, ignore_index=True)
     train = d.QCUT.to_numpy() & (d.SNR_ALL.to_numpy() > 5) & np.isfinite(d.LOGFABS_NORM.to_numpy())
@@ -84,7 +164,15 @@ def main():
     d['ZBIN'] = (np.digitize(z, ZEDGES) - 1).astype(np.int8)
     d.loc[(z < 0) | (z >= 5), 'ZBIN'] = -1
     # luminosity (Nao, 2026-10-27): absolute flux density at the normalization window, 0.4-dex bins (= 1 mag)
-    d['LBIN'] = np.where(np.isfinite(d.LOGFABS_NORM), np.floor(d.LOGFABS_NORM.fillna(0) / LBIN_DEX), -99).astype(np.int16)
+    if a.chain:      # v3: luminosity at 3025 A for every redshift
+        meas = measured_ratio(d, tpl=a.template_table if a.template_bins else None)
+        d['CHAIN_LOGR'], d['LOGFABS_3025'], d['CHAIN_SRC'] = chain_to_3025(z, d.LOGFABS_NORM.to_numpy(dtype=float), meas=meas, meas_all=a.template_bins)
+        lf = d.LOGFABS_3025
+        cs = d.CHAIN_SRC.to_numpy()[train]
+        print(f'chaining (training): measured at 3000-3050 A {(cs == 0).sum():,}, fitted ratio {(cs == 1).sum():,}, own window {(cs == 2).sum():,}', flush=True)
+    else:
+        lf = d.LOGFABS_NORM
+    d['LBIN'] = np.where(np.isfinite(lf), np.floor(lf.fillna(0) / LBIN_DEX), -99).astype(np.int16)
     # --- axis 3: per-slice median of the primary line (training set, detected) -> factor-2 bins
     pl = line_for(z, PRIMARY); ol = line_for(z, OXYGEN)
     d['PRIMARY_LINE'], d['OXYGEN_LINE'] = pl, ol
@@ -121,6 +209,8 @@ def main():
     lab = d[key_cols].copy()
     lab.loc[~train, :] = -99                        # non-training rows get labels but do not count
     base = d[key_cols].to_numpy().copy()
+    if a.chain:
+        base[:, 0] = -1                             # v3: no redshift axis
     cur = base.copy(); cur[~train] = -99
     def counts(arr):
         df = pd.DataFrame(arr, columns=key_cols); df['i'] = np.arange(len(df))
@@ -138,8 +228,9 @@ def main():
     d['STACK_ZBIN'], d['STACK_LBIN'], d['STACK_EBIN'], d['STACK_SBIN'], d['STACK_OBIN'], d['STACK_BBIN'] = [cur[:, k] for k in range(6)]
     d['STACK_STAGE'] = np.where(train, stage, -1).astype(np.int8)
     d['STACK_N'] = np.where(train, n6, 0)
-    d['STACK_CELL'] = np.where(train, ['z%d_L%d_E%d_S%d_O%d_B%d' % tuple(r) for r in cur], '')
-    d['CELL'] = ['z%d_L%d_E%d_S%d_O%d_B%d' % tuple(r) for r in base]
+    fmt, k0 = ('L%d_E%d_S%d_O%d_B%d', 1) if a.chain else ('z%d_L%d_E%d_S%d_O%d_B%d', 0)
+    d['STACK_CELL'] = np.where(train, [fmt % tuple(r[k0:]) for r in cur], '')
+    d['CELL'] = [fmt % tuple(r[k0:]) for r in base]
     # --- stack-cell table
     t = d[train].groupby('STACK_CELL').agg(n=('Z', 'size'), z_med=('Z', 'median'), logL_med=('LOGL_NORM', 'median'), snr_med=('SNR_ALL', 'median'),
                                            ew_med=('PRIMARY_EW', 'median'), alpha_med=('ALPHA_LAM', 'median'), oxy_med=('OXYGEN_EW', 'median'),
@@ -147,7 +238,7 @@ def main():
                                            EBIN=('STACK_EBIN', 'first'), SBIN=('STACK_SBIN', 'first'), OBIN=('STACK_OBIN', 'first'), BBIN=('STACK_BBIN', 'first'),
                                            primary=('PRIMARY_LINE', 'first'), oxygen=('OXYGEN_LINE', 'first')).reset_index()
     t['ok'] = t.n >= a.floor
-    tag = a.survey
+    tag = ('v3_' if a.chain else '') + a.survey
     d.to_parquet(f'{PROD}/qso_cells_{tag}.parquet')
     t.to_csv(f'{PROD}/qso_stack_cells_{tag}.csv', index=False); t.to_csv(f'{REPO}/qso_stack_cells_{tag}.csv', index=False)
     pd.DataFrame(med_table).to_csv(f'{REPO}/qso_primary_ew_medians_{tag}.csv', index=False)
@@ -161,10 +252,13 @@ def main():
     out.append('by stage: ' + ', '.join(f'{k}: {v}' for k, v in {0: 'full', 1: 'BAL collapsed', 2: '+oxygen', 3: '+slope', 4: 'pool'}.items() for v in [int((ok.stage == k).sum())]))
     out.append('axes with fine bins (training): EW %.0f %%, slope %.0f %%, oxygen %.0f %%, BAL known %.0f %%' % tuple(100 * (d.loc[train, c] >= 0).mean() for c in ['EBIN', 'SBIN', 'OBIN', 'BBIN']))
     rows = []
-    for zb in range(len(ZEDGES) - 1):
+    for zb in ([] if a.chain else range(len(ZEDGES) - 1)):
         s = ok[ok.ZBIN == zb]; tt = t[t.ZBIN == zb]
         rows.append(dict(z=f'{ZEDGES[zb]:.1f}-{ZEDGES[zb+1]:.1f}', n_train=int(tt.n.sum()), stacks=len(s), full6=int((s.stage == 0).sum()), in_stacks=int(s.n.sum())))
-    out.append(pd.DataFrame(rows).to_string(index=False))
+    if a.chain:
+        out.append(ok.groupby('LBIN').agg(stacks=('n', 'size'), in_stacks=('n', 'sum'), z_med=('z_med', 'median')).to_string())
+    else:
+        out.append(pd.DataFrame(rows).to_string(index=False))
     txt = '\n'.join(out); print(txt); open(f'{PROD}/qso_cells_{tag}.txt', 'w').write(txt)
     json.dump(dict(done=4, total=4, status='done', note=f'{len(ok)} stacks', started=t0), open(STATUS, 'w'))
     print(f'{time.time()-t0:.0f}s')

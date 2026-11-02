@@ -317,7 +317,7 @@ def forest_and_bal(rflux, rivar, cont):
 
 
 # ---------------------------------------------------------------- SDSS: spectra already on the log10 grid
-def rest_from_loggrid(rid0, flux, ivar, mask, z, scale, ebv, coeff0=None):
+def rest_from_loggrid(rid0, flux, ivar, mask, z, scale, ebv, coeff0=None, survey=None):
     """spPlate arrays [n, npix] on the log10 grid starting at pixel id rid0 (= round(COEFF0/DLOG); COEFF1 must be
     1e-4). scale [n]: multiplicative calibration (CAL_A); ebv [n]: SFD E(B-V). Flux unit 1e-17 -> cgs.
     Returns rflux, rivar [n, QNREST] = F_lam * (1+z), dereddened (F99, R_V=3.1, 0.86 E(B-V)), shifted by Z.
@@ -326,6 +326,9 @@ def rest_from_loggrid(rid0, flux, ivar, mask, z, scale, ebv, coeff0=None):
     n, npix = flux.shape
     w = 10.0**((rid0 + np.arange(npix)) * DLOG) if coeff0 is None else 10.0**(coeff0 + np.arange(npix) * DLOG)
     good = (ivar > 0) & (mask == 0)
+    # SDSS bad pixels (Nao 2026-10-30; shared restframe.SDSS_BAD_RID, all three threads): DR17 6322.7-6335.8 A observed
+    # (sky-subtraction wiggle peaking at 6331.4 A), none in DR8. survey: 'dr17' / 'dr8'.
+    good &= RF.sdss_badpix_ok(rid0 * DLOG if coeff0 is None else coeff0, npix, survey)[None, :]
     corr = (np.nan_to_num(scale, nan=1.0) * passB.FLUX_UNIT)[:, None]
     A1 = passB.extinction.fitzpatrick99(w, 1.0, 3.1)
     A = (3.1 * 0.86 * np.nan_to_num(ebv))[:, None] * A1[None, :]
@@ -435,3 +438,30 @@ class NoMaskFITS:
         if k.endswith('_MASK'):
             return _NoMaskHDU(self.f[k.replace('_MASK', '_IVAR')].get_dims())
         return self.f[k]
+
+
+def blue_trim(wave, F, E, cov, snmin=5.0, drop=0.9, width=100, step=200, lam_min=1250.0, hold=300):
+    """Per-stack blue-end trim (Nao 2026-11-01, 'drop the blue edge which unnaturally drops in flux'): from the blue end of each
+    stack, drop pixels until the first pixel from which (a) the running median S/N over `width` good pixels reaches snmin and
+    (b) the running median flux is at least `drop` x the running median `step` good pixels redward, i.e. the flux no longer
+    falls toward the blue (a quasar continuum rises there). Catches the faint stacks whose blue ends are a few members' DESI
+    blue-edge pixels. Test (b) only redward of lam_min (the Lya forest falls toward the blue legitimately).
+    The cut is at the first pixel from which both hold for `hold` consecutive good pixels (a dip with a rise blueward of it
+    is cut as well). wave [npix]; F, E, cov: [nstack, npix] WMEAN, WERR, good-pixel mask. Returns the trimmed mask."""
+    out = cov.copy()
+    for i in range(len(F)):
+        g = cov[i] & np.isfinite(F[i]) & np.isfinite(E[i]) & (E[i] > 0)
+        j = np.flatnonzero(g)
+        if len(j) < width + step + 1:
+            continue
+        f, e = F[i][j].astype(float), E[i][j].astype(float)
+        cf = np.cumsum(np.r_[0.0, f]); run = (cf[width:] - cf[:-width]) / width                 # running mean flux
+        ce = np.cumsum(np.r_[0.0, f / e]); sn = (ce[width:] - ce[:-width]) / width              # running mean S/N
+        nrun = len(run) - step
+        ok = (sn[:nrun] >= snmin) & ((run[:nrun] >= drop * run[step:step + nrun]) | (wave[j[:nrun]] < lam_min))
+        bad = np.cumsum(np.r_[0, ~ok]); h = min(hold, nrun)
+        span = bad[h:] - bad[:-h] if nrun >= h else np.array([])          # failures in ok[k:k+h]
+        k = int(np.argmax(span == 0)) if (span == 0).any() else nrun
+        if k > 0:
+            out[i, :j[k]] = False
+    return out

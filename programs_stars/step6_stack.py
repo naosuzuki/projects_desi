@@ -30,6 +30,9 @@ DESI without an exdisk2 pass of its own (Nao: one read per coadd for all classes
   python3 step6_stack.py --survey desi --tag desi_0.5x0.1_gspphot --maxper 300 --select-only   -> step6_selection_<tag>.parquet
   (star_hook.py, called inside the quasar stack's coadd read, writes the selected spectra to specstore_desi/)
   python3 step6_stack.py --survey desi --tag desi_0.5x0.1_gspphot --from-store --onepass      -> reads exdisk2 only for coadds not in the store
+Telluric (Nao 2026-11-01; same stars as v2, outputs in tell_hook.OUT, v2 untouched):
+  python3 step6_stack.py --survey desi --tag desi_0.5x0.1_gspphot --v2 --from-store --onepass --store-only --telluric
+  python3 step6_stack.py --survey sdss --tag sdss_0.5x0.1_gspphot --v2 --onepass --telluric
 """
 import os, sys, glob, argparse, time
 import numpy as np, pandas as pd, fitsio
@@ -122,7 +125,7 @@ def rest_shift(f, iv, good, rid0, shift):
     return out, w
 
 
-def star_spectrum(row, f, iv, mask, rid0):
+def star_spectrum(row, f, iv, mask, rid0, raw=False):
     """pipeline spectrum of one star (flux unit 1e-17, log grid from rid0) -> F_lambda at 10 pc on SWAVE, with weights."""
     good = (iv > 0) & (mask == 0)
     if np.isfinite(row.A_FLUX):
@@ -136,6 +139,7 @@ def star_spectrum(row, f, iv, mask, rid0):
     out *= scale; w /= scale**2
     out *= tilt * 10**(0.4 * A) * row.ABS_SCALE; w *= 10**(-0.8 * A) / (tilt * row.ABS_SCALE)**2
     med = np.median(w[w > 0]) if (w > 0).any() else 1.0
+    if raw: return out, w, med                                    # true ivar, for the telluric fit
     return out, w / med                                           # every star counts once; pixel quality inside the star
 
 
@@ -212,7 +216,7 @@ def iter_store(df, maxfiles, store):
             i = pos.get(int(row.TARGETID))
             if i is None: continue
             if rest:
-                row = row.copy(); row['Z'] = 0.0
+                row = row.copy(); row['Z_TRUE'] = row['Z']; row['Z'] = 0.0
             yield row, F_[i].astype(float), I_[i].astype(float), (I_[i] <= 0).astype(np.int8), rid0
     if missing:
         print(f'  {len(missing):,} coadds not in the store: reading them from exdisk2', flush=True)
@@ -238,13 +242,17 @@ def main():
     ap.add_argument('--select-only', action='store_true', help='write the star selection (for star_hook.py) and stop')
     ap.add_argument('--from-store', action='store_true', help="DESI: stack from star_hook's store + the selection file")
     ap.add_argument('--v2', action='store_true', help='v2 (Nao 2026-10-29): DESI spectra from star_hook.STORE_V2 (rest frame, one resampling at the pipeline RV, no further shift); outputs in OUTDIR/v2')
+    ap.add_argument('--telluric', action='store_true', help='with --v2 --onepass: same stars as v2, each divided by its telluric factor before stacking (tell_hook.py; Nao 2026-11-01); outputs on exdisk3')
     ap.add_argument('--store-only', action='store_true', help='with --from-store: use only the coadds already in the store (no exdisk2 reads); the cap applies to those')
     a = ap.parse_args(); t0 = time.time()
     global STORE
     import star_hook
     STORE = star_hook.STORE_V2 if a.v2 else star_hook.STORE
+    if a.telluric and not (a.v2 and a.onepass): ap.error('--telluric needs --v2 --onepass')
     if a.v2:
         a.outdir = os.path.join(OUTDIR, 'v2'); globals()['OUTDIR'] = a.outdir
+    if a.telluric:
+        import tell_hook; a.outdir = tell_hook.OUT; globals()['OUTDIR'] = a.outdir
     os.makedirs(a.outdir, exist_ok=True)
     _progress('stack', 0, 1, 'running', f'{a.survey}: reading the star tables'); cells, mem = members(a.tag, a.nmin)
     selp = os.path.join(CACHE, f'step6_selection_{a.tag}.parquet')
@@ -256,11 +264,15 @@ def main():
             n0 = len(df); df = df[df.FILE.isin(have)]
             print(f'--store-only: {len(have):,} coadds in the store hold {len(df):,} of {n0:,} candidate stars', flush=True)
         print(f'{a.survey}: selection {len(df):,} stars, {len(stacks)} stacks, {df.FILE.nunique():,} files (from {selp}); {time.time()-t0:.0f}s', flush=True)
-        if a.maxper:
+        if a.telluric:
+            import tell_hook; df = df[df.SID.isin(tell_hook.v2_sids(a.tag))]; stacks = sorted(df.STACK.unique()); print(f'--telluric: the {len(df):,} stars of v2', flush=True)
+        elif a.maxper:
             n0, f0 = len(df), df.FILE.nunique(); df = select_per_stack(df, a.maxper)
             print(f'--maxper {a.maxper}: {len(df):,} of {n0:,} stars from {df.FILE.nunique():,} of {f0:,} files', flush=True)
     else:
         df, stacks = select_stars(a, cells, mem, t0)
+        if a.telluric:
+            import tell_hook; df = df[df.SID.isin(tell_hook.v2_sids(a.tag))]; stacks = sorted(df.STACK.unique()); print(f'--telluric: the {len(df):,} stars of v2', flush=True)
         if a.select_only:
             df.to_parquet(selp); print(f'written {selp}'); _progress('stack', 0, 1, 'waiting', f'{a.survey}: {len(df):,} stars selected; spectra from the quasar-stack read (star_hook)'); return
     import star_hook
@@ -311,7 +323,9 @@ def select_stars(a, cells, mem, t0):
 
 
 def run_stack(a, cells, mem, df, stacks, it, t0):
-    nfile = df.FILE.nunique()
+    nfile = df.FILE.nunique(); tell = None
+    if a.telluric:
+        import tell_hook; tell = tell_hook.StarTelluric(a.survey, a.tag, df)
     def spectra():
         last = None; k = 0
         for row, f, iv, mk, rid0 in it(df, a.maxfiles):
@@ -319,7 +333,10 @@ def run_stack(a, cells, mem, df, stacks, it, t0):
                 last = row.FILE; k += 1
                 if k % 200 == 0:
                     print(f'  {k:,}/{nfile:,} files, {time.time()-t0:.0f}s', flush=True); _progress('stack', k, nfile, 'running', f'{a.survey}: {k:,}/{nfile:,} files read')
-            spec, w = star_spectrum(row, f, iv, mk, rid0)
+            if tell:
+                spec, w, med = star_spectrum(row, f, iv, mk, rid0, raw=True); spec, w = tell.apply(row, spec, w); w = w / med
+            else:
+                spec, w = star_spectrum(row, f, iv, mk, rid0)
             yield row.STACK, spec, w
     if a.onepass:
         mem_spec = [(st, sp.astype(np.float32), w.astype(np.float32)) for st, sp, w in spectra()]
@@ -327,6 +344,7 @@ def run_stack(a, cells, mem, df, stacks, it, t0):
         source = lambda: iter(mem_spec)
     else:
         source = spectra
+    if tell: tell.write(a.outdir)
     accA = Accum(stacks)
     for st, spec, w in source():
         accA.add(st, spec, w)

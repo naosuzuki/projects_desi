@@ -45,6 +45,7 @@ SF11 = {'u': 4.239, 'g': 3.303, 'r': 2.285, 'i': 1.698, 'z': 1.263}
 NREST, RWAVE, DLOG = pb.NREST, pb.RWAVE, pb.DLOG
 F32 = np.float32
 STOP = False
+TELL = None                     # tellhook.Telluric when --telluric (v3t)
 signal.signal(signal.SIGTERM, lambda s, f: globals().__setitem__('STOP', True))
 signal.signal(signal.SIGINT, lambda s, f: globals().__setitem__('STOP', True))
 
@@ -89,7 +90,7 @@ def prep():
 
 
 # ---------------------------------------------------------------- per plate
-def process_plate(path, survey, cat, offs, cellmap, acc, store_dir):
+def process_plate(path, survey, cat, offs, cellmap, acc, store_dir, V=None):
     t0 = time.time()
     base = os.path.basename(path).replace('.fits', ''); _, plate, mjd = base.split('-'); plate, mjd = int(plate), int(mjd)
     rows = cat[(cat.PLATE == plate) & (cat.MJD == mjd)]
@@ -104,7 +105,7 @@ def process_plate(path, survey, cat, offs, cellmap, acc, store_dir):
     plug = plug[np.argsort(plug['FIBERID'])][fib]
     df = rows.reset_index(drop=True).copy(); df['EBV'] = plug['SFD_EBV'].astype(float)
     n, npix = flux.shape; w = 10.0**(coeff0 + np.arange(npix) * DLOG)
-    good = (ivar > 0) & (mask == 0)
+    good = (ivar > 0) & (mask == 0) & restframe.sdss_badpix_ok(coeff0, npix, survey)[None, :]     # + DR17 6331 A sky residual
     with np.errstate(all='ignore'):
         df['SNR_SDSSPIX'] = np.nanmedian(np.where(good, flux * np.sqrt(ivar), np.nan), axis=1)
     # Step 1: fiber magnitude + plate point-source offset
@@ -131,6 +132,10 @@ def process_plate(path, survey, cat, offs, cellmap, acc, store_dir):
     z = df.Z.to_numpy(float)
     rflux, rivar = restframe.sdss_rest(coeff0, fder, ider, (~good).astype(np.int8), z, pb.RID_MIN, NREST)
     rflux *= (1 + z)[:, None].astype(F32); rivar /= ((1 + z)**2)[:, None].astype(F32)
+    if TELL is not None:                                          # telluric step 2 (tellhook): before lines and magnitudes
+        rflux, rivar, rec = TELL.correct(rflux, rivar, z)
+        for k_, v_ in rec.items():
+            df[k_] = v_
     lobs = RWAVE[None, :] * (1 + z)[:, None]
     rin = (lobs >= w[0]) & (lobs <= w[-1])
     del fder, ider, fl, iv, lobs
@@ -148,6 +153,10 @@ def process_plate(path, survey, cat, offs, cellmap, acc, store_dir):
     cg = df.CMOD_g - SF11['g'] * ebv; cr = df.CMOD_r - SF11['r'] * ebv; cz = df.CMOD_z - SF11['z'] * ebv
     df['COLOR'] = np.where(z < 0.5, cg - cr, cr - cz)
     df['EW'] = gc.line_ew(z, df.HALPHA_EW, df.OII_SUM_EW)
+    if V is not None:                 # release v3 (v3lib.py): two-window normalization, both grids, no store
+        na = V.process(df, RWAVE, rflux, rivar, z, DM, normwin)
+        df['FILE'] = base
+        return df, na, time.time() - t0
     ix = gc.indices(z, df.MABS, df.COLOR, df.EW, df.DN4000)
     for k in gc.KEY:
         df[k] = ix[k]
@@ -196,7 +205,18 @@ def main():
     ap.add_argument('--prep', action='store_true'); ap.add_argument('--survey', choices=['dr8', 'dr17'])
     ap.add_argument('--shard', default='0/1'); ap.add_argument('--outdir', default=OUTDIR)
     ap.add_argument('--store', default=None); ap.add_argument('--nfiles', type=int, default=0)
+    ap.add_argument('--v3', action='store_true', help='release v3: two grids (MABS_G, M_AB(5450)), two-window normalization')
+    ap.add_argument('--telluric', action='store_true', help='v3t: divide each spectrum by the telluric model (tellhook / programs_telluric/tellapply) before stacking')
     a = ap.parse_args()
+    global TELL
+    V = None; tag = 'v3t' if a.telluric else 'v3'
+    if a.v3:
+        import v3lib
+        v3lib.init_grid(NREST, pb.RID_MIN)
+        if a.outdir == OUTDIR:
+            a.outdir = os.path.expanduser(f'~/data/sdssdesi_passG_sdss_{tag}')
+    if a.telluric:
+        TELL = importlib.import_module('tellhook').Telluric(a.survey, RWAVE)
     if a.prep:
         prep(); return
     t0 = time.time()
@@ -205,12 +225,18 @@ def main():
     GLOBAL_DELTA[a.survey] = (float(o.DELTA_R.median()), float(o.DELTA_G.median()))
     offs = {(a.survey, int(p), int(m)): (r, g if np.isfinite(g) else GLOBAL_DELTA[a.survey][1]) for p, m, r, g in zip(o.PLATE, o.MJD, o.DELTA_R, o.DELTA_G)}
     cells, cellmap = pc.load_cells(); nc = len(cells)
+    if a.v3:
+        si_, sn_ = (int(v) for v in a.shard.split('/'))
+        V = v3lib.V3(lambda ver: os.path.join(a.outdir, 'acc', f'acc_{ver}_{a.survey}_shard{si_}of{sn_}.npz'), '11_passG_sdss --v3')
+        nc = 0
     paths = sorted(sum([glob.glob(f'{d}/*/spPlate-*.fits') for d in PLATE_DIRS[a.survey]], []))
     if a.nfiles:
         paths = paths[::max(1, len(paths) // a.nfiles)][:a.nfiles]
     si, sn = (int(v) for v in a.shard.split('/')); paths = paths[si::sn]
     accp = os.path.join(a.outdir, 'acc', f'acc_{a.survey}_shard{si}of{sn}.npz'); os.makedirs(os.path.dirname(accp), exist_ok=True)
-    if os.path.exists(accp):
+    if V is not None:
+        acc = None; done = V.done
+    elif os.path.exists(accp):
         zz = np.load(accp); acc = {k: zz[k] for k in ('wf', 'w', 'wf2', 'n', 'ncell')}; done = set(zz['done'].tolist())
     else:
         acc = dict(wf=np.zeros((nc, NREST), F32), w=np.zeros((nc, NREST), F32), wf2=np.zeros((nc, NREST), F32),
@@ -219,8 +245,9 @@ def main():
                 survey=a.survey, delta_global=GLOBAL_DELTA[a.survey])
     print(f'{a.survey}: {len(cat):,} galaxies, {len(paths)} plates in this shard, global PSF-fiber offset r/g {GLOBAL_DELTA[a.survey]}, '
           f'{len(done)} done, setup {time.time()-t0:.0f}s', flush=True)
-    status = os.path.expanduser(f'~/data/sdssdesi_status/step_gal_sdss_{a.survey}_shard{si}of{sn}.json')
+    status = os.path.expanduser(f'~/data/sdssdesi_status/step_gal_' + (f'{tag}_' if V is not None else '') + f'sdss_{a.survey}_shard{si}of{sn}.json')
     since = 0; ngal = 0; nacc = 0
+    save = (lambda: V.save(pc.save_acc)) if V is not None else (lambda: pc.save_acc(accp, acc, done, meta))
     for k, p in enumerate(paths):
         if STOP:
             break
@@ -228,19 +255,19 @@ def main():
         if key in done:
             continue
         try:
-            tab, na, dt = process_plate(p, a.survey, cat, offs, cellmap, acc, a.store)
+            tab, na, dt = process_plate(p, a.survey, cat, offs, cellmap, acc, a.store, V)
         except Exception as e:
             import traceback; traceback.print_exc(); print('ERROR', p, repr(e), flush=True); continue
         td = os.path.join(a.outdir, 'tables', a.survey); os.makedirs(td, exist_ok=True)
         if len(tab):
             out = os.path.join(td, key.replace('.fits', '.parquet')); tab.to_parquet(out + '.tmp'); os.replace(out + '.tmp', out)
-        done.add(key); since += 1; ngal += len(tab); nacc += na
+        done.add(key); since += 1; ngal += len(tab); nacc += (sum(na) if isinstance(na, tuple) else na)
         print(f'{a.survey} {k+1}/{len(paths)} {key} gal={len(tab)} stacked={na} {dt:.1f}s elapsed {time.time()-t0:.0f}s', flush=True)
         if since >= 50:
-            pc.save_acc(accp, acc, done, meta); since = 0
+            save(); since = 0
         json.dump(dict(done=len(done), total=len(paths), status='running', note=f'{a.survey} galaxies {ngal:,}, stacked {nacc:,}',
                        started=t0), open(status, 'w'))
-    pc.save_acc(accp, acc, done, meta)
+    save()
     json.dump(dict(done=len(done), total=len(paths), status=('stopped' if STOP else 'done'), note=f'{a.survey} galaxies {ngal:,}, stacked {nacc:,}',
                    started=t0), open(status, 'w'))
     print(f'{"stopped" if STOP else "done"}: plates {len(done)}, galaxies {ngal}, stacked {nacc}, {time.time()-t0:.0f}s')

@@ -204,6 +204,15 @@ The telluric template is tau = -ln T of the DECam standard atmosphere (`des_atm_
     (EXP_* lists; stars_desi.npz does not have them yet). DESI's per-exposure telluric fit from standard stars probably also
     leaves less.
 
+## 4c. Final recipe and tests (2026-11-02; write-up: ms.tex, `sec:telluric`)
+
+Nao's three steps, independently for DR8 (MJD < 55025), DR17 and DESI: telluric-only eigenspectra (`01_wd_residuals.py`, `02_basis.py`, DECam standard atmosphere as guide), correction per spectrum before stacking (`tellapply.py`), restack and EM-PCA.
+
+* **Recipe (accepted by Nao 2026-11-02):** DR8 C = 1 + T0 + sum a_k T_k; DR17 and DESI C = 1 + T0, a_k fitted and recorded only; C = 1 red of 9200 A (DR8) / 9280 A (DR17, DESI). The 9280-9880 A water band is sky-dominated and gets no correction. DR17 H2O 1 is sky spikes and is dropped.
+* **Basis tables:** `plots_telluric_<survey>.csv`. **Held-out tests:** `04_star_test.py` -> `plots_telluric_startest_{desi,sdss}.csv`; the table of galaxy, quasar and featureless WD gains is in ms.tex.
+* **DR8 stars:** held-out gain 11.34 AF, 11.72 GK, 2.55 M, against -1.34, -1.24, -2.12 for the shifted eigenvectors. Rank correlation of a_k with r_TiO / r_CaT reaches 0.24, in O2 2 and O2 3, about as large in AF and GK as in M; not TiO itself, but a small stellar contribution to C on DR8 is not excluded.
+* **Stars:** `programs_stars/tell_hook.py`, `step6_stack.py --telluric`, `step7_empca.py --telluric`, outputs in `/Volumes/exdisk3/sdssdesi_stars/v2_tell`. The comparison with v2 is still to do.
+
 ## 5. Decisions for Nao
 
 1. Go ahead with Phase 0 in all three threads? Galaxy's `25_obs_residuals.py` already does the stack-level version.

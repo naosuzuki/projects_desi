@@ -12,6 +12,11 @@ Galaxies - avoided features: [OII] 3727, [NeIII] 3869, Balmer series (Hd 4102 ..
 Ca triplet 8498-8662, Balmer jump 3646, Mg II 2800 and Fe II 2344/2382/2586/2600 absorption, C III] 1909.
 Quasars - standard continuum windows (Vanden Berk et al. 2001; Shen et al. 2011) plus 1700-1705 and 6005-6035.
 All wavelengths are rest-frame vacuum Angstrom.
+
+Galaxies, v2 (Nao 2026-10-31): only TWO points, so a single ratio F(3000-3100)/F(5400-5500) links them (as the quasars):
+5400-5500 for slices below z = 0.30, 3000-3100 above (both covered by every survey over z 0.2-0.75). The telluric A band
+is not avoided any more: 3000-3100 meets it at z 1.45-1.57, where DR17 masks those pixels and the window mean uses the
+rest (MIN_GOOD_GALAXY). The v1 rule above (five windows, closest to 6400 A observed) is kind='GALAXY_V1'.
 """
 import numpy as np
 
@@ -19,6 +24,7 @@ OBS_LO, OBS_HI = 3600.0, 9824.0          # DESI; SDSS BOSS 3600-10300, DR8 3800-
 A_BAND = (7580.0, 7700.0)
 BEST_OBS = 6400.0
 MARGIN = 30.0
+GALAXY_V2 = ((5400, 5500), (3000, 3100)); GALAXY_SWITCH_Z = 0.30; MIN_GOOD_GALAXY = 0.4
 
 GALAXY_WINDOWS = [(5400, 5500), (6000, 6250), (4600, 4800), (3000, 3100), (2100, 2200), (8100, 8300), (7000, 7100), (1950, 2050)]
 QSO_WINDOWS = [(1350, 1360), (1445, 1465), (1700, 1705), (2200, 2250), (2650, 2710), (3010, 3040), (4210, 4230),
@@ -44,6 +50,9 @@ def pick_window(z, kind='GALAXY', obs_range=(OBS_LO, OBS_HI)):
 
 def slice_window(z_lo, z_hi, kind='GALAXY', obs_range=(OBS_LO, OBS_HI)):
     """Window for a redshift slice: chosen at the slice centre, then checked at both edges (None if it fails there)."""
+    if kind.upper() in ('GALAXY', 'GAL'):
+        return GALAXY_V2[0] if z_hi <= GALAXY_SWITCH_Z + 1e-9 else GALAXY_V2[1]
+    kind = 'GALAXY' if kind.upper() == 'GALAXY_V1' else kind
     w = pick_window(0.5 * (z_lo + z_hi), kind, obs_range)
     if w is None:
         return None

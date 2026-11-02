@@ -163,7 +163,7 @@ def process_plate(path, cat, survey):
     parts = []
     for i0 in range(0, len(df), CHUNK):
         sl = slice(i0, min(i0 + CHUNK, len(df)))
-        rflux, rivar = Q.rest_from_loggrid(rid0, flux[sl], ivar[sl], mask[sl], z[sl], np.nan_to_num(a[sl], nan=1.0), ebv[sl])
+        rflux, rivar = Q.rest_from_loggrid(rid0, flux[sl], ivar[sl], mask[sl], z[sl], np.nan_to_num(a[sl], nan=1.0), ebv[sl], survey=survey)
         parts.append(Q.measure_rest(df.iloc[sl].copy(), rflux, rivar))
         del rflux, rivar; gc.collect()
     out = pd.concat(parts, ignore_index=True)

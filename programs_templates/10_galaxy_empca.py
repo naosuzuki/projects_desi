@@ -9,8 +9,11 @@ Uses the EM-PCA routine of the stellar thread (programs_stars/step7_empca.empca)
 - inputs are the normalized stacks (unit mean F_lambda in the line-free window of their z slice, normwin.py);
   each stack counts once: its ivar is rescaled to a median of 1 over its good pixels (as for the stars), so the
   richest low-z cells do not dominate the basis.
-Output: <out>/galaxy_empca_<tag>.fits  HDUs EIGVEC [nvec+1, npix], COEFF [nstack, nvec+1], PIXMASK, VARIANCE
-        (weighted R^2 vs number of vectors), WAVE, CELLS; and a quick-look PNG.
+- reference window (--ref-win, default 5400-5500 A): the basis is changed within its span so that e0 has mean 1 and
+  e1..eN mean 0 there; COEFF[:, 0] is then each stack's model flux in the window (its normalization).
+Output: <out>/galaxy_empca_<tag>.fits  HDUs EIGVEC [nvec+1, npix] (reference-window basis), COEFF [nstack, nvec+1],
+        EIGVEC_ORTHO / COEFF_ORTHO (the orthonormal EM-PCA basis), PIXMASK, VARIANCE (weighted R^2 vs number of
+        vectors), WAVE, CELLS (EMPCA_SCALE, TO_STACK); and a quick-look PNG.
 Usage: python3 10_galaxy_empca.py --stacks ~/data/sdssdesi_passC/stacks --nvec 10 --niter 25 --tag v1
 """
 import os, sys, glob, argparse, time
@@ -23,15 +26,29 @@ sys.path.insert(0, os.path.join(HERE, '..', 'programs_stars'))
 from step7_empca import empca, explained          # weighted EM-PCA with missing data (stellar thread)
 
 
-def load_stacks(sdirs, min_snr):
+# telluric bands (observed A): the rest pixels a stack's z slice maps onto them are dropped from that stack (--mask-telluric).
+# Narrow sky lines (OI 5577, 6300, Na D) are not masked: within a dz = 0.05 slice each galaxy puts them on a different rest pixel,
+# so a stack carries ~2 % of them at most (v3 check: no observed-frame excess, 25_obs_residuals.py).
+TELLURIC = ((6860.0, 6960.0), (7590.0, 7700.0), (9300.0, 9650.0))
+DZ = 0.05
+
+
+def load_stacks(sdirs, min_snr, min_member_frac=0.0, mask_telluric=False):
     X, W, cells = [], [], []
     for sdir in sdirs:
       src = 'sdss' if 'passG_sdss' in sdir else 'desi'
       for fn in sorted(glob.glob(os.path.join(sdir, 'stacks_z*.fits'))):
           f = fitsio.FITS(fn)
           fl, iv, c, wave = f['FLUX'].read(), f['IVAR'].read(), f['CELLS'].read(), f['WAVE'].read()
+          ns = f['NSPEC'].read() if min_member_frac > 0 else None
           for i in range(len(c)):
               good = np.isfinite(fl[i]) & (iv[i] > 0)
+              if ns is not None:                      # drop the stack's edge pixels covered by few of its members
+                  good &= ns[i] >= min_member_frac * max(int(c['N_STACKED'][i]), 1)
+              if mask_telluric:                       # rest range of each band over the stack's z slice
+                  zlo, zhi = int(c['ZB'][i]) * DZ, (int(c['ZB'][i]) + 1) * DZ
+                  for lo, hi in TELLURIC:
+                      good &= ~((wave >= lo / (1 + zhi)) & (wave <= hi / (1 + zlo)))
               if good.sum() < 200:
                   continue
               snr = np.median(fl[i][good] * np.sqrt(iv[i][good]))
@@ -51,10 +68,20 @@ def main():
     ap.add_argument('--tag', default='v1'); ap.add_argument('--nvec', type=int, default=10)
     ap.add_argument('--niter', type=int, default=25); ap.add_argument('--min-cover', type=int, default=20)
     ap.add_argument('--min-snr', type=float, default=5.0)
+    ap.add_argument('--mask-telluric', action='store_true', help='drop each stack\'s rest pixels on the A, B and 9300-9650 A water bands')
+    ap.add_argument('--min-cover-frac', type=float, default=0.0, help='also require this fraction of the best-covered pixel\'s stack count (drops thin edges)')
+    ap.add_argument('--min-member-frac', type=float, default=0.0, help='per stack, keep pixels with NSPEC >= this x N_STACKED')
     ap.add_argument('--renorm', type=int, default=1, help='passes that rescale each stack to the mean shape e0 (0 = off)')
+    ap.add_argument('--ref-win', type=float, nargs=2, default=[5400.0, 5500.0],
+                    help='reference window: e0 has mean 1 there and e1..eN mean 0 (same span, so the same fits)')
     a = ap.parse_args()
     t0 = time.time()
-    X, W, cells, wave = load_stacks(a.stacks, a.min_snr)
+    X, W, cells, wave = load_stacks(a.stacks, a.min_snr, a.min_member_frac, a.mask_telluric)
+    ncov = (W > 0).sum(0)
+    if a.min_cover_frac > 0:
+        a.min_cover = max(a.min_cover, int(np.ceil(a.min_cover_frac * ncov.max())))
+        okc = np.where(ncov >= a.min_cover)[0]
+        print(f'min cover {a.min_cover} stacks ({a.min_cover_frac:.0%} of {ncov.max()}): {wave[okc[0]]:.0f}-{wave[okc[-1]]:.0f} A', flush=True)
     print(f'stacks used: {len(X)} (S/N >= {a.min_snr}), pixels {X.shape[1]}, load {time.time()-t0:.0f}s', flush=True)
     nv = a.nvec + 1                                   # component 0 = mean shape (no centering)
     P, C, pixok = empca(X, W, nv, a.niter, min_cover=a.min_cover, min_frac=0.0, min_wfrac=0.0)
@@ -69,24 +96,36 @@ def main():
         X = X / s[:, None]; scale = scale[keep] * s          # W unchanged: each stack keeps median weight 1 (counts once)
         print(f'renorm pass {r+1}: stacks {len(X)}, scale 5/50/95% {np.percentile(s, [5, 50, 95]).round(3)}', flush=True)
         P, C, pixok = empca(X, W, nv, a.niter, min_cover=a.min_cover, min_frac=0.0, min_wfrac=0.0)
-    cells['RENORM'] = scale
-    R2 = explained(X, W, P)
+    # every factor is kept: EMPCA_SCALE here; RENORM and CHAIN from the chaining step (19/23_chain) are left untouched.
+    # model of the stack as stored by 09_merge_stacks = (C @ P) * TO_STACK, TO_STACK = EMPCA_SCALE / (RENORM * CHAIN)
+    cells['EMPCA_SCALE'] = scale
+    cells['TO_STACK'] = scale / (cells.RENORM * cells.CHAIN) if {'RENORM', 'CHAIN'} <= set(cells) else scale
+    R2 = explained(X[:, pixok], W[:, pixok], P[:, pixok])        # over the basis pixels (dropped edges are not 'unexplained')
     print(f'EM-PCA done {time.time()-t0:.0f}s; pixels in basis {pixok.sum()} ({wave[pixok][0]:.0f}-{wave[pixok][-1]:.0f} A); '
           f'R^2 vs k: ' + ' '.join(f'{k+1}:{r:.4f}' for k, r in enumerate(R2)), flush=True)
+    # reference point (Nao 2026-10-31): change basis inside the same span so that e0 = 1 and e1..eN = 0 (window means) in
+    # --ref-win. Then COEFF[:, 0] is the model flux in the window (the normalization) and e1..eN change the shape only.
+    # P_k = e'_k + v_k e'_0 with v = window means of P, so C'_0 = C @ v and C'_k = C_k (k >= 1). The new vectors are not
+    # orthogonal; EIGVEC_ORTHO / COEFF_ORTHO keep the EM-PCA ones.
+    ref = (wave >= a.ref_win[0]) & (wave <= a.ref_win[1]) & pixok
+    if ref.sum() < 5:
+        raise SystemExit(f'reference window {a.ref_win} has {ref.sum()} basis pixels')
+    v = P[:, ref].mean(1)
+    Pn = P.copy(); Pn[0] = P[0] / v[0]; Pn[1:] = P[1:] - v[1:, None] * Pn[0]
+    Cn = C.copy(); Cn[:, 0] = C @ v
+    print(f'reference window {a.ref_win[0]:.0f}-{a.ref_win[1]:.0f} A ({ref.sum()} pixels): e0 mean {Pn[0, ref].mean():.4f}, '
+          f'max |ek mean| {np.abs(Pn[1:, ref].mean(1)).max():.1e}; model change {np.abs(Cn @ Pn - C @ P).max():.1e}', flush=True)
     os.makedirs(a.out, exist_ok=True)
     fn = os.path.join(a.out, f'galaxy_empca_{a.tag}.fits')
+    hdr = {'REF_LO': a.ref_win[0], 'REF_HI': a.ref_win[1]}
     with fitsio.FITS(fn + '.tmp', 'rw', clobber=True) as fo:
-        fo.write(P.astype(np.float32), extname='EIGVEC'); fo.write(C.astype(np.float32), extname='COEFF')
+        fo.write(Pn.astype(np.float32), extname='EIGVEC', header=hdr); fo.write(Cn.astype(np.float32), extname='COEFF', header=hdr)
+        fo.write(P.astype(np.float32), extname='EIGVEC_ORTHO'); fo.write(C.astype(np.float32), extname='COEFF_ORTHO')
         fo.write(pixok.astype(np.int16), extname='PIXMASK'); fo.write(R2, extname='VARIANCE')
         fo.write(wave, extname='WAVE'); fo.write(cells.to_records(index=False), extname='CELLS')
     os.replace(fn + '.tmp', fn)
-    try:
-        import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
-        fig, ax = plt.subplots(min(nv, 6), 1, figsize=(10, 1.6 * min(nv, 6)), sharex=True)
-        for k in range(min(nv, 6)):
-            ax[k].plot(wave, np.where(pixok, P[k], np.nan), lw=0.5); ax[k].set_ylabel(f'e{k}')
-        ax[-1].set_xlabel('rest wavelength [A, vacuum]'); ax[-1].set_xscale('log')
-        fig.tight_layout(); fig.savefig(fn.replace('.fits', '.png'), dpi=110)
+    try:                                              # quick look with the normalization window marked (24_plot_empca.py)
+        import importlib; importlib.import_module('24_plot_empca').plot_basis(fn)
     except Exception as e:
         print('plot skipped:', e)
     print('wrote', fn)

@@ -45,6 +45,7 @@ CHECKPOINT_EVERY = 100          # files
 NREST, RWAVE, DLOG = pb.NREST, pb.RWAVE, pb.DLOG
 F32 = np.float32
 STOP = False
+TELL = None                     # tellhook.Telluric when --telluric (release v3t: telluric correction per spectrum before stacking)
 
 
 def _term(sig, frm):
@@ -120,6 +121,10 @@ def process_chunk(df, w, flux, ivar, mask):
     rflux, rivar = restframe.desi_rest(w, fder, ider, mask, z, pb.RID_MIN, NREST)
     del fder, ider
     rflux *= (1 + z)[:, None].astype(F32); rivar /= ((1 + z)**2)[:, None].astype(F32)
+    if TELL is not None:                                          # telluric step 2 (tellhook): before lines and magnitudes
+        rflux, rivar, rec = TELL.correct(rflux, rivar, z)
+        for k_, v_ in rec.items():
+            df[k_] = v_
     lobs = RWAVE[None, :] * (1 + z)[:, None]
     rin = (lobs >= w[0]) & (lobs <= w[-1])                        # inside the observed range (band coverage for the K terms)
     del lobs
@@ -226,6 +231,35 @@ def process_arrays(df, w, flux, ivar, mask, prog, hpx, cellmap, acc, store_dir):
     return out, len(out), n_acc
 
 
+def process_arrays_v3(df, w, flux, ivar, mask, prog, hpx, V, resp):
+    """Release v3 (Nao 2026-10-31; v3lib.py): Steps 1-5 as above, then the per-coadd spectral shape (Calibration 2, B_MAG_DEX,
+    as 12_restack_response.py), the two-window normalization and the accumulation into BOTH grids (version G: MABS_G,
+    version 5450: M_AB(5450)). No rest-frame store."""
+    rs = importlib.import_module('12_restack_response')
+    rows = df.ROW.to_numpy()
+    flux, ivar, mask = flux[rows], ivar[rows], mask[rows]
+    parts = []; na = {'G': 0, '5450': 0}; lw = np.log10(RWAVE)
+    rp = resp.get(prog, (np.zeros(0, np.int64), np.zeros(0, np.float32))) if resp is not None else None
+    for i0 in range(0, len(df), pb.CHUNK):
+        sl = slice(i0, min(i0 + pb.CHUNK, len(df)))
+        d, rflux, rivar, rin = process_chunk(df.iloc[sl].copy(), w, flux[sl], ivar[sl], mask[sl])
+        z = d.Z.to_numpy()
+        d['MABS'] = gc.pick_mabs(z, d.MABS_R, d.MABS_G, d.MABS_U, d.MABS_NUV); d['MBAND'] = gc.mband(z)
+        d['COLOR'] = gc.color(z, d.FLUX_G.to_numpy(float), d.FLUX_R.to_numpy(float), d.FLUX_Z.to_numpy(float), d.EBV)
+        d['EW'] = gc.line_ew(z, d.HALPHA_EW, d.OII_SUM_EW)
+        b = rs.lookup_b(rp, d.TARGETID.to_numpy(np.int64)) if rp is not None else np.full(len(d), np.nan)
+        d['B_MAG_DEX'] = b
+        corr = np.where(np.isfinite(b)[:, None], 10.0**(-0.4 * np.nan_to_num(b)[:, None] * (lw[None, :] + np.log10(1 + z)[:, None] - np.log10(6000.0))), 1.0)
+        rflux = (rflux * corr).astype(F32); rivar = (rivar / corr**2).astype(F32)
+        dm = pb.COSMO.distmod(np.clip(z, 1e-4, None)).value
+        g_, f_ = V.process(d, RWAVE, rflux, rivar, z, dm, normwin)
+        na['G'] += g_; na['5450'] += f_
+        parts.append(d.drop(columns=['ROW']))
+        del rflux, rivar, rin, corr
+    out = pd.concat(parts, ignore_index=True)
+    return out, len(out), na
+
+
 def save_acc(path, acc, done, meta):
     tmp = path + '.tmp.npz'
     np.savez(tmp, wf=acc['wf'], w=acc['w'], wf2=acc['wf2'], n=acc['n'], ncell=acc['ncell'],
@@ -238,7 +272,11 @@ def main():
     ap.add_argument('--all', action='store_true'); ap.add_argument('--files', nargs='*')
     ap.add_argument('--shard', default='0/1'); ap.add_argument('--outdir', default=OUTDIR)
     ap.add_argument('--store', default=None, help='directory for the normalized rest-frame spectra (optional)')
+    ap.add_argument('--v3', action='store_true', help='release v3: two grids (MABS_G, M_AB(5450)) in one read, two-window normalization')
+    ap.add_argument('--telluric', action='store_true', help='v3t: divide each spectrum by the telluric model (tellhook / programs_telluric/tellapply) before stacking')
     a = ap.parse_args()
+    if a.v3:
+        return main_v3(a)
     if a.files:
         paths = a.files
     else:
@@ -293,6 +331,65 @@ def main():
             save_acc(accp, acc, done, meta); since = 0
     save_acc(accp, acc, done, meta)
     print(f'{"stopped" if STOP else "done"}: files {len(done)}, galaxies this run {ngal}, stacked {nacc}, {time.time()-t0:.0f}s', flush=True)
+
+
+def main_v3(a):
+    import v3lib
+    rs = importlib.import_module('12_restack_response')
+    global TELL
+    tag = 'v3t' if a.telluric else 'v3'
+    outdir = a.outdir if a.outdir != OUTDIR else os.path.expanduser(f'~/data/sdssdesi_passC_{tag}')
+    if a.telluric:
+        TELL = importlib.import_module('tellhook').Telluric('desi', RWAVE)
+    paths = a.files if a.files else [l.split()[1] for l in open(pb.MANIFEST)]
+    si, sn = (int(v) for v in a.shard.split('/')); paths = paths[si::sn]
+    t0 = time.time()
+    zl = dict(np.load(pb.ZLOOKUP_COMPACT))
+    offsets = {int(k): (int(s), int(e)) for k, s, e in zip(zl['OFF_KEY'], zl['OFF_START'], zl['OFF_STOP'])}
+    v3lib.init_grid(NREST, pb.RID_MIN)
+    os.makedirs(os.path.join(outdir, 'acc'), exist_ok=True)
+    V = v3lib.V3(lambda ver: os.path.join(outdir, 'acc', f'acc_{ver}_shard{si}of{sn}.npz'), f'08_passC_stack --{tag}')
+    rz = np.load(os.path.expanduser('~/data/sdssdesi_products/stars/response_coadd_desi_bprog.npz'), mmap_mode='r')   # compact copy of
+    resp = {p: (rz[f'{p}_TID'], rz[f'{p}_B']) for p in ('bright', 'dark')}     # rs.RESPONSE (B_MAG_DEX by program, sorted TARGETID)
+    stat = os.path.expanduser(f'~/data/sdssdesi_status/step_gal_{tag}_desi_shard{si}of{sn}.json')
+    print(f'v3: cells G {len(V.cmap["G"])}, 5450 {len(V.cmap["5450"])}; {len(V.done)} files done; setup {time.time()-t0:.0f}s', flush=True)
+    since = 0; ngal = 0; nacc = {'G': 0, '5450': 0}
+    for k, p in enumerate(paths):
+        if STOP:
+            break
+        prog = 'dark' if '/dark/' in p else 'bright'
+        hpx = int(os.path.basename(p).split('-')[-1].replace('.fits', ''))
+        key = f'{prog}/{hpx}'
+        if key in V.done:
+            continue
+        while p.startswith('/Volumes/exdisk2/') and not os.path.ismount('/Volumes/exdisk2') and not STOP:
+            time.sleep(30)
+        lp = pb.local_path(p)
+        if lp is None:
+            print('MISSING', p, flush=True); continue
+        try:
+            tf = time.time(); f = fitsio.FITS(lp); fm = f['FIBERMAP'].read(columns=FM_COLS)
+            df = galaxy_rows(fm, lp, prog, hpx, zl, offsets)
+            if len(df):
+                w, flux, ivar, mask, _ = pb.combine_cameras(f); f.close()
+                tab, ng, na = process_arrays_v3(df, w, flux, ivar, mask, prog, hpx, V, resp)
+            else:
+                f.close(); tab, ng, na = df, 0, {'G': 0, '5450': 0}
+        except Exception as e:
+            import traceback; traceback.print_exc(); print('ERROR', p, repr(e), flush=True); continue
+        td = os.path.join(outdir, 'tables', prog); os.makedirs(td, exist_ok=True)
+        tab.to_parquet(os.path.join(td, f'hpx{hpx}.parquet.tmp')); os.replace(os.path.join(td, f'hpx{hpx}.parquet.tmp'), os.path.join(td, f'hpx{hpx}.parquet'))
+        V.done.add(key); since += 1; ngal += ng; nacc['G'] += na['G']; nacc['5450'] += na['5450']
+        print(f'{k+1}/{len(paths)} {os.path.basename(lp)} gal={ng} stacked G={na["G"]} 5450={na["5450"]} {time.time()-tf:.1f}s elapsed {time.time()-t0:.0f}s', flush=True)
+        if since >= CHECKPOINT_EVERY:
+            V.save(save_acc); since = 0
+        if k % 20 == 0:
+            json.dump(dict(done=len(V.done), total=len(paths), status='running', started=t0,
+                           note=f'galaxies {ngal:,}, stacked G {nacc["G"]:,}, 5450 {nacc["5450"]:,}'), open(stat, 'w'))
+    V.save(save_acc)
+    json.dump(dict(done=len(V.done), total=len(paths), status='stopped' if STOP else 'done', started=t0,
+                   note=f'galaxies {ngal:,}, stacked G {nacc["G"]:,}, 5450 {nacc["5450"]:,}'), open(stat, 'w'))
+    print(f'{"stopped" if STOP else "done"}: files {len(V.done)}, galaxies {ngal}, stacked {nacc}, {time.time()-t0:.0f}s', flush=True)
 
 
 if __name__ == '__main__':

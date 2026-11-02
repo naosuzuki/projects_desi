@@ -195,17 +195,23 @@ def main():
     ap.add_argument('--trim-edge', type=int, default=0, help='drop the first/last N basis pixels (v2: 3; the grid ends carry part-covered pixels)')
     ap.add_argument('--v2', action='store_true', help='v2: stacks from OUTDIR/v2, individuals from star_hook.STORE_V2 (rest frame)')
     ap.add_argument('--min-wfrac', type=float, default=0.3, help='weight cut of empca (meant for the BOSS-only blue end); 0 for DESI, where every pixel is covered: the cut drops the red end of M stars, whose photon-noise weights are low there at high S/N; SDSS M: 0.1 (keeps 3675-9202 A, masks the bright sky lines; 0 lets the noisy BOSS ends dominate)')
+    ap.add_argument('--telluric', action='store_true', help='with --v2: the telluric-corrected stacks of step6 --telluric (tell_hook.OUT); the v2 individuals divided by the factors step 6 fitted')
     a = ap.parse_args(); t0 = time.time()
     global OUTDIR, V2
     V2 = a.v2
     if a.v2:
         OUTDIR = os.path.join(OUTDIR, 'v2')
+    if a.telluric:
+        import tell_hook; v2dir = OUTDIR; OUTDIR = tell_hook.OUT
     fl, ivar, good, cells = load_stacks(a.tag)
     nspec = fitsio.read(os.path.join(OUTDIR, f'stacks_{a.tag}.fits'), ext='NSPEC')
     cls = np.array([star_class(r.MG0_MED, r.COL0_MED) for _, r in cells.iterrows()])
     gf, mg, mg_ab = g_flux(fl, good)
     print(f'{a.tag}: {len(cells)} stacks; classes {dict(zip(*np.unique(cls, return_counts=True)))}; G-flux normalization ok for {np.isfinite(gf).sum()}; {time.time()-t0:.0f}s', flush=True)
-    ind_f, ind_w, ind_ids, ind_stacks = (load_individuals(a.tag, cells, a.individuals, a.snmin, a.survey) if a.individuals else (np.zeros((0, NPIX)), np.zeros((0, NPIX)), [], []))
+    if a.telluric and a.individuals:
+        import tell_hook; ind_f, ind_w, ind_ids, ind_stacks = tell_hook.individuals(a.tag, v2dir, a.individuals, a.snmin)
+    else:
+      ind_f, ind_w, ind_ids, ind_stacks = (load_individuals(a.tag, cells, a.individuals, a.snmin, a.survey) if a.individuals else (np.zeros((0, NPIX)), np.zeros((0, NPIX)), [], []))
     if len(ind_ids):
         igood = ind_w > 0; igf, img, img_ab = g_flux(ind_f, igood)
         print(f'individuals: {len(ind_ids)} stars (<= {a.individuals} per stack, S/N > {a.snmin}); {time.time()-t0:.0f}s', flush=True)

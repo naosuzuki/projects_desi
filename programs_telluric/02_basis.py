@@ -4,15 +4,17 @@ featureless white dwarfs (01_wd_residuals.py), quasars and galaxies (Phase 0 obs
 Per object: |R| > 0.3 clipped, a smooth baseline (weighted means of 200-A nodes on the pixels outside the bands, linear between them) removed so template
 continuum errors do not enter. Sky pixels: where the median weight dips below 0.7 of its running median or the median chi2 exceeds 1.5 of its running median.
 Sky-line residuals are also found on the observation means (spikes()). Only pixels inside the bands of the external atmosphere (telluric_guide.band_mask) enter: the eigenvectors are zero elsewhere. The guide says where, the data say what.
-Per object and band: fit offset + slope + a tau (guide) and remove the offset and slope only. Without this the components are plate-level flux-calibration tilts and the red-end
+Per object and band: fit a continuous piecewise-linear curve (one segment per 300 A) + a tau (guide) and remove the curve only. Without this the components are plate-level flux-calibration tilts and the red-end
 ramp (first run 2026-11-01: T1-T6 broad, correlation with tau ~ 0, though shared between populations), not the atmosphere; the absorption depth itself stays in.
 Objects seen together share the atmosphere and not their template errors, so the PCA runs on means per observation: (PLATE, MJD) on SDSS, the dominant TILEID on
 DESI, with >= --minobj objects. Weighted EM-PCA (step7_empca.empca) about the weighted mean T0, with W = 1 / (1 / sum W + SIG_INT^2) so a few very bright plates do not dominate.
 O2 and H2O separately (the guide assigns the pixels): they vary independently (airmass, water vapour), and in one PCA the red H2O band, whose observation means scatter 2-3 x their errors,
 takes every component (first runs, 2026-11-01). Per pixel W is divided by the empirical chi2 of the observation means (smoothed) so noisy pixels do not lead.
+Red limit 9280 A on DR17 and DESI (2026-11-02): at 9280-9880 A the observation means are dominated by sky-line residuals (additive; T0 differs between galaxies and quasars there, DESI slope 0.24), and with that band in every H2O component is
+sky spikes; without it they are the 7200, 8200 and 9000 A water bands. That band gets no correction.
 Tests per component: variance against the same PCA with the objects randomly reassigned to observations (null); coefficient rank correlation between the populations (galaxy-only
 against quasar-only means of the same observations; independent template errors, shared atmosphere); share of the vector in O2 and H2O pixels; correlation
-with AIRMASS (plates-dr8) and with season.
+with AIRMASS (plates-dr8, plates-dr17) and with season.
 Output: /Volumes/exdisk3/sdssdesi_telluric/basis/telluric_<survey>.fits (MEAN, EIGVEC [k, 4447], PIXMASK, COEFF table), plots_telluric_<survey>.png/.csv in the repo root.
 Usage: python3 02_basis.py --survey dr8|dr17|desi [--no2 3] [--nh2o 4] [--minobj 5]
 """
@@ -30,7 +32,7 @@ import starlib
 from step7_empca import empca
 from telluric_guide import band_mask, species, smooth_continuum_removed
 SWAVE = starlib.SWAVE; P0 = '/Volumes/exdisk3/sdssdesi_telluric/phase0'; WD = '/Volumes/exdisk3/sdssdesi_telluric/wd'; OUT = '/Volumes/exdisk3/sdssdesi_telluric/basis'
-SIG_INT = 0.005; CLIP = 4.0; RED = {'dr8': 9200.0, 'dr17': 9880.0, 'desi': 9880.0}; NODE = 0.012
+SIG_INT = 0.005; CLIP = 4.0; RED = {'dr8': 9200.0, 'dr17': 9280.0, 'desi': 9280.0}; NODE = 0.012
 rng = np.random.default_rng(3)
 
 
@@ -72,19 +74,19 @@ def baseline(R, W, wave, clean):
 
 
 def detrend(R, W, w, tau, gap=80.0, minwidth=30.0, maxwidth=300.0):
-    """per object and band (runs of pixels w with gaps < gap A): weighted fit tau, 1, x; subtract the 1 and x terms. Returns R and the kept-pixel mask (narrow bands dropped)."""
+    """per object and band (runs of pixels w with gaps < gap A): weighted fit tau + a continuous piecewise-linear curve, one segment per maxwidth A; subtract the curve. Separate offsets per part
+    left a step in the eigenvectors at the part boundary (DESI 9540 A, moved with maxwidth; 2026-11-02). Segments with < 50 % usable pixels are dropped for that object. Returns R and the kept-pixel mask (narrow bands dropped)."""
     edges = np.r_[0, np.where(np.diff(w) > gap)[0] + 1, len(w)]; R = R.copy(); keep = np.ones(len(w), bool); bands = []
-    cut = [edges[0]]                                      # a band wider than maxwidth gets one offset + slope per part, else one slope has to follow 900 A of flux calibration
-    for i0, i1 in zip(edges[:-1], edges[1:]):
-        np_ = int(np.ceil((w[i1 - 1] - w[i0]) / maxwidth)); cut += [np.searchsorted(w, w[i0] + (w[i1 - 1] - w[i0]) * (j + 1) / np_) for j in range(np_ - 1)] + [i1]
-    edges = np.array(cut)
     for i0, i1 in zip(edges[:-1], edges[1:]):
         if w[i1 - 1] - w[i0] < minwidth:
             keep[i0:i1] = False; continue
-        bands.append((round(w[i0]), round(w[i1 - 1]))); x = (w[i0:i1] - w[i0:i1].mean()) / 100; D = np.vstack([tau[i0:i1], np.ones(i1 - i0), x]); r = R[:, i0:i1]; v = W[:, i0:i1]
-        cov = (v > 0).mean(axis=1) >= 0.5; v[~cov] = 0; u = v / np.maximum(v.max(axis=1, keepdims=True), 1e-30)            # partly covered: the fit is singular, the band is dropped for that object
-        A = np.einsum('kp,np,lp->nkl', D, u, D) + 1e-6 * np.eye(3)[None]; c = np.linalg.solve(A, np.einsum('kp,np,np->nk', D, u, r)[..., None])[..., 0]
-        R[:, i0:i1] = r - c[:, 1:] @ D[1:]; R[~cov, i0:i1] = 0
+        wb = w[i0:i1]; n = int(np.ceil((wb[-1] - wb[0]) / maxwidth)); nodes = np.linspace(wb[0], wb[-1], n + 1); bands.append(tuple(np.round(nodes).astype(int).tolist()))
+        D = np.vstack([tau[i0:i1]] + [np.interp(wb, nodes, np.eye(n + 1)[j]) for j in range(n + 1)]); seg = np.minimum(np.searchsorted(nodes[1:-1], wb), n - 1); r = R[:, i0:i1]; v = W[:, i0:i1]; drop = np.zeros(v.shape, bool)
+        for j in range(n):
+            m = seg == j; bad = (v[:, m] > 0).mean(axis=1) < 0.5; drop[np.ix_(bad, m)] = True
+        v[drop] = 0; u = v / np.maximum(v.max(axis=1, keepdims=True), 1e-30)            # partly covered: the fit is singular there
+        A = np.einsum('kp,np,lp->nkl', D, u, D) + 1e-6 * np.eye(n + 2)[None]; c = np.linalg.solve(A, np.einsum('kp,np,np->nk', D, u, r)[..., None])[..., 0]
+        R[:, i0:i1] = np.where(drop, 0.0, r - c[:, 1:] @ D[1:])
     print(f'  bands {bands}', flush=True); return R, keep
 
 
@@ -150,8 +152,9 @@ def main():
     meta = pd.DataFrame({'KEY': key, 'PLATE': plate, 'MJD': mjd}).groupby('KEY').agg(PLATE=('PLATE', 'first'), MJD=('MJD', 'mean')).reindex(ids)
     season = {k: float(np.hypot(np.corrcoef(C[:, k], np.cos(2 * np.pi * meta.MJD / 365.25))[0, 1], np.corrcoef(C[:, k], np.sin(2 * np.pi * meta.MJD / 365.25))[0, 1])) for k in range(a.nvec)}
     air = {}
-    if S == 'dr8' and os.path.exists(os.path.expanduser('~/sdssredux/plates-dr8.fits')):
-        pl = fitsio.read(os.path.expanduser('~/sdssredux/plates-dr8.fits'), columns=['PLATE', 'MJD', 'AIRMASS']); am = pd.DataFrame({'PLATE': pl['PLATE'].astype(int), 'MJD': pl['MJD'].astype(int), 'AIRMASS': pl['AIRMASS'].astype(float)})
+    pfile = os.path.expanduser({'dr8': '~/sdssredux/plates-dr8.fits', 'dr17': '~/sdssredux/plates_dr17/plates-dr17.fits'}.get(S, '/nonexistent'))
+    if os.path.exists(pfile):
+        pl = fitsio.read(pfile, columns=['PLATE', 'MJD', 'AIRMASS']); am = pd.DataFrame({'PLATE': pl['PLATE'].astype(int), 'MJD': pl['MJD'].astype(int), 'AIRMASS': pl['AIRMASS'].astype(float)})
         m = meta.assign(MJD=np.round(meta.MJD).astype(int)).reset_index().merge(am.drop_duplicates(['PLATE', 'MJD']), on=['PLATE', 'MJD'], how='left'); g = np.isfinite(m.AIRMASS) & (m.AIRMASS > 0.9)
         air = {k: float(spearmanr(C[g, k], m.AIRMASS[g])[0]) for k in range(a.nvec)}; print(f'  airmass for {int(g.sum())} observations', flush=True)
     tab = pd.DataFrame({'T': labs, 'var': var, 'var_null': varn, 'var_over_null': (var / varn).round(2), 'rms_coeff': np.sqrt(var).round(4), 'corr_tau': np.round(corr_tau, 3), 'season_r': [round(season[k], 3) for k in range(a.nvec)]})
