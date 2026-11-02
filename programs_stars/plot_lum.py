@@ -11,7 +11,7 @@ M_AB(lambda) = -2.5 log10(F_lambda lambda^2 / c) - 48.60 directly. Bottom row: s
 --flam (Nao 2026-10-31; as the quasar thread's 12_lum_stacks.py --simple): y = the F_lambda magnitude (ST system,
 M_ST = -2.5 log10 F_lambda,abs - 21.10) instead of the F_nu (AB) magnitude, so hot stars brighten to the blue.
 Usage: python3 plot_lum.py --survey desi|sdss [--flam] [--dm 1.0] [--out PNG]
-Outputs: PNG (default plots_stars_by_lum_<survey>[_flam].png in the repo root) and .csv (one row per class x magnitude bin).
+Outputs: PNG (default plots_luminosity/plots_stars_by_lum_<survey>[_flam].png) and csv_files/<same name>.csv (one row per class x magnitude bin).
 """
 import os, sys, argparse
 import numpy as np
@@ -44,7 +44,7 @@ def main():
     ap.add_argument('--tag', default=None); ap.add_argument('--dm', type=float, default=1.0); ap.add_argument('--out', default=None)
     ap.add_argument('--flam', action='store_true', help='y = F_lambda (ST) magnitude instead of F_nu (AB)')
     a = ap.parse_args(); tag = a.tag or f'{a.survey}_0.5x0.1_gspphot'
-    out = a.out or os.path.join(os.path.dirname(HERE), f'plots_stars_by_lum_{a.survey}{"_flam" if a.flam else ""}.png')
+    out = a.out or os.path.join(os.path.dirname(HERE), 'plots_luminosity', f'plots_stars_by_lum_{a.survey}{"_flam" if a.flam else ""}.png')
     F = fitsio.FITS(os.path.join(V2, f'stacks_{tag}.fits'))
     fl = F['FLUX'].read().astype(float); ns = F['NSPEC'].read().astype(float); arr = F['CELLS'].read(); F.close()
     c = pd.DataFrame({k: arr[k].astype(arr[k].dtype.newbyteorder('=')) for k in ('N', 'MG0_MED', 'COL0_MED')})
@@ -95,7 +95,7 @@ def main():
                  '\nstar-weighted mean over all colour / [M/H] stacks of the bin (pixels with >= half the members); '
                  + ('y = absolute F_lambda (ST) magnitude' if a.flam else 'y = absolute AB magnitude') + ' straight from F_lambda at 10 pc (no anchoring)', fontsize=12)
     fig.savefig(out, dpi=75); plt.close(fig)
-    pd.DataFrame(rows).to_csv(os.path.splitext(out)[0] + '.csv', index=False); print(out)
+    pd.DataFrame(rows).to_csv(os.path.join(os.path.dirname(HERE), 'csv_files', os.path.splitext(os.path.basename(out))[0] + '.csv'), index=False); print(out)
     print(pd.DataFrame(rows).to_string(index=False))
 
 

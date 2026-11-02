@@ -15,7 +15,7 @@ sky spikes; without it they are the 7200, 8200 and 9000 A water bands. That band
 Tests per component: variance against the same PCA with the objects randomly reassigned to observations (null); coefficient rank correlation between the populations (galaxy-only
 against quasar-only means of the same observations; independent template errors, shared atmosphere); share of the vector in O2 and H2O pixels; correlation
 with AIRMASS (plates-dr8, plates-dr17) and with season.
-Output: /Volumes/exdisk3/sdssdesi_telluric/basis/telluric_<survey>.fits (MEAN, EIGVEC [k, 4447], PIXMASK, COEFF table), plots_telluric_<survey>.png/.csv in the repo root.
+Output: /Volumes/exdisk3/sdssdesi_telluric/basis/telluric_<survey>.fits (MEAN, EIGVEC [k, 4447], PIXMASK, COEFF table), plots_luminosity/plots_telluric_<survey>.png and csv_files/plots_telluric_<survey>.csv in the repo root.
 Usage: python3 02_basis.py --survey dr8|dr17|desi [--no2 3] [--nh2o 4] [--minobj 5]
 """
 import os, sys, glob, argparse
@@ -166,7 +166,7 @@ def main():
     with fitsio.FITS(out, 'rw', clobber=True) as F:
         F.write(M.astype(np.float32), extname='MEAN', header={'COEFF0': 3.5502, 'COEFF1': 1e-4, 'SURVEY': S}); F.write(E.astype(np.float32), extname='EIGVEC'); F.write(PM, extname='PIXMASK')
         F.write(np.rec.fromarrays([ids] + [C[:, k] for k in range(a.nvec)], names=['KEY'] + [f'C{k + 1}' for k in range(a.nvec)]), extname='COEFF')
-    png = os.path.join(ROOT, f'plots_telluric_{S}.png'); tab.to_csv(png.replace('.png', '.csv'), index=False)
+    png = os.path.join(ROOT, 'plots_luminosity', f'plots_telluric_{S}.png'); tab.to_csv(os.path.join(ROOT, 'csv_files', f'plots_telluric_{S}.csv'), index=False)
     nr = a.nvec + 2; fig, ax = plt.subplots(nr, 1, figsize=(15, 1.7 * nr + 1), sharex=True); guide = smooth_continuum_removed(SWAVE); xl = (5650, min(RED[S] + 20, 9900))
     def show(y, c='k'):
         f = np.where(ok & (y != 0), y, np.nan); f[np.diff(w, prepend=w[0]) > 3 * np.median(np.diff(w))] = np.nan; return f

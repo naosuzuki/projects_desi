@@ -8,7 +8,7 @@ T0 holds across independent populations: T0 of the galaxies improves the quasars
 Fit on the basis pixels of r = f / (s model) - 1 - T0, weights ivar x (s model)^2, s the weighted amplitude of the model on those pixels; |r| > 0.3 and, after a first fit, 4 sigma residuals out.
 Fitted jointly: a_k with the prior N(0, amp_k^2), amp_k^2 = var - var_null of step 1 (floor 0.003), and a continuous piecewise-linear curve per band (one segment per 300 A) as nuisance terms. They never enter C: they carry
 the template and flux-calibration error, as the detrending of 02_basis.py does. A segment with < 50 % of its pixels usable is dropped for that spectrum. Too few pixels in all: a = 0, C = 1 + T0.
-Components: var / null >= 1.5 per survey (plots_telluric_<survey>.csv) except DROP; the prior takes faint spectra smoothly to a = 0, so there is no S/N branch.
+Components: var / null >= 1.5 per survey (csv_files/plots_telluric_<survey>.csv) except DROP; the prior takes faint spectra smoothly to a = 0, so there is no S/N branch.
 model_has_t0=True is for stars: telluric does not smear at z ~ 0, so a star's own stack already contains the mean T0. There r = f / (s model) - 1 is fitted without T0 and C still divides T0 out.
 Held-out test of this recipe: Basis.holdout, 03_fit_test.py, 04_star_test.py.
 """
@@ -41,7 +41,7 @@ class Basis:
     def __init__(self, survey, minratio=1.5, drop=(), path=None, csv=None, shift=0):
         p = path or f'{BASIS}/telluric_{survey}.fits'; self.survey = survey; self.lat = 10**(COEFF0 + DLOG * np.arange(4447)); self.grids = {}
         T0 = fitsio.read(p, ext='MEAN').astype(float); T = fitsio.read(p, ext='EIGVEC').astype(float); ok = fitsio.read(p, ext='PIXMASK') > 0
-        t = pd.read_csv(csv or os.path.join(ROOT, f'plots_telluric_{survey}.csv')); self.labels = t['T'].tolist(); ratio = (t['var'] / t['var_null']).to_numpy()
+        t = pd.read_csv(csv or os.path.join(ROOT, 'csv_files', f'plots_telluric_{survey}.csv')); self.labels = t['T'].tolist(); ratio = (t['var'] / t['var_null']).to_numpy()
         self.amp2 = np.maximum((t['var'] - t['var_null']).to_numpy(), FLOOR**2); self.sel = np.array([k for k in range(len(T)) if ratio[k] >= minratio and self.labels[k] not in (drop or DROP.get(survey, ()))], int)
         if shift: T[:, ok] = np.roll(T[:, ok], shift, axis=1)     # control of the tests: off the atmosphere, same smoothness
         self.T0, self.T, self.ok = T0, T, ok; self.bands = bands_of(self.lat[ok]); self.parts = [(n[j], n[j + 1]) for n in self.bands for j in range(len(n) - 1)]

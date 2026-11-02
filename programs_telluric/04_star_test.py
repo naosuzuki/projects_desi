@@ -3,7 +3,7 @@
 absorb stellar features? Sample: the stars of v2 in --nfiles random coadds / plates, from the stores, calibrated by step 6's machinery; model as tell_hook.
 Feature test: r_TiO = mean f / model - 1 at rest 7055-7140 A minus 6620-6800 A, outside every telluric band: how much stronger a star's TiO is than its stack's. A rank correlation of a_k with it within a class
 means the fit is following the star, not the atmosphere. r_CaT (Ca II triplet against 8400-8480 A, no band) does the same for the warmer classes.
-Output: plots_telluric_startest_<survey>.csv in the repo root.  Usage: python3 04_star_test.py --survey desi|sdss [--nfiles 1500] [--shift 20]
+Output: csv_files/plots_telluric_startest_<survey>.csv.  Usage: python3 04_star_test.py --survey desi|sdss [--nfiles 1500] [--shift 20]
 """
 import os, sys, argparse, importlib.util, time
 import numpy as np, pandas as pd, fitsio
@@ -49,7 +49,7 @@ def main():
             lab = b.labels[j].replace(' ', ''); ok = np.isfinite(g_.R_TIO); d[f'rms_{lab}'] = round(g_[f'A{j}'].std(), 4); d[f'mean_{lab}'] = round(g_[f'A{j}'].mean(), 4); d[f'rTiO_{lab}'] = round(spearmanr(g_[f'A{j}'][ok], g_.R_TIO[ok])[0], 3) if ok.sum() > 20 else np.nan
             okc = np.isfinite(g_.R_CAT); d[f'rCaT_{lab}'] = round(spearmanr(g_[f'A{j}'][okc], g_.R_CAT[okc])[0], 3) if okc.sum() > 20 else np.nan
         out.append(d)
-    o = pd.DataFrame(out); p = os.path.join(ROOT, f'plots_telluric_startest_{a.survey}.csv'); o.to_csv(p, index=False); print(o.T.to_string()); print(p, f'{time.time() - t0:.0f} s', flush=True)
+    o = pd.DataFrame(out); p = os.path.join(ROOT, 'csv_files', f'plots_telluric_startest_{a.survey}.csv'); o.to_csv(p, index=False); print(o.T.to_string()); print(p, f'{time.time() - t0:.0f} s', flush=True)
 
 
 if __name__ == '__main__':
