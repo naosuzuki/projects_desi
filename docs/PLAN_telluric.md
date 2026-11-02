@@ -95,6 +95,8 @@ The telluric template is tau = -ln T of the DECam standard atmosphere (`des_atm_
   * DESI: airmass per exposure (DR2 exposures / tiles table; not on disk yet). The coadd-level value is the EXPTIME-weighted
     mean over the coadd's exposures (expfibermap tables: `~/data/sdssdesi_expfibermap`).
   * SDSS: AIRMASS from the spPlate headers (read with the plate in the next pass; spAll / specObj here have no airmass column).
+    SDSS-I/II is already on disk: `~/sdssredux/plates-dr8.fits` (2,880 plates) has AIRMASS, HA, SEEING50 and TAI per plate.
+    BOSS needs the DR17 plate list (plates-dr17.fits, small), which is not on disk.
 * **Phase 2, observed-frame telluric sample in the next shared DESI walk.**
   * A hook (alongside star_hook / galaxy_hook / native_hook) writes observed-frame flux / ivar / mask at native pixels for the
     selected sample (all classes, ~5-20 per coadd file).
@@ -135,6 +137,72 @@ The telluric template is tau = -ln T of the DECam standard atmosphere (`des_atm_
 * **Control windows also show plate coherence** (SDSS 7850 A: F = 5.2, at about half the telluric amplitude).
   * Per-plate flux-calibration structure exists apart from telluric.
   * The joint basis must carry such terms, and telluric coherence must always be judged against controls.
+
+* **Quasar SDSS** (`quasar_sdss.npz`: 18,627 quasars, 4,755 plates; native spPlate pixels, v3 window-normalized basis):
+
+| window | scatter / err | plate F (p) |
+|---|---|---|
+| B band | 0.091 / 0.071 | 1.21 (0.002) |
+| H2O 7200 | 0.235 / 0.165 | 1.19 (<0.002) |
+| A band | 0.028 / 0.020 | 1.11 (0.04) |
+| H2O 8200 | 0.223 / 0.156 | 1.14 (0.02) |
+| H2O 9000 | 0.254 / 0.190 | 1.43 (<0.002) |
+| H2O 9400 | 0.077 / 0.045 | 1.80 (<0.002) |
+| control 6100 / 7850 / 8600 | 0.017 / 0.020 / 0.019 | **1.03 / 1.00** / 1.35 |
+
+  * **The telluric bands are plate-coherent and the controls are not** (6100, 7850). The stellar SDSS controls (7850 A: F = 5.2)
+    probably reflect SEGUE plates that target similar stars, so quasars are the cleaner coherence probe.
+  * **Mean water under-correction at 8950-9200 A:** the weighted mean R is -1.1, -1.4 and -2.1 % in the S/N tertiles (down to
+    -8 % at the deepest pixels). It grows with S/N, so it's multiplicative (telluric), not additive sky. The A-band mean is about 0.
+  * **Sky residuals dominate the small-scale variance in the red.** In a PCA of the high-passed residuals of the top-S/N third
+    (6000-9200 A), PC1 and PC3 are the OH forest (7250-9200 A). The telluric basis needs OH lines masked or modelled as additive
+    S_k, which needs a flux scale per object (requested: FLUX_SCALE, the median observed model flux).
+  * **Galactic ISM in the observed frame:** Ca II K/H (3934/3969 A) and Na D (5890/5896 A) appear in the mean residual. An
+    observed-frame basis will carry them; the DIB at 6284 A sits on the O2 gamma band. They should be tied to E(B-V), not airmass.
+
+* **Galaxies** (`programs_templates/26_telluric_phase0.py`): `galaxy_sdss.npz` has 19,484 galaxies on 844 plates; `galaxy_desi.npz`
+  has 12,287 galaxies on 3,531 dominant tiles, plus the per-exposure EXP_* lists. Both have median z 0.08.
+
+| window | SDSS median a, scatter / err | SDSS plate F | DESI median a, scatter / err | DESI tile F |
+|---|---|---|---|---|
+| B band | +0.013, 0.067 / 0.047 | 3.1 | +0.011, 0.085 / 0.062 | 1.6 |
+| H2O 7200 | -0.038, 0.150 / 0.103 | 5.4 | +0.020, 0.164 / 0.126 | 1.4 |
+| A band | -0.002, 0.017 / 0.012 | 4.3 | +0.002, 0.019 / 0.014 | 2.7 |
+| H2O 8200 | -0.034, 0.128 / 0.090 | 5.2 | -0.003, 0.113 / 0.083 | 1.7 |
+| H2O 9000 | **-0.136**, 0.161 / 0.120 | **12.3** | -0.032, 0.091 / 0.070 | 1.7 |
+| H2O 9400 | -0.002, 0.039 / 0.025 | 4.3 | +0.009, 0.036 / 0.024 | 2.2 |
+| control 6100 / 7850 / 8600 | 0.011, 0.011, 0.010 scatter | 2.6 / 4.8 / 2.1 | 0.013, 0.010, 0.009 scatter | 1.3 / 1.5 / 1.6 |
+
+  * All p < 0.002 except DESI H2O 7200 (p 0.002).
+  * **Galaxy controls are plate-coherent too, as for the SEGUE stars.** Galaxies on a plate share large-scale structure (groups at
+    the same z), so their rest-frame model errors land at the same observed wavelength. A one-population ANOVA can't separate
+    that from telluric.
+  * The SDSS water under-correction at 8920-9200 A is in the galaxies too (median a = -0.14 of the band optical depth). DESI's is
+    a quarter of that.
+
+* **Cross-population test** (scratch `tell_cross.py`). It correlates the plate means of a between populations observed on the same
+  (PLATE, MJD). The atmosphere is shared; rest-frame model errors are not.
+
+| window | SDSS galaxy x quasar r (654-200 plates) | SDSS galaxy x star r (59-33) | SDSS quasar x star r (373-202) | DESI galaxy x star r, dominant tile (765-623) |
+|---|---|---|---|---|
+| B band | +0.12 (p 0.006) | +0.20 (0.16) | +0.03 (0.56) | +0.02 (0.59) |
+| H2O 7200 | +0.15 (0.001) | +0.12 (0.23) | +0.14 (0.001) | +0.13 (0.006) |
+| A band | +0.15 (0.001) | +0.04 (0.81) | +0.14 (0.010) | +0.06 (0.17) |
+| H2O 8200 | +0.17 (<0.001) | +0.14 (0.46) | +0.13 (0.015) | +0.02 (0.62) |
+| H2O 9000 | **+0.39** (<0.001) | **+0.54** (<0.001) | +0.19 (0.001) | +0.04 (0.29) |
+| H2O 9400 | +0.15 (0.04) | - | - | +0.06 (0.12) |
+| control 6100 | +0.06 (0.19) | -0.05 (0.76) | +0.09 (0.11) | +0.02 (0.53) |
+| control 7850 | +0.18 (<0.001) | +0.35 (0.03) | +0.10 (0.17) | +0.10 (0.014) |
+| control 8600 | +0.10 (0.03) | +0.42 (0.005) | +0.02 (0.85) | +0.07 (0.09) |
+
+  * **SDSS water at 8920-9200 A is a real, plate-level telluric residual seen by all three populations.** The galaxy-quasar slope
+    is 0.69.
+  * The other SDSS bands correlate at r = 0.12-0.17, about as much as the 7850 control. That control sits on the OH forest, so a
+    shared plate sky residual (additive) is likely the common term. The joint fit has to model sky as additive (FLUX_SCALE) before
+    the weaker bands can be judged.
+  * **DESI shows nothing shared by dominant tile.** Healpix coadds mix exposures, so DESI needs the per-exposure weights
+    (EXP_* lists; stars_desi.npz does not have them yet). DESI's per-exposure telluric fit from standard stars probably also
+    leaves less.
 
 ## 5. Decisions for Nao
 
