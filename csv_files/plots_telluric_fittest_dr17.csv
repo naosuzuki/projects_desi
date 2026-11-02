@@ -1,0 +1,45 @@
+survey,model,pop,n,dchi2_per_obj,err,dchi2_per_pix,chi2_per_pix_T0
+dr17,no correction,galaxy,8878,-1.14,0.04,-0.00361,0.7284
+dr17,no correction,quasar,12502,-0.53,0.02,-0.00227,0.9983
+dr17,no correction,wd,127,-0.08,0.06,-0.00029,0.6973
+dr17,no correction,all,21507,-0.78,0.02,-0.00291,0.8648
+dr17,"per spectrum, free",galaxy,8878,6.54,0.16,0.02078,0.7284
+dr17,"per spectrum, free",quasar,12502,5.64,0.18,0.02428,0.9983
+dr17,"per spectrum, free",wd,127,-0.12,0.51,-0.00041,0.6973
+dr17,"per spectrum, free",all,21507,5.98,0.12,0.02242,0.8648
+dr17,"per spectrum, prior",galaxy,8878,6.15,0.11,0.01953,0.7284
+dr17,"per spectrum, prior",quasar,12502,3.91,0.08,0.01682,0.9983
+dr17,"per spectrum, prior",wd,127,0.5,0.07,0.00172,0.6973
+dr17,"per spectrum, prior",all,21507,4.81,0.07,0.01804,0.8648
+dr17,"per observation, prior",galaxy,8878,0.9,0.06,0.00287,0.7284
+dr17,"per observation, prior",quasar,12502,1.63,0.07,0.00702,0.9983
+dr17,"per observation, prior",wd,127,0.01,0.22,4e-05,0.6973
+dr17,"per observation, prior",all,21507,1.32,0.05,0.00495,0.8648
+dr17,"alone O2 1, prior",galaxy,8878,0.57,0.02,0.0018,0.7284
+dr17,"alone O2 1, prior",quasar,12502,0.84,0.04,0.00361,0.9983
+dr17,"alone O2 1, prior",wd,127,0.04,0.02,0.00014,0.6973
+dr17,"alone O2 1, prior",all,21507,0.72,0.03,0.00271,0.8648
+dr17,"alone O2 2, prior",galaxy,8878,1.39,0.05,0.00443,0.7284
+dr17,"alone O2 2, prior",quasar,12502,1.26,0.04,0.00544,0.9983
+dr17,"alone O2 2, prior",wd,127,0.31,0.06,0.00105,0.6973
+dr17,"alone O2 2, prior",all,21507,1.31,0.03,0.00492,0.8648
+dr17,"alone O2 3, prior",galaxy,8878,0.83,0.03,0.00264,0.7284
+dr17,"alone O2 3, prior",quasar,12502,0.94,0.04,0.00406,0.9983
+dr17,"alone O2 3, prior",wd,127,0.07,0.02,0.00023,0.6973
+dr17,"alone O2 3, prior",all,21507,0.89,0.02,0.00334,0.8648
+dr17,"alone H2O 1, prior",galaxy,8878,0.83,0.03,0.00265,0.7284
+dr17,"alone H2O 1, prior",quasar,12502,0.34,0.01,0.00147,0.9983
+dr17,"alone H2O 1, prior",wd,127,0.02,0.01,8e-05,0.6973
+dr17,"alone H2O 1, prior",all,21507,0.54,0.01,0.00203,0.8648
+dr17,"alone H2O 2, prior",galaxy,8878,3.36,0.09,0.01065,0.7284
+dr17,"alone H2O 2, prior",quasar,12502,0.92,0.03,0.00396,0.9983
+dr17,"alone H2O 2, prior",wd,127,0.09,0.02,0.0003,0.6973
+dr17,"alone H2O 2, prior",all,21507,1.92,0.04,0.0072,0.8648
+dr17,"alone H2O 3, prior",galaxy,8878,1.19,0.04,0.00379,0.7284
+dr17,"alone H2O 3, prior",quasar,12502,0.94,0.04,0.00405,0.9983
+dr17,"alone H2O 3, prior",wd,127,0.09,0.03,0.00029,0.6973
+dr17,"alone H2O 3, prior",all,21507,1.04,0.03,0.0039,0.8648
+dr17,"alone H2O 4, prior",galaxy,8878,0.03,0.0,0.00011,0.7284
+dr17,"alone H2O 4, prior",quasar,12502,0.04,0.0,0.00017,0.9983
+dr17,"alone H2O 4, prior",wd,127,0.01,0.0,2e-05,0.6973
+dr17,"alone H2O 4, prior",all,21507,0.04,0.0,0.00014,0.8648

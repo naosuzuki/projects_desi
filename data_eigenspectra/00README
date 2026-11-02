@@ -84,8 +84,9 @@ Stars (files star_*; Stellar Template thread; STARS.md)
 2026-11-01 - 2026-11-02   Telluric work by that thread: telluric structure found in the higher stellar vectors
              (mostly SDSS water / O2), per-survey telluric-only eigenspectra from featureless white dwarfs, quasars
              and galaxies (programs_telluric/02_basis.py; /Volumes/exdisk3/sdssdesi_telluric/basis/telluric_{dr8,dr17,
-             desi}.fits), and the shared apply function tellapply.py (ready 2026-11-02). Stellar v2 bases are on
-             ~/data/sdssdesi_stars/v2/, not committed here.
+             desi}.fits), and the shared apply function tellapply.py (ready 2026-11-02). Since 2026-11-02 the stellar
+             v2 bases (star_eigenspectra_v2_*) and the telluric eigenspectra (telluric_eigenspectra_{dr8,dr17,desi}.fits)
+             are committed in this directory; the Stellar thread's own dated record follows below.
 
 ================================================================================
 Stars and telluric (Stellar Template thread). Last updated 2026-11-02.
