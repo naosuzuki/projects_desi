@@ -77,6 +77,9 @@ def main():
     ap.add_argument('--stack-weight', default='equal', choices=['equal', 'sqrtn', 'n'],
                     help='relative weight of the stacks: equal (each stack at median weight 1; v1-v3t), x sqrt(N_STACKED / median) '
                          '(the Quasar thread\'s recipe, Nao 2026-11-03), or x N_STACKED / median')
+    ap.add_argument('--center', action='store_true',
+                    help='classic PCA (Nao 2026-11-03): e0 = the weighted mean of the stacks (coefficient 1), e1..eN = EM-PCA of the '
+                         'residuals about it; VARIANCE = R^2 of the variance about the mean, VARIANCE_TOTAL = R^2 with c0 free')
     a = ap.parse_args()
     t0 = time.time()
     X, W, cells, wave = load_stacks(a.stacks, a.min_snr, a.min_member_frac, a.mask_telluric)
@@ -109,6 +112,15 @@ def main():
     # model of the stack as stored by 09_merge_stacks = (C @ P) * TO_STACK, TO_STACK = EMPCA_SCALE / (RENORM * CHAIN)
     cells['EMPCA_SCALE'] = scale
     cells['TO_STACK'] = scale / (cells.RENORM * cells.CHAIN) if {'RENORM', 'CHAIN'} <= set(cells) else scale
+    R2c = None
+    if a.center:                                      # Nao 2026-11-03: classic PCA about the weighted mean of the (rescaled) stacks
+        m = (W * X).sum(0) / np.maximum(W.sum(0), 1e-30); m[~pixok] = 0.0
+        Xc = np.where(W > 0, X - m[None, :], 0.0)
+        Pr, Cr, pixok_r = empca(Xc, W, a.nvec, a.niter, min_cover=a.min_cover, min_frac=0.0, min_wfrac=0.0)
+        pixok &= pixok_r
+        R2c = explained(Xc[:, pixok], W[:, pixok], Pr[:, pixok])
+        P = np.vstack([m[None, :], Pr]); C = np.hstack([np.ones((len(X), 1)), Cr])
+        print(f'centered: R^2 of the variance about the mean vs k: ' + ' '.join(f'{k+1}:{r:.4f}' for k, r in enumerate(R2c)), flush=True)
     R2 = explained(X[:, pixok], W[:, pixok], P[:, pixok])        # over the basis pixels (dropped edges are not 'unexplained')
     print(f'EM-PCA done {time.time()-t0:.0f}s; pixels in basis {pixok.sum()} ({wave[pixok][0]:.0f}-{wave[pixok][-1]:.0f} A); '
           f'R^2 vs k: ' + ' '.join(f'{k+1}:{r:.4f}' for k, r in enumerate(R2)), flush=True)
@@ -126,11 +138,12 @@ def main():
           f'max |ek mean| {np.abs(Pn[1:, ref].mean(1)).max():.1e}; model change {np.abs(Cn @ Pn - C @ P).max():.1e}', flush=True)
     os.makedirs(a.out, exist_ok=True)
     fn = os.path.join(a.out, f'galaxy_empca_{a.tag}.fits')
-    hdr = {'REF_LO': a.ref_win[0], 'REF_HI': a.ref_win[1], 'STACKWT': a.stack_weight}
+    hdr = {'REF_LO': a.ref_win[0], 'REF_HI': a.ref_win[1], 'STACKWT': a.stack_weight, 'CENTER': int(a.center)}
     with fitsio.FITS(fn + '.tmp', 'rw', clobber=True) as fo:
         fo.write(Pn.astype(np.float32), extname='EIGVEC', header=hdr); fo.write(Cn.astype(np.float32), extname='COEFF', header=hdr)
         fo.write(P.astype(np.float32), extname='EIGVEC_ORTHO'); fo.write(C.astype(np.float32), extname='COEFF_ORTHO')
-        fo.write(pixok.astype(np.int16), extname='PIXMASK'); fo.write(R2, extname='VARIANCE')
+        fo.write(pixok.astype(np.int16), extname='PIXMASK')
+        fo.write(R2c if R2c is not None else R2, extname='VARIANCE'); fo.write(R2, extname='VARIANCE_TOTAL')
         fo.write(wave, extname='WAVE'); fo.write(cells.to_records(index=False), extname='CELLS')
     os.replace(fn + '.tmp', fn)
     try:                                              # quick look with the normalization window marked (24_plot_empca.py)

@@ -77,8 +77,29 @@ Galaxies (0 < z < 1.6; files galaxy_*; HANDOVER.md)
              stays clean in e0-e4 and shows the same structure only in e5, e7, e10.
              09:17: galaxy_empca_v3t_5450_sqrtn.fits copied byte-identical to galaxy_eigenspectra_v2.fits = RELEASE v2
              (Nao: v3t, version 5450, sqrt N weights; 7,687 stacks, 1826-8045 A, R^2 0.9994 with 11 vectors; header
-             STACKWT = sqrtn, REF_LO/HI = 5400/5500). Figure and text in ms.tex (fig:galempca). Not done: rotation of
-             e0 to the mean galaxy (e0 is the weighted mean shape of the EM-PCA, scaled to 1 in 5400-5500 A).
+             STACKWT = sqrtn, REF_LO/HI = 5400/5500). Figure and text in ms.tex (fig:galempca).
+             09:40: e0 rotated to the mean galaxy (29_rotate_e0.py, Nao's request): e0 = sqrt(N)-weighted mean of the stack
+             models (= e0 + sum_k a_k/a_0 e_k, a = weighted mean coefficient vector; window mean 1), e1-e10 unchanged,
+             c_k' = c_k - c_0 a_k/a_0 so the models are unchanged (4e-16) and the weighted mean of c_1..c_10 is 0.
+             galaxy_empca_v3t_5450_sqrtn_e0mean.fits copied byte-identical to galaxy_eigenspectra_v2.fits = RELEASE v2
+             (replaces the 09:17 copy; header E0ROT = mean). The mean galaxy is flatter in the red than the leading
+             EM-PCA vector (0.7 vs 0.4 at 8000 A) with stronger Balmer lines: the sqrt(N) weights favour the big
+             low-z star-forming stacks. EIGVEC_ORTHO / COEFF_ORTHO keep the EM-PCA basis.
+             09:55: emission lines collected into their own vectors (30_rotate_lines.py --by pixels --kms 300 --max-line 6,
+             Nao's request): SVD of the line-pixel block of e1-e10 (02_passB_measure.LINES +-300 km/s, 109 pixels) ->
+             orthogonal rotation; e0's line pixels fitted with the line vectors and subtracted (e0 = mean galaxy with
+             absorption lines only); blocks ordered by coefficient variance. 6 line vectors e1-e6 (97 % of the line power),
+             4 continuum vectors e7-e10 (e7 = the smooth tilt, largest variance). Models unchanged (7e-16). Header
+             LINEROT = 6, LINE_KMS = 300. galaxy_empca_v3t_5450_sqrtn_e0mean_lines.fits copied byte-identical to
+             galaxy_eigenspectra_v2.fits = RELEASE v2 (replaces the 09:40 copy). The 3+7 split by line variance
+             (--by variance) was tried and not used: the continuum vectors keep line residuals.
+             10:25: second release galaxy_eigenspectra_v2c.fits (+png) = CENTERED basis (Nao's request; 10_galaxy_empca.py
+             --center, run_v3t_center.sh): same stacks, rescaling and sqrt(N) weights, the weighted mean subtracted, e1-e10
+             = EM-PCA of the residuals, e0 = the mean (coefficient 1), then the same line rotation (6 line vectors with
+             99 % of the line power, 4 continuum). VARIANCE = R^2 of the variance about the mean (0.55 / 0.75 / 0.88 /
+             0.90 / 0.95 / 0.97 / 0.98 / 0.98 / 0.99 / 0.9925 for 1-10 vectors), VARIANCE_TOTAL = R^2 with c0 free
+             (0.9993 with 11). Header CENTER = 1. Byte-identical to galaxy_empca_v3t_5450_sqrtn_c_lines.fits. Pros/cons in
+             ms.tex: v2 for template fitting (amplitude free), v2c for describing the population (honest R^2).
 
 
 Quasars (0 < z < 5; files quasar_*; Quasar Template thread)

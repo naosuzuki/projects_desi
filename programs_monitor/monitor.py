@@ -60,6 +60,7 @@ STEPS = [
     dict(track='galaxies', name='v3t SDSS galaxy re-read DR17 with the telluric correction', kind='json', path=f'{STATUS_DIR}/step_gal_v3t_sdss_dr17_shard0of1.json', proc='11_passG_sdss.py --v3 --telluric --survey dr17'),
     dict(track='galaxies', name='v3t stacks: merge, stack-link chaining, plots, EM-PCA (both versions)', kind='json', path=f'{STATUS_DIR}/step_gal_v3t_after.json', proc='after_v3t'),
     dict(track='galaxies', name='v3t EM-PCA with sqrt(N) stack weighting (G and 5450)', kind='json', path=f'{STATUS_DIR}/step_gal_v3t_sqrtn.json', proc='run_v3t_sqrtn'),
+    dict(track='galaxies', name='v3t centered PCA (5450, sqrt N): mean galaxy + residual vectors', kind='json', path=f'{STATUS_DIR}/step_gal_v3t_center.json', proc='run_v3t_center'),
     dict(track='galaxies', name='Telluric Phase 0: galaxy observed-frame residuals (S/N > 20 individuals from the v2 store)', kind='json', path=f'{STATUS_DIR}/step_gal_telluric_phase0.json', proc='26_telluric_phase0'),
     dict(track='galaxies', name='Galaxy EM-PCA (latest run; v2 after the walk)', kind='json', path=f'{STATUS_DIR}/step_gal_empca.json', proc='10_galaxy_empca'),
     # --- quasars
