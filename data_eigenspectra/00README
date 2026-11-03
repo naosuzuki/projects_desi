@@ -311,3 +311,6 @@ Record, by date
             Luminosity-bin plots from the telluric-corrected stacks: plots_luminosity/plots_stars_by_lum_tell_<survey>[_flam].png, csv_files/ (plot_lum.py --telluric).
 2026-11-03: RELEASE v4 of the stellar bases (Nao): star_eigenspectra_v4_{desi_{WD,HOT,AF,GK,M},sdss_{WD,AF,GK,M}}.fits and .png = v2_tell/empca_*_sqrtn.* byte-identical. The reason is one weighting rule with the quasars, not better fits. v3 and v2 stay here.
               The step 3 numbers above (telluric comparison with v2) are for the equal weights of v3. step7_empca.py still defaults to --stack-weight equal; v4 needs --stack-weight sqrtn.
+              Figures: star_eigenspectra_v4_<survey>_e0-e9.png here (= plots_luminosity/plots_star_empca_v4_<survey>.png, programs_stars/plot_v4.py); ms.tex sec:gaia.
+              Known problems, not resolved (in ms.tex): (a) all 5 DESI HOT stacks (625 stars) and 5 DESI WD stacks at M_G0 9.3-10.3 (817 stars) have (BP-RP)_0 -0.02 to -0.04 but red spectra, so star_eigenspectra_v4_desi_HOT is not a basis of hot stars.
+              (b) SDSS WD has 2873 pixels, most pixels blue of 4600 A removed by the weight cut. (c) A step near 6000-6200 A in some higher SDSS vectors (e3 AF, e7 WD and GK), possibly the spectrograph arms; not tested.

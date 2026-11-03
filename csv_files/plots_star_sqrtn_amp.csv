@@ -1,0 +1,577 @@
+survey,cls,basis,T,control,kind,rms
+sdss,WD,v2,T0,real,stack,0.14099951589630647
+sdss,WD,v2,T0,real,star,0.30000010887626777
+sdss,WD,v2,T0,shifted,stack,0.036727574456980036
+sdss,WD,v2,T0,shifted,star,0.09082403568299091
+sdss,WD,v2,O2 1,real,stack,0.008278182465480687
+sdss,WD,v2,O2 1,real,star,0.027062367853289377
+sdss,WD,v2,O2 1,shifted,stack,0.0055596547848550965
+sdss,WD,v2,O2 1,shifted,star,0.024361961934845657
+sdss,WD,v2,O2 2,real,stack,0.007563128695429273
+sdss,WD,v2,O2 2,real,star,0.02035941732072125
+sdss,WD,v2,O2 2,shifted,stack,0.004242639696719932
+sdss,WD,v2,O2 2,shifted,star,0.010221114863076733
+sdss,WD,v2,O2 3,real,stack,0.010651551159955582
+sdss,WD,v2,O2 3,real,star,0.02208688406061625
+sdss,WD,v2,O2 3,shifted,stack,0.007889168260622907
+sdss,WD,v2,O2 3,shifted,star,0.012718630142996672
+sdss,WD,v2,H2O 1,real,stack,0.010446165224185722
+sdss,WD,v2,H2O 1,real,star,0.019046015382367287
+sdss,WD,v2,H2O 1,shifted,stack,0.010667834967239049
+sdss,WD,v2,H2O 1,shifted,star,0.021131240771254785
+sdss,WD,v2,H2O 2,real,stack,0.010434315727886742
+sdss,WD,v2,H2O 2,real,star,0.048367759582782166
+sdss,WD,v2,H2O 2,shifted,stack,0.007634128921683379
+sdss,WD,v2,H2O 2,shifted,star,0.01719398913088646
+sdss,WD,v2,H2O 3,real,stack,0.013746770083689401
+sdss,WD,v2,H2O 3,real,star,0.02098958586863644
+sdss,WD,v2,H2O 3,shifted,stack,0.007875981922606108
+sdss,WD,v2,H2O 3,shifted,star,0.026993256774196558
+sdss,WD,v2,H2O 4,real,stack,0.012006673105715526
+sdss,WD,v2,H2O 4,real,star,0.020261561847437784
+sdss,WD,v2,H2O 4,shifted,stack,0.00590379922357754
+sdss,WD,v2,H2O 4,shifted,star,0.016154223299601804
+sdss,WD,tell,T0,real,stack,0.12396394713323249
+sdss,WD,tell,T0,real,star,0.2932658360182454
+sdss,WD,tell,T0,shifted,stack,0.04202104810580505
+sdss,WD,tell,T0,shifted,star,0.10255802094055737
+sdss,WD,tell,O2 1,real,stack,0.00862665616159608
+sdss,WD,tell,O2 1,real,star,0.025591793834819052
+sdss,WD,tell,O2 1,shifted,stack,0.004915056423306886
+sdss,WD,tell,O2 1,shifted,star,0.023904527464631398
+sdss,WD,tell,O2 2,real,stack,0.00561297916153937
+sdss,WD,tell,O2 2,real,star,0.0215164100366808
+sdss,WD,tell,O2 2,shifted,stack,0.005120319594914305
+sdss,WD,tell,O2 2,shifted,star,0.010570886482700517
+sdss,WD,tell,O2 3,real,stack,0.009520572347054319
+sdss,WD,tell,O2 3,real,star,0.021601735353731766
+sdss,WD,tell,O2 3,shifted,stack,0.00780517989556663
+sdss,WD,tell,O2 3,shifted,star,0.015655334127779023
+sdss,WD,tell,H2O 1,real,stack,0.010082043755712455
+sdss,WD,tell,H2O 1,real,star,0.020628965333832232
+sdss,WD,tell,H2O 1,shifted,stack,0.009522050501612247
+sdss,WD,tell,H2O 1,shifted,star,0.02321381693244661
+sdss,WD,tell,H2O 2,real,stack,0.008870202493485082
+sdss,WD,tell,H2O 2,real,star,0.05131077966032732
+sdss,WD,tell,H2O 2,shifted,stack,0.008996487689371436
+sdss,WD,tell,H2O 2,shifted,star,0.018935149202383313
+sdss,WD,tell,H2O 3,real,stack,0.014708749963903254
+sdss,WD,tell,H2O 3,real,star,0.021706726507562037
+sdss,WD,tell,H2O 3,shifted,stack,0.007589912693694057
+sdss,WD,tell,H2O 3,shifted,star,0.02337143246237472
+sdss,WD,tell,H2O 4,real,stack,0.009879983753355246
+sdss,WD,tell,H2O 4,real,star,0.01887317954485429
+sdss,WD,tell,H2O 4,shifted,stack,0.006702396653720109
+sdss,WD,tell,H2O 4,shifted,star,0.016313552396934144
+sdss,AF,v2,T0,real,stack,0.043969262470047336
+sdss,AF,v2,T0,real,star,0.0703496921442641
+sdss,AF,v2,T0,shifted,stack,0.04600468748003594
+sdss,AF,v2,T0,shifted,star,0.05548600534852355
+sdss,AF,v2,O2 1,real,stack,0.01128656422543321
+sdss,AF,v2,O2 1,real,star,0.012667859126587916
+sdss,AF,v2,O2 1,shifted,stack,0.006016970413418226
+sdss,AF,v2,O2 1,shifted,star,0.009477137385875656
+sdss,AF,v2,O2 2,real,stack,0.008805105022491443
+sdss,AF,v2,O2 2,real,star,0.009704193714346804
+sdss,AF,v2,O2 2,shifted,stack,0.0032408606686482482
+sdss,AF,v2,O2 2,shifted,star,0.006523910747975707
+sdss,AF,v2,O2 3,real,stack,0.010494773577505537
+sdss,AF,v2,O2 3,real,star,0.012047715006208822
+sdss,AF,v2,O2 3,shifted,stack,0.001516470164650196
+sdss,AF,v2,O2 3,shifted,star,0.0035092443057005884
+sdss,AF,v2,H2O 1,real,stack,0.005005048399465314
+sdss,AF,v2,H2O 1,real,star,0.014264239815575458
+sdss,AF,v2,H2O 1,shifted,stack,0.0017896930821073129
+sdss,AF,v2,H2O 1,shifted,star,0.002914147888581994
+sdss,AF,v2,H2O 2,real,stack,0.005359571716505744
+sdss,AF,v2,H2O 2,real,star,0.010803788323624977
+sdss,AF,v2,H2O 2,shifted,stack,0.003129068056422386
+sdss,AF,v2,H2O 2,shifted,star,0.006083824098578176
+sdss,AF,v2,H2O 3,real,stack,0.007305579027465665
+sdss,AF,v2,H2O 3,real,star,0.014881807577288696
+sdss,AF,v2,H2O 3,shifted,stack,0.005807701531281797
+sdss,AF,v2,H2O 3,shifted,star,0.0233553942686009
+sdss,AF,v2,H2O 4,real,stack,0.01156098385198078
+sdss,AF,v2,H2O 4,real,star,0.011946850355686016
+sdss,AF,v2,H2O 4,shifted,stack,0.0020186672500062583
+sdss,AF,v2,H2O 4,shifted,star,0.0034778836558604295
+sdss,AF,tell,T0,real,stack,0.04797172207395607
+sdss,AF,tell,T0,real,star,0.07351485216993026
+sdss,AF,tell,T0,shifted,stack,0.04818488227809387
+sdss,AF,tell,T0,shifted,star,0.05741738213190778
+sdss,AF,tell,O2 1,real,stack,0.011278964604979971
+sdss,AF,tell,O2 1,real,star,0.013085319915180312
+sdss,AF,tell,O2 1,shifted,stack,0.006402164031696746
+sdss,AF,tell,O2 1,shifted,star,0.010494859441095017
+sdss,AF,tell,O2 2,real,stack,0.008534411782332543
+sdss,AF,tell,O2 2,real,star,0.009843353088900735
+sdss,AF,tell,O2 2,shifted,stack,0.0032540799328222136
+sdss,AF,tell,O2 2,shifted,star,0.007916683659993137
+sdss,AF,tell,O2 3,real,stack,0.010541706794878617
+sdss,AF,tell,O2 3,real,star,0.01294185460154171
+sdss,AF,tell,O2 3,shifted,stack,0.0014576025914358546
+sdss,AF,tell,O2 3,shifted,star,0.00375851774519508
+sdss,AF,tell,H2O 1,real,stack,0.005366197126714681
+sdss,AF,tell,H2O 1,real,star,0.013057589158018464
+sdss,AF,tell,H2O 1,shifted,stack,0.0020015437337389565
+sdss,AF,tell,H2O 1,shifted,star,0.0034256136410810915
+sdss,AF,tell,H2O 2,real,stack,0.004610520941717927
+sdss,AF,tell,H2O 2,real,star,0.008353525582556193
+sdss,AF,tell,H2O 2,shifted,stack,0.0030217755383963947
+sdss,AF,tell,H2O 2,shifted,star,0.007779216546699654
+sdss,AF,tell,H2O 3,real,stack,0.007620705524969411
+sdss,AF,tell,H2O 3,real,star,0.014016836465979796
+sdss,AF,tell,H2O 3,shifted,stack,0.00547885450264875
+sdss,AF,tell,H2O 3,shifted,star,0.02206816403432995
+sdss,AF,tell,H2O 4,real,stack,0.011048453303317165
+sdss,AF,tell,H2O 4,real,star,0.011661325403983916
+sdss,AF,tell,H2O 4,shifted,stack,0.0020534023248732114
+sdss,AF,tell,H2O 4,shifted,star,0.0033328868241488236
+sdss,GK,v2,T0,real,stack,0.1206874591240667
+sdss,GK,v2,T0,real,star,0.13658711913108804
+sdss,GK,v2,T0,shifted,stack,0.07068537763797207
+sdss,GK,v2,T0,shifted,star,0.078648520185073
+sdss,GK,v2,O2 1,real,stack,0.045794763114200374
+sdss,GK,v2,O2 1,real,star,0.0636668428201216
+sdss,GK,v2,O2 1,shifted,stack,0.031490139790843204
+sdss,GK,v2,O2 1,shifted,star,0.031069844341949305
+sdss,GK,v2,O2 2,real,stack,0.029276706723997785
+sdss,GK,v2,O2 2,real,star,0.03425597078751549
+sdss,GK,v2,O2 2,shifted,stack,0.013133108526317029
+sdss,GK,v2,O2 2,shifted,star,0.0158019123817767
+sdss,GK,v2,O2 3,real,stack,0.0285050644188673
+sdss,GK,v2,O2 3,real,star,0.03164291876836604
+sdss,GK,v2,O2 3,shifted,stack,0.04387166337985485
+sdss,GK,v2,O2 3,shifted,star,0.04393286121050391
+sdss,GK,v2,H2O 1,real,stack,0.008879004599794415
+sdss,GK,v2,H2O 1,real,star,0.011095799535838955
+sdss,GK,v2,H2O 1,shifted,stack,0.028863344298358656
+sdss,GK,v2,H2O 1,shifted,star,0.03200355204554398
+sdss,GK,v2,H2O 2,real,stack,0.021260147751724367
+sdss,GK,v2,H2O 2,real,star,0.02164546702692785
+sdss,GK,v2,H2O 2,shifted,stack,0.007639541239133136
+sdss,GK,v2,H2O 2,shifted,star,0.00831706141862793
+sdss,GK,v2,H2O 3,real,stack,0.016580511250135946
+sdss,GK,v2,H2O 3,real,star,0.01810836455038408
+sdss,GK,v2,H2O 3,shifted,stack,0.01009722623815057
+sdss,GK,v2,H2O 3,shifted,star,0.03708951168018662
+sdss,GK,v2,H2O 4,real,stack,0.01272596938135848
+sdss,GK,v2,H2O 4,real,star,0.015086809728559246
+sdss,GK,v2,H2O 4,shifted,stack,0.016890267844012118
+sdss,GK,v2,H2O 4,shifted,star,0.019677744142069187
+sdss,GK,tell,T0,real,stack,0.12365563029196056
+sdss,GK,tell,T0,real,star,0.14630477726765526
+sdss,GK,tell,T0,shifted,stack,0.0743873511052015
+sdss,GK,tell,T0,shifted,star,0.07656206085861167
+sdss,GK,tell,O2 1,real,stack,0.04611255575694703
+sdss,GK,tell,O2 1,real,star,0.06629897437012729
+sdss,GK,tell,O2 1,shifted,stack,0.03105277085551097
+sdss,GK,tell,O2 1,shifted,star,0.030719736267805667
+sdss,GK,tell,O2 2,real,stack,0.02915263480058946
+sdss,GK,tell,O2 2,real,star,0.041326827351769777
+sdss,GK,tell,O2 2,shifted,stack,0.01351496540549585
+sdss,GK,tell,O2 2,shifted,star,0.01855090222418923
+sdss,GK,tell,O2 3,real,stack,0.028734412145516974
+sdss,GK,tell,O2 3,real,star,0.03460497464874596
+sdss,GK,tell,O2 3,shifted,stack,0.043966329191631896
+sdss,GK,tell,O2 3,shifted,star,0.04630999003478566
+sdss,GK,tell,H2O 1,real,stack,0.00867170272371384
+sdss,GK,tell,H2O 1,real,star,0.010208804460963474
+sdss,GK,tell,H2O 1,shifted,stack,0.029345252225139166
+sdss,GK,tell,H2O 1,shifted,star,0.03662912566084105
+sdss,GK,tell,H2O 2,real,stack,0.02128207017785139
+sdss,GK,tell,H2O 2,real,star,0.024260591146989717
+sdss,GK,tell,H2O 2,shifted,stack,0.00860850040044304
+sdss,GK,tell,H2O 2,shifted,star,0.011024592360937648
+sdss,GK,tell,H2O 3,real,stack,0.017095199290001275
+sdss,GK,tell,H2O 3,real,star,0.02122124066319338
+sdss,GK,tell,H2O 3,shifted,stack,0.009539355343913807
+sdss,GK,tell,H2O 3,shifted,star,0.041808581561966034
+sdss,GK,tell,H2O 4,real,stack,0.012797243525879017
+sdss,GK,tell,H2O 4,real,star,0.016301316605508816
+sdss,GK,tell,H2O 4,shifted,stack,0.017112234409960805
+sdss,GK,tell,H2O 4,shifted,star,0.02105939711557889
+sdss,M,v2,T0,real,stack,0.06613962716344887
+sdss,M,v2,T0,real,star,0.08190597100679992
+sdss,M,v2,T0,shifted,stack,0.09368099253059099
+sdss,M,v2,T0,shifted,star,0.10852387483909356
+sdss,M,v2,O2 1,real,stack,0.012007973589679644
+sdss,M,v2,O2 1,real,star,0.015664376897592508
+sdss,M,v2,O2 1,shifted,stack,0.046786517099218446
+sdss,M,v2,O2 1,shifted,star,0.05087329193154755
+sdss,M,v2,O2 2,real,stack,0.05764960805153306
+sdss,M,v2,O2 2,real,star,0.06215695469926545
+sdss,M,v2,O2 2,shifted,stack,0.024630100134742813
+sdss,M,v2,O2 2,shifted,star,0.026479503237223374
+sdss,M,v2,O2 3,real,stack,0.0275201644043566
+sdss,M,v2,O2 3,real,star,0.030775245877925298
+sdss,M,v2,O2 3,shifted,stack,0.016491225803679968
+sdss,M,v2,O2 3,shifted,star,0.018690618172983658
+sdss,M,v2,H2O 1,real,stack,0.013865494649527535
+sdss,M,v2,H2O 1,real,star,0.016920927865525483
+sdss,M,v2,H2O 1,shifted,stack,0.010227838261722846
+sdss,M,v2,H2O 1,shifted,star,0.01402692666968452
+sdss,M,v2,H2O 2,real,stack,0.009214355065783037
+sdss,M,v2,H2O 2,real,star,0.013015934219264072
+sdss,M,v2,H2O 2,shifted,stack,0.01017863075977884
+sdss,M,v2,H2O 2,shifted,star,0.01294345284593245
+sdss,M,v2,H2O 3,real,stack,0.014554752436548293
+sdss,M,v2,H2O 3,real,star,0.01692989679506379
+sdss,M,v2,H2O 3,shifted,stack,0.005592528628068653
+sdss,M,v2,H2O 3,shifted,star,0.011081847647026093
+sdss,M,v2,H2O 4,real,stack,0.008003596465664054
+sdss,M,v2,H2O 4,real,star,0.01057357983038342
+sdss,M,v2,H2O 4,shifted,stack,0.012647319724222618
+sdss,M,v2,H2O 4,shifted,star,0.015009078261823523
+sdss,M,tell,T0,real,stack,0.06530278299340149
+sdss,M,tell,T0,real,star,0.08158251970461015
+sdss,M,tell,T0,shifted,stack,0.09482572842042893
+sdss,M,tell,T0,shifted,star,0.10995805329004173
+sdss,M,tell,O2 1,real,stack,0.011095415931706333
+sdss,M,tell,O2 1,real,star,0.014846995099021723
+sdss,M,tell,O2 1,shifted,stack,0.04477002717270269
+sdss,M,tell,O2 1,shifted,star,0.04875738166995311
+sdss,M,tell,O2 2,real,stack,0.05756619495977529
+sdss,M,tell,O2 2,real,star,0.06241132499658662
+sdss,M,tell,O2 2,shifted,stack,0.023683999180735507
+sdss,M,tell,O2 2,shifted,star,0.02536914534948186
+sdss,M,tell,O2 3,real,stack,0.028387272457288674
+sdss,M,tell,O2 3,real,star,0.03195509249187844
+sdss,M,tell,O2 3,shifted,stack,0.016860886747275473
+sdss,M,tell,O2 3,shifted,star,0.018923020995563214
+sdss,M,tell,H2O 1,real,stack,0.0137699343310144
+sdss,M,tell,H2O 1,real,star,0.01730278557216765
+sdss,M,tell,H2O 1,shifted,stack,0.01025752467770299
+sdss,M,tell,H2O 1,shifted,star,0.013841586408370469
+sdss,M,tell,H2O 2,real,stack,0.00925305206607965
+sdss,M,tell,H2O 2,real,star,0.01357646315115139
+sdss,M,tell,H2O 2,shifted,stack,0.01024604250769096
+sdss,M,tell,H2O 2,shifted,star,0.013142406581305695
+sdss,M,tell,H2O 3,real,stack,0.012135103622952212
+sdss,M,tell,H2O 3,real,star,0.014462682268651422
+sdss,M,tell,H2O 3,shifted,stack,0.004841653824568824
+sdss,M,tell,H2O 3,shifted,star,0.010875625088635467
+sdss,M,tell,H2O 4,real,stack,0.00776629294063123
+sdss,M,tell,H2O 4,real,star,0.010374853114391682
+sdss,M,tell,H2O 4,shifted,stack,0.012984100267339966
+sdss,M,tell,H2O 4,shifted,star,0.015469997215369517
+desi,WD,v2,T0,real,stack,4.1293806687427335
+desi,WD,v2,T0,real,star,5.979165200872746
+desi,WD,v2,T0,shifted,stack,1.8355293950582272
+desi,WD,v2,T0,shifted,star,2.4526219388045
+desi,WD,v2,O2 1,real,stack,0.014770891877308625
+desi,WD,v2,O2 1,real,star,0.019747223643664113
+desi,WD,v2,O2 1,shifted,stack,0.08970237342507983
+desi,WD,v2,O2 1,shifted,star,0.11847880431042045
+desi,WD,v2,O2 2,real,stack,0.03299194534620159
+desi,WD,v2,O2 2,real,star,0.040420616036688214
+desi,WD,v2,O2 2,shifted,stack,0.039343591686105094
+desi,WD,v2,O2 2,shifted,star,0.05433898658619644
+desi,WD,v2,O2 3,real,stack,0.08085519956691264
+desi,WD,v2,O2 3,real,star,0.09242016173177821
+desi,WD,v2,O2 3,shifted,stack,0.02304732702118898
+desi,WD,v2,O2 3,shifted,star,0.03593914954004621
+desi,WD,v2,H2O 1,real,stack,0.03219552989732493
+desi,WD,v2,H2O 1,real,star,0.05478840228086286
+desi,WD,v2,H2O 1,shifted,stack,0.052932236353746547
+desi,WD,v2,H2O 1,shifted,star,0.09683583773229838
+desi,WD,v2,H2O 2,real,stack,0.04937816544703838
+desi,WD,v2,H2O 2,real,star,0.04003831573831985
+desi,WD,v2,H2O 2,shifted,stack,0.11782657261675841
+desi,WD,v2,H2O 2,shifted,star,0.1817964034045521
+desi,WD,v2,H2O 3,real,stack,0.15052361482996285
+desi,WD,v2,H2O 3,real,star,0.1996283251329762
+desi,WD,v2,H2O 3,shifted,stack,0.16625957263420685
+desi,WD,v2,H2O 3,shifted,star,0.23667653389923834
+desi,WD,v2,H2O 4,real,stack,0.11922291600550129
+desi,WD,v2,H2O 4,real,star,0.1259844314701759
+desi,WD,v2,H2O 4,shifted,stack,0.11220043976315848
+desi,WD,v2,H2O 4,shifted,star,0.1506172712048035
+desi,WD,tell,T0,real,stack,4.092175441783124
+desi,WD,tell,T0,real,star,5.997092335275094
+desi,WD,tell,T0,shifted,stack,1.8321243414304391
+desi,WD,tell,T0,shifted,star,2.4408683513088243
+desi,WD,tell,O2 1,real,stack,0.0186263268991526
+desi,WD,tell,O2 1,real,star,0.022095631640092258
+desi,WD,tell,O2 1,shifted,stack,0.09411341533735704
+desi,WD,tell,O2 1,shifted,star,0.12012446358425488
+desi,WD,tell,O2 2,real,stack,0.033661409671329585
+desi,WD,tell,O2 2,real,star,0.040794070632405144
+desi,WD,tell,O2 2,shifted,stack,0.03968912626984521
+desi,WD,tell,O2 2,shifted,star,0.05430192747863807
+desi,WD,tell,O2 3,real,stack,0.08030252389090702
+desi,WD,tell,O2 3,real,star,0.09114806311930367
+desi,WD,tell,O2 3,shifted,stack,0.0229367225370842
+desi,WD,tell,O2 3,shifted,star,0.03594612920580875
+desi,WD,tell,H2O 1,real,stack,0.041173999687781425
+desi,WD,tell,H2O 1,real,star,0.057834514162252625
+desi,WD,tell,H2O 1,shifted,stack,0.05650900215620676
+desi,WD,tell,H2O 1,shifted,star,0.09946701552591306
+desi,WD,tell,H2O 2,real,stack,0.04980616154221499
+desi,WD,tell,H2O 2,real,star,0.038492639423669026
+desi,WD,tell,H2O 2,shifted,stack,0.11940134526603105
+desi,WD,tell,H2O 2,shifted,star,0.18146419410364012
+desi,WD,tell,H2O 3,real,stack,0.14909059597969362
+desi,WD,tell,H2O 3,real,star,0.19925485583916724
+desi,WD,tell,H2O 3,shifted,stack,0.16863338070750414
+desi,WD,tell,H2O 3,shifted,star,0.2338775192747933
+desi,WD,tell,H2O 4,real,stack,0.13122527331112413
+desi,WD,tell,H2O 4,real,star,0.12662267618029932
+desi,WD,tell,H2O 4,shifted,stack,0.11243428993688022
+desi,WD,tell,H2O 4,shifted,star,0.14908824816959118
+desi,HOT,v2,T0,real,stack,0.8704854017969715
+desi,HOT,v2,T0,real,star,1.2110623579577697
+desi,HOT,v2,T0,shifted,stack,0.21469709685113184
+desi,HOT,v2,T0,shifted,star,0.45966025605380667
+desi,HOT,v2,O2 1,real,stack,0.01125736060926531
+desi,HOT,v2,O2 1,real,star,0.027797765240272682
+desi,HOT,v2,O2 1,shifted,stack,0.01147438356554525
+desi,HOT,v2,O2 1,shifted,star,0.03219906421368575
+desi,HOT,v2,O2 2,real,stack,0.04245569771356984
+desi,HOT,v2,O2 2,real,star,0.06574983154004388
+desi,HOT,v2,O2 2,shifted,stack,0.008204531376885751
+desi,HOT,v2,O2 2,shifted,star,0.019607793183137663
+desi,HOT,v2,O2 3,real,stack,0.054915683981846285
+desi,HOT,v2,O2 3,real,star,0.09405875736103853
+desi,HOT,v2,O2 3,shifted,stack,0.007811838380869309
+desi,HOT,v2,O2 3,shifted,star,0.02651407199366889
+desi,HOT,v2,H2O 1,real,stack,0.025796673202885298
+desi,HOT,v2,H2O 1,real,star,0.03401869649491338
+desi,HOT,v2,H2O 1,shifted,stack,0.008718356986262622
+desi,HOT,v2,H2O 1,shifted,star,0.021951199329295484
+desi,HOT,v2,H2O 2,real,stack,0.021041124835757943
+desi,HOT,v2,H2O 2,real,star,0.03853333520884403
+desi,HOT,v2,H2O 2,shifted,stack,0.03262321170441854
+desi,HOT,v2,H2O 2,shifted,star,0.036462705188294885
+desi,HOT,v2,H2O 3,real,stack,0.02409736677954633
+desi,HOT,v2,H2O 3,real,star,0.03545694003775331
+desi,HOT,v2,H2O 3,shifted,stack,0.02660662428155455
+desi,HOT,v2,H2O 3,shifted,star,0.03004017584007565
+desi,HOT,v2,H2O 4,real,stack,0.00509157286106823
+desi,HOT,v2,H2O 4,real,star,0.015850279930094576
+desi,HOT,v2,H2O 4,shifted,stack,0.019078340457237043
+desi,HOT,v2,H2O 4,shifted,star,0.030935113558267543
+desi,HOT,tell,T0,real,stack,0.7820448683452668
+desi,HOT,tell,T0,real,star,1.1723390762843324
+desi,HOT,tell,T0,shifted,stack,0.17736382467893247
+desi,HOT,tell,T0,shifted,star,0.4559785695771272
+desi,HOT,tell,O2 1,real,stack,0.010720030839483783
+desi,HOT,tell,O2 1,real,star,0.02820458102894853
+desi,HOT,tell,O2 1,shifted,stack,0.013395679895234157
+desi,HOT,tell,O2 1,shifted,star,0.027845046848558624
+desi,HOT,tell,O2 2,real,stack,0.04342628120348074
+desi,HOT,tell,O2 2,real,star,0.06482714874295056
+desi,HOT,tell,O2 2,shifted,stack,0.008438418255685063
+desi,HOT,tell,O2 2,shifted,star,0.01947550477198777
+desi,HOT,tell,O2 3,real,stack,0.05583502280452982
+desi,HOT,tell,O2 3,real,star,0.09431486091735107
+desi,HOT,tell,O2 3,shifted,stack,0.008672412780528969
+desi,HOT,tell,O2 3,shifted,star,0.025934279554088096
+desi,HOT,tell,H2O 1,real,stack,0.0231913762416597
+desi,HOT,tell,H2O 1,real,star,0.032111560154495455
+desi,HOT,tell,H2O 1,shifted,stack,0.007128493813285376
+desi,HOT,tell,H2O 1,shifted,star,0.020958104015632233
+desi,HOT,tell,H2O 2,real,stack,0.02184485376985148
+desi,HOT,tell,H2O 2,real,star,0.03775324058732086
+desi,HOT,tell,H2O 2,shifted,stack,0.03388759586054648
+desi,HOT,tell,H2O 2,shifted,star,0.03735640420481783
+desi,HOT,tell,H2O 3,real,stack,0.024251429177636785
+desi,HOT,tell,H2O 3,real,star,0.03533505178294034
+desi,HOT,tell,H2O 3,shifted,stack,0.024402585643395442
+desi,HOT,tell,H2O 3,shifted,star,0.0293719283488957
+desi,HOT,tell,H2O 4,real,stack,0.00610313622523761
+desi,HOT,tell,H2O 4,real,star,0.015489620395841702
+desi,HOT,tell,H2O 4,shifted,stack,0.017905753583275015
+desi,HOT,tell,H2O 4,shifted,star,0.030229301234507854
+desi,AF,v2,T0,real,stack,0.2354018976974573
+desi,AF,v2,T0,real,star,0.2762040084648143
+desi,AF,v2,T0,shifted,stack,0.025008304313159795
+desi,AF,v2,T0,shifted,star,0.10348774162309234
+desi,AF,v2,O2 1,real,stack,0.006620493721538963
+desi,AF,v2,O2 1,real,star,0.009575922772431574
+desi,AF,v2,O2 1,shifted,stack,0.004330452511896806
+desi,AF,v2,O2 1,shifted,star,0.011145723775099297
+desi,AF,v2,O2 2,real,stack,0.003150402082208647
+desi,AF,v2,O2 2,real,star,0.008172308667943926
+desi,AF,v2,O2 2,shifted,stack,0.002300187880280962
+desi,AF,v2,O2 2,shifted,star,0.004293355846699475
+desi,AF,v2,O2 3,real,stack,0.01074655832469306
+desi,AF,v2,O2 3,real,star,0.013476352715106506
+desi,AF,v2,O2 3,shifted,stack,0.0012906206764444336
+desi,AF,v2,O2 3,shifted,star,0.0031660212173324188
+desi,AF,v2,H2O 1,real,stack,0.012837110563832585
+desi,AF,v2,H2O 1,real,star,0.01693927969107793
+desi,AF,v2,H2O 1,shifted,stack,0.005826319502546267
+desi,AF,v2,H2O 1,shifted,star,0.011565354799785262
+desi,AF,v2,H2O 2,real,stack,0.005292175206202944
+desi,AF,v2,H2O 2,real,star,0.006653608675984866
+desi,AF,v2,H2O 2,shifted,stack,0.0013721544541759837
+desi,AF,v2,H2O 2,shifted,star,0.007781631221226835
+desi,AF,v2,H2O 3,real,stack,0.0036781024240228337
+desi,AF,v2,H2O 3,real,star,0.005160745045267082
+desi,AF,v2,H2O 3,shifted,stack,0.013066045450864578
+desi,AF,v2,H2O 3,shifted,star,0.014293372887761805
+desi,AF,v2,H2O 4,real,stack,0.025019428862116878
+desi,AF,v2,H2O 4,real,star,0.028308179889211825
+desi,AF,v2,H2O 4,shifted,stack,0.0021559884238934127
+desi,AF,v2,H2O 4,shifted,star,0.004617018469277814
+desi,AF,tell,T0,real,stack,0.22441842494822697
+desi,AF,tell,T0,real,star,0.26833126653227507
+desi,AF,tell,T0,shifted,stack,0.023460316905238154
+desi,AF,tell,T0,shifted,star,0.10148853722384982
+desi,AF,tell,O2 1,real,stack,0.006788266763323694
+desi,AF,tell,O2 1,real,star,0.009650390355416774
+desi,AF,tell,O2 1,shifted,stack,0.004175406160202205
+desi,AF,tell,O2 1,shifted,star,0.011112020660837902
+desi,AF,tell,O2 2,real,stack,0.0032021137171566257
+desi,AF,tell,O2 2,real,star,0.00818460658821728
+desi,AF,tell,O2 2,shifted,stack,0.0021967742387986855
+desi,AF,tell,O2 2,shifted,star,0.004238572847275201
+desi,AF,tell,O2 3,real,stack,0.010767745488025875
+desi,AF,tell,O2 3,real,star,0.013542516041479467
+desi,AF,tell,O2 3,shifted,stack,0.0012961909171282074
+desi,AF,tell,O2 3,shifted,star,0.003172065392867887
+desi,AF,tell,H2O 1,real,stack,0.013029625184827571
+desi,AF,tell,H2O 1,real,star,0.017058948707233998
+desi,AF,tell,H2O 1,shifted,stack,0.0055111888267538175
+desi,AF,tell,H2O 1,shifted,star,0.011325123813321313
+desi,AF,tell,H2O 2,real,stack,0.005401219063149023
+desi,AF,tell,H2O 2,real,star,0.0066931813418676794
+desi,AF,tell,H2O 2,shifted,stack,0.0015587674814006738
+desi,AF,tell,H2O 2,shifted,star,0.007859983390072814
+desi,AF,tell,H2O 3,real,stack,0.003600386296665601
+desi,AF,tell,H2O 3,real,star,0.0051637764121378596
+desi,AF,tell,H2O 3,shifted,stack,0.012936078005344345
+desi,AF,tell,H2O 3,shifted,star,0.014210161792652054
+desi,AF,tell,H2O 4,real,stack,0.02529498934154375
+desi,AF,tell,H2O 4,real,star,0.02844172647167949
+desi,AF,tell,H2O 4,shifted,stack,0.002185369569966002
+desi,AF,tell,H2O 4,shifted,star,0.004615834261120434
+desi,GK,v2,T0,real,stack,1.6291036800127259
+desi,GK,v2,T0,real,star,1.6583466934895308
+desi,GK,v2,T0,shifted,stack,0.7592555803850795
+desi,GK,v2,T0,shifted,star,0.769385906456317
+desi,GK,v2,O2 1,real,stack,0.023388003538614106
+desi,GK,v2,O2 1,real,star,0.027983822082726668
+desi,GK,v2,O2 1,shifted,stack,0.007283191805648456
+desi,GK,v2,O2 1,shifted,star,0.008283850335376151
+desi,GK,v2,O2 2,real,stack,0.03474821654832673
+desi,GK,v2,O2 2,real,star,0.03665695648718139
+desi,GK,v2,O2 2,shifted,stack,0.011495230327809199
+desi,GK,v2,O2 2,shifted,star,0.013157529778228788
+desi,GK,v2,O2 3,real,stack,0.10475394089353941
+desi,GK,v2,O2 3,real,star,0.10683931636012248
+desi,GK,v2,O2 3,shifted,stack,0.007811606053164425
+desi,GK,v2,O2 3,shifted,star,0.009648387205268637
+desi,GK,v2,H2O 1,real,stack,0.04093666140269477
+desi,GK,v2,H2O 1,real,star,0.04497286509303253
+desi,GK,v2,H2O 1,shifted,stack,0.029183710265656897
+desi,GK,v2,H2O 1,shifted,star,0.030355773916666953
+desi,GK,v2,H2O 2,real,stack,0.03761268786454442
+desi,GK,v2,H2O 2,real,star,0.039484485572975056
+desi,GK,v2,H2O 2,shifted,stack,0.026209828442590004
+desi,GK,v2,H2O 2,shifted,star,0.028176000353217334
+desi,GK,v2,H2O 3,real,stack,0.04962797570704856
+desi,GK,v2,H2O 3,real,star,0.05121168999294785
+desi,GK,v2,H2O 3,shifted,stack,0.04144611217528105
+desi,GK,v2,H2O 3,shifted,star,0.04405755416888282
+desi,GK,v2,H2O 4,real,stack,0.03477538991221666
+desi,GK,v2,H2O 4,real,star,0.03892531460248374
+desi,GK,v2,H2O 4,shifted,stack,0.04201993256638288
+desi,GK,v2,H2O 4,shifted,star,0.0441718113590408
+desi,GK,tell,T0,real,stack,1.627489023669009
+desi,GK,tell,T0,real,star,1.6570633598425442
+desi,GK,tell,T0,shifted,stack,0.7559708070802608
+desi,GK,tell,T0,shifted,star,0.7674591930974457
+desi,GK,tell,O2 1,real,stack,0.023405681530503507
+desi,GK,tell,O2 1,real,star,0.028322727047386885
+desi,GK,tell,O2 1,shifted,stack,0.00719673061546738
+desi,GK,tell,O2 1,shifted,star,0.007982458669200217
+desi,GK,tell,O2 2,real,stack,0.034648657954666325
+desi,GK,tell,O2 2,real,star,0.036710535867412235
+desi,GK,tell,O2 2,shifted,stack,0.011064898657759717
+desi,GK,tell,O2 2,shifted,star,0.012670636944262957
+desi,GK,tell,O2 3,real,stack,0.10459495319035624
+desi,GK,tell,O2 3,real,star,0.10671910162047105
+desi,GK,tell,O2 3,shifted,stack,0.00781797429165608
+desi,GK,tell,O2 3,shifted,star,0.009545225826573198
+desi,GK,tell,H2O 1,real,stack,0.04075451496458018
+desi,GK,tell,H2O 1,real,star,0.04484564563602665
+desi,GK,tell,H2O 1,shifted,stack,0.029074791056721762
+desi,GK,tell,H2O 1,shifted,star,0.03026439242738458
+desi,GK,tell,H2O 2,real,stack,0.037800945604139255
+desi,GK,tell,H2O 2,real,star,0.0396686760899103
+desi,GK,tell,H2O 2,shifted,stack,0.026232999806122967
+desi,GK,tell,H2O 2,shifted,star,0.028250326726684948
+desi,GK,tell,H2O 3,real,stack,0.04964934280573926
+desi,GK,tell,H2O 3,real,star,0.05146687993951432
+desi,GK,tell,H2O 3,shifted,stack,0.04124893981119487
+desi,GK,tell,H2O 3,shifted,star,0.043895076521611155
+desi,GK,tell,H2O 4,real,stack,0.03476289859501318
+desi,GK,tell,H2O 4,real,star,0.03896828226027895
+desi,GK,tell,H2O 4,shifted,stack,0.04190509835359941
+desi,GK,tell,H2O 4,shifted,star,0.04395977601084218
+desi,M,v2,T0,real,stack,2.025601939112857
+desi,M,v2,T0,real,star,2.0604596320750845
+desi,M,v2,T0,shifted,stack,0.1683683680098008
+desi,M,v2,T0,shifted,star,0.215187834144283
+desi,M,v2,O2 1,real,stack,0.056717897880287416
+desi,M,v2,O2 1,real,star,0.06051998318471515
+desi,M,v2,O2 1,shifted,stack,0.11924934321946165
+desi,M,v2,O2 1,shifted,star,0.12129778143532167
+desi,M,v2,O2 2,real,stack,0.08966602361007553
+desi,M,v2,O2 2,real,star,0.10491191907827578
+desi,M,v2,O2 2,shifted,stack,0.06610886517973466
+desi,M,v2,O2 2,shifted,star,0.07364862826901014
+desi,M,v2,O2 3,real,stack,0.05866687342564048
+desi,M,v2,O2 3,real,star,0.07991466239168223
+desi,M,v2,O2 3,shifted,stack,0.06728188357860883
+desi,M,v2,O2 3,shifted,star,0.07523768088797571
+desi,M,v2,H2O 1,real,stack,0.06773228535703175
+desi,M,v2,H2O 1,real,star,0.06995035398423623
+desi,M,v2,H2O 1,shifted,stack,0.015427320762243402
+desi,M,v2,H2O 1,shifted,star,0.021540300140312576
+desi,M,v2,H2O 2,real,stack,0.0631761778189324
+desi,M,v2,H2O 2,real,star,0.0752492079751505
+desi,M,v2,H2O 2,shifted,stack,0.12119817383604457
+desi,M,v2,H2O 2,shifted,star,0.12387026605624674
+desi,M,v2,H2O 3,real,stack,0.056813723465509565
+desi,M,v2,H2O 3,real,star,0.05792625537570496
+desi,M,v2,H2O 3,shifted,stack,0.07695233269559291
+desi,M,v2,H2O 3,shifted,star,0.07673968192250012
+desi,M,v2,H2O 4,real,stack,0.009709507864933457
+desi,M,v2,H2O 4,real,star,0.013602472865998434
+desi,M,v2,H2O 4,shifted,stack,0.048669213582543364
+desi,M,v2,H2O 4,shifted,star,0.04973673153054929
+desi,M,tell,T0,real,stack,2.0129299603304682
+desi,M,tell,T0,real,star,2.056769096314394
+desi,M,tell,T0,shifted,stack,0.17508792408971918
+desi,M,tell,T0,shifted,star,0.22114657751813904
+desi,M,tell,O2 1,real,stack,0.05648078322341385
+desi,M,tell,O2 1,real,star,0.060399013483163996
+desi,M,tell,O2 1,shifted,stack,0.1162912135929104
+desi,M,tell,O2 1,shifted,star,0.11938513460486513
+desi,M,tell,O2 2,real,stack,0.08655881506607004
+desi,M,tell,O2 2,real,star,0.10152615094787285
+desi,M,tell,O2 2,shifted,stack,0.06685855136822126
+desi,M,tell,O2 2,shifted,star,0.07433943084887214
+desi,M,tell,O2 3,real,stack,0.058441738180217355
+desi,M,tell,O2 3,real,star,0.08016392024524621
+desi,M,tell,O2 3,shifted,stack,0.06775871054458697
+desi,M,tell,O2 3,shifted,star,0.07559694772685949
+desi,M,tell,H2O 1,real,stack,0.0667128724894292
+desi,M,tell,H2O 1,real,star,0.0696717255583839
+desi,M,tell,H2O 1,shifted,stack,0.014698273554761812
+desi,M,tell,H2O 1,shifted,star,0.021071707796496267
+desi,M,tell,H2O 2,real,stack,0.06275703208450162
+desi,M,tell,H2O 2,real,star,0.07491977780219551
+desi,M,tell,H2O 2,shifted,stack,0.12111672577488582
+desi,M,tell,H2O 2,shifted,star,0.12449123210418665
+desi,M,tell,H2O 3,real,stack,0.055671781861222576
+desi,M,tell,H2O 3,real,star,0.05683246594683854
+desi,M,tell,H2O 3,shifted,stack,0.07558931247655595
+desi,M,tell,H2O 3,shifted,star,0.07593182754159433
+desi,M,tell,H2O 4,real,stack,0.009217180868596736
+desi,M,tell,H2O 4,real,star,0.013079665567273057
+desi,M,tell,H2O 4,shifted,stack,0.04851465162909663
+desi,M,tell,H2O 4,shifted,star,0.04986455331838816
