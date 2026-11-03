@@ -34,8 +34,8 @@ def main():
         df = pd.read_parquet(os.path.join(S6.CACHE, f'step6_selection_{tag}.parquet')); df = df[df.SID.isin(keep)]; it = lambda d: S6.iter_store(d, 0, star_hook.STORE_V2)
     else:
         cells, mem = S6.members(tag, 100); ns = argparse.Namespace(survey='sdss', passdir=None, maxper=0, select_only=False, snmin=5.0, nmin=100, v2=True, from_store=False, onepass=True, store_only=False, telluric=True, tag=tag, outdir=tell_hook.OUT); df, _ = S6.select_stars(ns, cells, mem, t0); df = df[df.SID.isin(keep)]; it = lambda d: S6.iter_sdss(d, 0)
-    files = df.FILE.unique(); df = df[df.FILE.isin(rng.choice(files, min(a.nfiles, len(files)), replace=False))]; print(f'{len(df):,} stars in {df.FILE.nunique():,} files, {time.time() - t0:.0f} s', flush=True)
-    model = tell_hook.models(tag, a.survey, tell_hook.dr8_shares(df)); c = fitsio.read(os.path.join(tell_hook.V2, f'stacks_{tag}.fits'), ext='CELLS'); cls = {s.strip(): star_class(float(m), float(k)) for s, m, k in zip(c['STACK'].astype(str), c['MG0_MED'], c['COL0_MED'])}
+    model = tell_hook.models(tag, a.survey, df); files = df.FILE.unique(); df = df[df.FILE.isin(rng.choice(files, min(a.nfiles, len(files)), replace=False))]; print(f'{len(df):,} stars in {df.FILE.nunique():,} files, {time.time() - t0:.0f} s', flush=True)
+    c = fitsio.read(os.path.join(tell_hook.V2, f'stacks_{tag}.fits'), ext='CELLS'); cls = {s.strip(): star_class(float(m), float(k)) for s, m, k in zip(c['STACK'].astype(str), c['MG0_MED'], c['COL0_MED'])}
     rows = []
     for row, f, iv, mk, rid0 in it(df):
         spec, w, med = S6.star_spectrum(row, f, iv, mk, rid0, raw=True); S = tell_hook.survey_of(a.survey, row); z = row.get('Z_TRUE', row.Z); z = np.clip(z if np.isfinite(z) else 0.0, -0.004, 0.004); q = round(np.log10(1 + z) / tell_hook.QUANT) * tell_hook.QUANT; wave = SWAVE * 10**q; m = model[row.STACK]

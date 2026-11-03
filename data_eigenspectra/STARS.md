@@ -45,3 +45,7 @@ Next release (v2): DESI spectra resampled once from the native pixels straight o
 pipeline RV (`programs_templates/restframe.desi_rest`), from the shared v2 walk; SDSS unchanged at 1e-4.
 
 v2 is now in this directory (`star_eigenspectra_v2_*`, 2026-11-02); dated record and the v2 table in `00README`.
+
+v3 is the same stars as v2 with the telluric correction applied per star before stacking (`star_eigenspectra_v3_*`, 2026-11-03); dated record and the v3 table in `00README`.
+
+v4 is v3 with sqrt(N) stack weights, as the quasars (`star_eigenspectra_v4_*`, 2026-11-03), the current stellar release.

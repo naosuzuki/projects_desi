@@ -9,7 +9,7 @@ Fit on the basis pixels of r = f / (s model) - 1 - T0, weights ivar x (s model)^
 Fitted jointly: a_k with the prior N(0, amp_k^2), amp_k^2 = var - var_null of step 1 (floor 0.003), and a continuous piecewise-linear curve per band (one segment per 300 A) as nuisance terms. They never enter C: they carry
 the template and flux-calibration error, as the detrending of 02_basis.py does. A segment with < 50 % of its pixels usable is dropped for that spectrum. Too few pixels in all: a = 0, C = 1 + T0.
 Components: var / null >= 1.5 per survey (csv_files/plots_telluric_<survey>.csv) except DROP; the prior takes faint spectra smoothly to a = 0, so there is no S/N branch.
-model_has_t0=True is for stars: telluric does not smear at z ~ 0, so a star's own stack already contains the mean T0. There r = f / (s model) - 1 is fitted without T0 and C still divides T0 out.
+model_has_t0=True is for a model that already contains T0 at the spectrum's own wavelengths: r = f / (s model) - 1 is fitted without T0 and C still divides T0 out. No pipeline passes it. A star's stack holds T0 smeared by the members' velocities (-3 to +2 pixels on DESI), and tell_hook.py divides T0 out of the model instead (its known flaw is noted there).
 Held-out test of this recipe: Basis.holdout, 03_fit_test.py, 04_star_test.py.
 """
 import os, sys

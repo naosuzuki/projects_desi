@@ -70,8 +70,15 @@ Galaxies (0 < z < 1.6; files galaxy_*; HANDOVER.md)
              gal_tell_amp_v3t.csv): DESI a_k 16-84 % +-0.001-0.0016, chi2r 1.00; DR8 a_0 +-0.065; DR17 a_0 +-0.0025.
              Chaining still closes at 0.000 dex; bases galaxy_empca_v3t_G / _5450 (~/data/sdssdesi_passC_v3t/empca/)
              R^2 0.9988 / 0.9989, identical to v3s to four digits. Plots plots_v3t_*, plots_gal_tell_compare_G.png.
-             Pending decisions for Nao: v3s or v3t, version G vs 5450, stack weighting (equal vs sqrt N), rotation of
-             e0 to the mean galaxy; the chosen basis becomes galaxy_eigenspectra_v2.fits here.
+             Nao: v3t is the release; both versions kept. EM-PCA with sqrt(N) stack weighting (Quasar thread's recipe,
+             10_galaxy_empca.py --stack-weight sqrtn, run_v3t_sqrtn.sh): galaxy_empca_v3t_G_sqrtn / _5450_sqrtn,
+             R^2 0.9993 / 0.9994 (equal weights 0.9988 / 0.9989). Version G: the heavy low-z stacks (weight x4 at the
+             95th percentile) bring sharp observed-frame sky-line residuals into e0, e2-e4 red of 5800 A; version 5450
+             stays clean in e0-e4 and shows the same structure only in e5, e7, e10.
+             09:17: galaxy_empca_v3t_5450_sqrtn.fits copied byte-identical to galaxy_eigenspectra_v2.fits = RELEASE v2
+             (Nao: v3t, version 5450, sqrt N weights; 7,687 stacks, 1826-8045 A, R^2 0.9994 with 11 vectors; header
+             STACKWT = sqrtn, REF_LO/HI = 5400/5500). Figure and text in ms.tex (fig:galempca). Not done: rotation of
+             e0 to the mean galaxy (e0 is the weighted mean shape of the EM-PCA, scaled to 1 in 5400-5500 A).
 
 
 Quasars (0 < z < 5; files quasar_*; Quasar Template thread)
@@ -154,20 +161,54 @@ Stars (files star_*; Stellar Template thread; STARS.md)
              are committed in this directory; the Stellar thread's own dated record follows below.
 
 ================================================================================
-Stars and telluric (Stellar Template thread). Last updated 2026-11-02.
+Stars and telluric (Stellar Template thread). Last updated 2026-11-03.
 ================================================================================
 
-Files added here on 2026-11-02 are byte-identical copies; the working copies stay where they were.
+Files added here on 2026-11-02 and 2026-11-03 are byte-identical copies; the working copies stay where they were.
 
   star_eigenspectra_v1_<survey>_<class>.fits   release v1, frozen 2026-10-29, code tag stars-v1. Has the weighting bug fixed on 2026-10-31.
-  star_eigenspectra_v2_<survey>_<class>.fits   current uncorrected stellar bases (last rebuilt 2026-10-31). From ~/data/sdssdesi_stars/v2/empca_*.
+  star_eigenspectra_v2_<survey>_<class>.fits   uncorrected stellar bases (last rebuilt 2026-10-31). From ~/data/sdssdesi_stars/v2/empca_*.
+  star_eigenspectra_v3_<survey>_<class>.fits   telluric corrected, equal stack weights, same stars as v2 (released 2026-11-03, Nao). + .png. From /Volumes/exdisk3/sdssdesi_stars/v2_tell/empca_*.
+  star_eigenspectra_v4_<survey>_<class>.fits   current stellar bases: as v3 with sqrt(N) stack weights (released 2026-11-03, Nao). + .png. From /Volumes/exdisk3/sdssdesi_stars/v2_tell/empca_*_sqrtn.*.
   telluric_eigenspectra_<survey>.fits          dr8, dr17, desi (built 2026-11-02). From /Volumes/exdisk3/sdssdesi_telluric/basis/telluric_*.
   STARS.md                                     format of the stellar files and how v1 was built.
 
-NOT here yet: the telluric-corrected stellar bases, in /Volumes/exdisk3/sdssdesi_stars/v2_tell. They have not been compared with v2.
+Figures of e0-e9, corrected over v2: plots_luminosity/plots_eigen_v2tell_<survey>_<class>.png.
 Plots of the telluric bases and their tables: plots_luminosity/plots_telluric_<survey>.png, csv_files/plots_telluric_<survey>.csv.
 Paper: ~/github/papers/26_sdssdesi_spectra/ms.tex, sec:telluric. More detail: docs/HANDOVER_stars.md, docs/PLAN_telluric.md,
 README_desi.txt and README_sdss.txt in ~/data/sdssdesi_stars/v2.
+
+
+Stellar v4 bases (telluric corrected, sqrt(N) stack weights)
+------------------------------------------------------------
+Same format as v2; header STACKWT = sqrtn. Pixels differ slightly from v3 on SDSS, because the weight cut sees the new weights. R2 at 1/2/3/10 vectors:
+
+  survey class  stacks + stars   pixels   R2
+  DESI   WD       87 +  432     4354     .520 .963 .984 .999
+  DESI   HOT       5 +   25     4353     .685 .927 .974 .996
+  DESI   AF       12 +   60     4353     .672 .867 .901 .959
+  DESI   GK      369 + 1832     4353     .556 .968 .991 .997
+  DESI   M       425 + 2033     4353     .810 .958 .972 .987
+  SDSS   WD       39 +  195     2873     .848 .928 .959 .992
+  SDSS   AF       29 +  145     3819     .731 .873 .924 .990
+  SDSS   GK      179 +  895     3822     .759 .974 .987 .998
+  SDSS   M        68 +  340     3792     .846 .882 .944 .980
+
+
+Stellar v3 bases (telluric corrected, equal stack weights)
+----------------------------------------------------------
+Same format and pixels as v2. EM-PCA does not sort its vectors: e5-e8 of SDSS GK and M are rotated against v2, so compare or truncate those at 10 vectors only. R2 at 1/2/3/10 vectors:
+
+  survey class  stacks + stars   pixels   R2
+  DESI   WD       87 +  432     4354     .521 .963 .984 .999
+  DESI   HOT       5 +   25     4353     .707 .929 .970 .996
+  DESI   AF       12 +   60     4353     .675 .870 .903 .960
+  DESI   GK      369 + 1832     4353     .559 .969 .991 .997
+  DESI   M       425 + 2033     4353     .797 .959 .973 .988
+  SDSS   WD       39 +  195     2822     .854 .929 .960 .992
+  SDSS   AF       29 +  145     3813     .738 .874 .925 .990
+  SDSS   GK      179 +  895     3823     .768 .974 .987 .998
+  SDSS   M        68 +  340     3788     .849 .883 .948 .981
 
 
 Stellar v2 bases
@@ -262,4 +303,11 @@ Record, by date
               Held-out, SDSS 9000 A band: GK stacks 1.02 -> 1.11 %.
               Old SDSS products: /Volumes/exdisk3/sdssdesi_stars/v2_tell/sdss_before_smearfix/.
 
-Not done: the corrected stellar bases are not released; star_eigenspectra_v2_* here are still uncorrected v2. Copying them here waits for Nao's OK.
+2026-11-03: RELEASE v3 of the stellar bases (Nao): star_eigenspectra_v3_{desi_{WD,HOT,AF,GK,M},sdss_{WD,AF,GK,M}}.fits and .png, byte-identical copies from v2_tell. v2 stays here, uncorrected.
+2026-11-03: Stars, sqrt(N) stack weights (Nao, as the quasar v6): step7_empca.py --stack-weight sqrtn on the telluric-corrected stacks; each stack x sqrt(N_max / median N_max of its class). Released as v4, below.
+              Files: /Volumes/exdisk3/sdssdesi_stars/v2_tell/empca_<survey>_0.5x0.1_gspphot_<class>_sqrtn.{fits,png}; header STACKWT. Comparison: programs_telluric/09_sqrtn_compare.py, csv_files/plots_star_sqrtn_*.csv, plots_luminosity/plots_eigen_sqrtn_<survey>_<class>.png.
+              Against equal weights: R2 at 10 vectors changes by at most 0.0013; first 3 vectors the same (smallest cosine >= 0.995); pixel noise of the vectors unchanged (median ratio 0.97-1.05), so no gain like the quasars' 10x. e5 and up reorder in SDSS AF, GK and M and DESI GK: compare those at 10 vectors only.
+              The mean moves 0.02-1.6 % rms toward the large stacks. 10-vector residuals: largest third of the SDSS stacks 4 % lower, smallest third 3 % higher (AF 13 %); DESI 5 % higher in the smallest third, unchanged above (N capped at 300 there). Telluric left in the SDSS bases about the same (star coefficients T0 0.109 -> 0.114, O2 2 0.027 -> 0.031).
+            Luminosity-bin plots from the telluric-corrected stacks: plots_luminosity/plots_stars_by_lum_tell_<survey>[_flam].png, csv_files/ (plot_lum.py --telluric).
+2026-11-03: RELEASE v4 of the stellar bases (Nao): star_eigenspectra_v4_{desi_{WD,HOT,AF,GK,M},sdss_{WD,AF,GK,M}}.fits and .png = v2_tell/empca_*_sqrtn.* byte-identical. The reason is one weighting rule with the quasars, not better fits. v3 and v2 stay here.
+              The step 3 numbers above (telluric comparison with v2) are for the equal weights of v3. step7_empca.py still defaults to --stack-weight equal; v4 needs --stack-weight sqrtn.

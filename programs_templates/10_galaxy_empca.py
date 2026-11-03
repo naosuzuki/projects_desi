@@ -74,9 +74,18 @@ def main():
     ap.add_argument('--renorm', type=int, default=1, help='passes that rescale each stack to the mean shape e0 (0 = off)')
     ap.add_argument('--ref-win', type=float, nargs=2, default=[5400.0, 5500.0],
                     help='reference window: e0 has mean 1 there and e1..eN mean 0 (same span, so the same fits)')
+    ap.add_argument('--stack-weight', default='equal', choices=['equal', 'sqrtn', 'n'],
+                    help='relative weight of the stacks: equal (each stack at median weight 1; v1-v3t), x sqrt(N_STACKED / median) '
+                         '(the Quasar thread\'s recipe, Nao 2026-11-03), or x N_STACKED / median')
     a = ap.parse_args()
     t0 = time.time()
     X, W, cells, wave = load_stacks(a.stacks, a.min_snr, a.min_member_frac, a.mask_telluric)
+    if a.stack_weight != 'equal':                      # Nao 2026-11-03: as in programs_quasars/06_empca.py --stack-weight sqrtn
+        nst = cells.N_STACKED.to_numpy(float); f = nst / np.median(nst)
+        if a.stack_weight == 'sqrtn':
+            f = np.sqrt(f)
+        W = W * f[:, None]
+        print(f'stack weight {a.stack_weight}: factor 5/50/95 % {np.percentile(f, [5, 50, 95]).round(3)} (N_STACKED median {np.median(nst):.0f})', flush=True)
     ncov = (W > 0).sum(0)
     if a.min_cover_frac > 0:
         a.min_cover = max(a.min_cover, int(np.ceil(a.min_cover_frac * ncov.max())))
@@ -117,7 +126,7 @@ def main():
           f'max |ek mean| {np.abs(Pn[1:, ref].mean(1)).max():.1e}; model change {np.abs(Cn @ Pn - C @ P).max():.1e}', flush=True)
     os.makedirs(a.out, exist_ok=True)
     fn = os.path.join(a.out, f'galaxy_empca_{a.tag}.fits')
-    hdr = {'REF_LO': a.ref_win[0], 'REF_HI': a.ref_win[1]}
+    hdr = {'REF_LO': a.ref_win[0], 'REF_HI': a.ref_win[1], 'STACKWT': a.stack_weight}
     with fitsio.FITS(fn + '.tmp', 'rw', clobber=True) as fo:
         fo.write(Pn.astype(np.float32), extname='EIGVEC', header=hdr); fo.write(Cn.astype(np.float32), extname='COEFF', header=hdr)
         fo.write(P.astype(np.float32), extname='EIGVEC_ORTHO'); fo.write(C.astype(np.float32), extname='COEFF_ORTHO')

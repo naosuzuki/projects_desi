@@ -6,7 +6,7 @@ factor is STORED (NORM table: NORM_GFLUX = photon-weighted mean F_lambda through
 M_G0_CELL) so absolute flux = normalized spectrum x NORM_GFLUX exactly. Linear flux; dereddened, RV-corrected inputs (the stacks
 of step 6); weighted mean subtracted and kept as component 0; zero weight on uncovered pixels.
 Classes by the cell's HR position: WD (M_G0 > 9 and (BP-RP)_0 < 0.8), HOT ((BP-RP)_0 < 0.3, not WD), AF (0.3-0.7), GK (0.7-2.0),
-M (> 2.0). Weights: each stack counts once (its ivar renormalized to a median of 1 over its good pixels); --individuals K adds up to
+M (> 2.0). Weights: each stack counts once (its ivar renormalized to a median of 1 over its good pixels), or with --stack-weight sqrtn also x sqrt(N_max / median N_max); --individuals K adds up to
 K stars with S/N > --snmin per stack, read from the spPlates with step6_stack's machinery, with ivar scaled so that all
 individuals together weigh as much as the stacks of that class.
 EM-PCA (Bailey 2012) in numpy: alternate (E) per-object coefficients by weighted LSQ and (M) per-pixel eigenvector values by
@@ -196,6 +196,7 @@ def main():
     ap.add_argument('--v2', action='store_true', help='v2: stacks from OUTDIR/v2, individuals from star_hook.STORE_V2 (rest frame)')
     ap.add_argument('--min-wfrac', type=float, default=0.3, help='weight cut of empca (meant for the BOSS-only blue end); 0 for DESI, where every pixel is covered: the cut drops the red end of M stars, whose photon-noise weights are low there at high S/N; SDSS M: 0.1 (keeps 3675-9202 A, masks the bright sky lines; 0 lets the noisy BOSS ends dominate)')
     ap.add_argument('--telluric', action='store_true', help='with --v2: the telluric-corrected stacks of step6 --telluric (tell_hook.OUT); the v2 individuals divided by the factors step 6 fitted')
+    ap.add_argument('--stack-weight', default='equal', choices=['equal', 'sqrtn'], help='relative weight of the stacks: equal (each stack at median weight 1), or x sqrt(N_max / median N_max of the class), as programs_quasars/06_empca.py (Nao 2026-11-03); sqrtn writes empca_<tag>_<class>_sqrtn.*')
     a = ap.parse_args(); t0 = time.time()
     global OUTDIR, V2
     V2 = a.v2
@@ -223,6 +224,8 @@ def main():
         W = W * (nspec[sel] >= a.min_member_frac * cells.N.to_numpy()[sel, None])
         # each stack counts once: renormalize its weights to a median of 1 over its good pixels
         med = np.array([np.median(W[i][W[i] > 0]) if (W[i] > 0).any() else 1.0 for i in range(len(sel))]); W = W / med[:, None]
+        if a.stack_weight == 'sqrtn':
+            nmax = nspec[sel].max(axis=1).astype(float); W = W * np.sqrt(nmax / np.median(nmax))[:, None]
         norm_rows = [dict(ID=cells.STACK.iloc[i], KIND='stack', CLASS=c, NORM_GFLUX=gf[i], M_G_SYN=mg[i], M_G_SYN_AB=mg_ab[i], M_G0_CELL=cells.MG0_MED.iloc[i], COL0_CELL=cells.COL0_MED.iloc[i], FEH_CELL=cells.FEH_MED.iloc[i], N=int(cells.N.iloc[i])) for i in sel]
         if len(ind_ids):
             cmap = dict(zip(cells.STACK, cls)); isel = [j for j, s in enumerate(ind_stacks) if cmap.get(s) == c and np.isfinite(igf[j])]
@@ -244,9 +247,9 @@ def main():
         P, C, pixok = empca(Xc, W, nvec, a.niter, min_wfrac=a.min_wfrac, n_ref=len(sel), trim_edge=a.trim_edge)
         var = explained(np.where(pixok[None, :], Xc, 0.0), np.where(pixok[None, :], W, 0.0), P)
         mean = np.where(pixok, mean, 0.0)
-        out = os.path.join(OUTDIR, f'empca_{a.tag}_{c}.fits')
+        sfx = '' if a.stack_weight == 'equal' else f'_{a.stack_weight}'; out = os.path.join(OUTDIR, f'empca_{a.tag}_{c}{sfx}.fits')
         if os.path.exists(out): os.remove(out)
-        hdr = {'COEFF0': SRID_MIN * DLOG, 'COEFF1': DLOG, 'CLASS': c, 'NORM': 'synthetic Gaia G flux = 1 (see NORM table)', 'NVEC': nvec, 'NITER': a.niter, 'TRIMEDGE': a.trim_edge, 'MINMEMB': a.min_member_frac, 'NOBS': len(X), 'TAG': a.tag}
+        hdr = {'COEFF0': SRID_MIN * DLOG, 'COEFF1': DLOG, 'CLASS': c, 'NORM': 'synthetic Gaia G flux = 1 (see NORM table)', 'NVEC': nvec, 'NITER': a.niter, 'TRIMEDGE': a.trim_edge, 'MINMEMB': a.min_member_frac, 'NOBS': len(X), 'TAG': a.tag, 'STACKWT': a.stack_weight}
         with fitsio.FITS(out, 'rw') as F:
             F.write(mean.astype(np.float32), header=hdr, extname='MEAN'); F.write(P.astype(np.float32), extname='EIGVEC')
             F.write(C.astype(np.float32), extname='COEFF'); F.write(var.astype(np.float32), extname='VARIANCE'); F.write(pixok.astype(np.int8), extname='PIXMASK')
@@ -259,7 +262,7 @@ def main():
             axes[0].plot(SWAVE, mean, 'k', lw=0.6); axes[0].set_title(f'{c}: mean (G flux = 1), {len(sel)} stacks + {len(X)-len(sel)} stars', fontsize=9, loc='left')
             for k in range(min(4, nvec)):
                 axes[k + 1].plot(SWAVE, P[k], lw=0.6); axes[k + 1].set_title(f'eigenvector {k+1}: {var[k] - (var[k-1] if k else 0):.3f} of the weighted variance', fontsize=9, loc='left')
-            axes[-1].set_xlabel('wavelength [A]'); fig.tight_layout(); fig.savefig(os.path.join(OUTDIR, f'empca_{a.tag}_{c}.png'), dpi=100); plt.close(fig)
+            axes[-1].set_xlabel('wavelength [A]'); fig.tight_layout(); fig.savefig(os.path.join(OUTDIR, f'empca_{a.tag}_{c}{sfx}.png'), dpi=100); plt.close(fig)
     gauge()
 
 

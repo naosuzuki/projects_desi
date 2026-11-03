@@ -10,8 +10,9 @@ No anchoring is needed: the stacks are already dereddened absolute F_lambda at 1
 M_AB(lambda) = -2.5 log10(F_lambda lambda^2 / c) - 48.60 directly. Bottom row: stars contributing per pixel.
 --flam (Nao 2026-10-31; as the quasar thread's 12_lum_stacks.py --simple): y = the F_lambda magnitude (ST system,
 M_ST = -2.5 log10 F_lambda,abs - 21.10) instead of the F_nu (AB) magnitude, so hot stars brighten to the blue.
-Usage: python3 plot_lum.py --survey desi|sdss [--flam] [--dm 1.0] [--out PNG]
-Outputs: PNG (default plots_luminosity/plots_stars_by_lum_<survey>[_flam].png) and csv_files/<same name>.csv (one row per class x magnitude bin).
+--telluric (Nao 2026-11-03): the telluric-corrected stacks of tell_hook.OUT, same stars as v2.
+Usage: python3 plot_lum.py --survey desi|sdss [--flam] [--telluric] [--dm 1.0] [--out PNG]
+Outputs: PNG (default plots_luminosity/plots_stars_by_lum[_tell]_<survey>[_flam].png) and csv_files/<same name>.csv (one row per class x magnitude bin).
 """
 import os, sys, argparse
 import numpy as np
@@ -39,24 +40,24 @@ def smooth(y):
     return np.where(ok & (den > 0.5), num / np.where(den > 0, den, 1), np.nan)
 
 
-def main():
-    ap = argparse.ArgumentParser(); ap.add_argument('--survey', default='desi', choices=['desi', 'sdss'])
-    ap.add_argument('--tag', default=None); ap.add_argument('--dm', type=float, default=1.0); ap.add_argument('--out', default=None)
-    ap.add_argument('--flam', action='store_true', help='y = F_lambda (ST) magnitude instead of F_nu (AB)')
-    a = ap.parse_args(); tag = a.tag or f'{a.survey}_0.5x0.1_gspphot'
-    out = a.out or os.path.join(os.path.dirname(HERE), 'plots_luminosity', f'plots_stars_by_lum_{a.survey}{"_flam" if a.flam else ""}.png')
-    F = fitsio.FITS(os.path.join(V2, f'stacks_{tag}.fits'))
+def binned(tag, survey, dm=1.0, telluric=False):
+    """rest wavelengths, magnitude bin edges, their number, and (class, mbin) -> [sum n f, sum n, sum N M, sum N, nstacks]."""
+    if telluric:
+        import tell_hook; d = tell_hook.OUT
+    else:
+        d = V2
+    F = fitsio.FITS(os.path.join(d, f'stacks_{tag}.fits'))
     fl = F['FLUX'].read().astype(float); ns = F['NSPEC'].read().astype(float); arr = F['CELLS'].read(); F.close()
     c = pd.DataFrame({k: arr[k].astype(arr[k].dtype.newbyteorder('=')) for k in ('N', 'MG0_MED', 'COL0_MED')})
     c['CLS'] = [star_class(m, k) for m, k in zip(c.MG0_MED, c.COL0_MED)]
     w = starlib.SWAVE
-    edges = np.arange(MRANGE[0], MRANGE[1] + 1e-9, a.dm); nb = len(edges) - 1
-    acc = {}                                               # (class, mbin) -> [sum n f, sum n, sum N M, sum N, nstacks]
+    edges = np.arange(MRANGE[0], MRANGE[1] + 1e-9, dm); nb = len(edges) - 1
+    acc = {}
     for i, r in c.iterrows():
         b = int(np.digitize(r.MG0_MED, edges) - 1)
         if not (0 <= b < nb):
             continue
-        good = (ns[i] >= MINFRAC * r.N) & np.isfinite(fl[i]) & (fl[i] > 0) & (w >= WRANGE[a.survey][0]) & (w <= WRANGE[a.survey][1])
+        good = (ns[i] >= MINFRAC * r.N) & np.isfinite(fl[i]) & (fl[i] > 0) & (w >= WRANGE[survey][0]) & (w <= WRANGE[survey][1])
         if not good.any():
             continue
         k = (r.CLS, b)
@@ -64,6 +65,17 @@ def main():
             acc[k] = [np.zeros(len(w)), np.zeros(len(w)), 0.0, 0.0, 0]
         acc[k][0] += np.where(good, ns[i] * fl[i], 0.0); acc[k][1] += np.where(good, ns[i], 0.0)
         acc[k][2] += r.N * r.MG0_MED; acc[k][3] += r.N; acc[k][4] += 1
+    return w, edges, nb, acc
+
+
+def main():
+    ap = argparse.ArgumentParser(); ap.add_argument('--survey', default='desi', choices=['desi', 'sdss'])
+    ap.add_argument('--tag', default=None); ap.add_argument('--dm', type=float, default=1.0); ap.add_argument('--out', default=None)
+    ap.add_argument('--flam', action='store_true', help='y = F_lambda (ST) magnitude instead of F_nu (AB)')
+    ap.add_argument('--telluric', action='store_true', help='the telluric-corrected stacks (tell_hook.OUT)')
+    a = ap.parse_args(); tag = a.tag or f'{a.survey}_0.5x0.1_gspphot'
+    out = a.out or os.path.join(os.path.dirname(HERE), 'plots_luminosity', f'plots_stars_by_lum{"_tell" if a.telluric else ""}_{a.survey}{"_flam" if a.flam else ""}.png')
+    w, edges, nb, acc = binned(tag, a.survey, a.dm, a.telluric)
     cols = [g for g in CLASSES if any(k[0] == g for k in acc)]
     fig, ax = plt.subplots(2, len(cols), figsize=(5.4 * len(cols), 10.5), sharex=True, squeeze=False,
                            gridspec_kw=dict(height_ratios=[3, 1]))
@@ -91,7 +103,7 @@ def main():
     ax[0, 0].set_ylabel('absolute F_lambda magnitude  M_ST = -2.5 log F_lambda,abs - 21.1  (10 pc, dereddened)' if a.flam
                         else 'absolute AB magnitude M_AB(lambda)  (F_nu at 10 pc, dereddened)'); ax[1, 0].set_ylabel('stars per pixel')
     sm = plt.cm.ScalarMappable(cmap=cm, norm=norm); fig.colorbar(sm, ax=ax, label='M_G0 (stack median, Vega)', fraction=0.015)
-    fig.suptitle(f'Stellar spectra by luminosity ({a.dm:.0f}-mag bins of M_G0) and temperature class, {a.survey.upper()} v2 HR-cell stacks'
+    fig.suptitle(f'Stellar spectra by luminosity ({a.dm:.0f}-mag bins of M_G0) and temperature class, {a.survey.upper()} v2 {"telluric-corrected " if a.telluric else ""}HR-cell stacks'
                  '\nstar-weighted mean over all colour / [M/H] stacks of the bin (pixels with >= half the members); '
                  + ('y = absolute F_lambda (ST) magnitude' if a.flam else 'y = absolute AB magnitude') + ' straight from F_lambda at 10 pc (no anchoring)', fontsize=12)
     fig.savefig(out, dpi=75); plt.close(fig)
