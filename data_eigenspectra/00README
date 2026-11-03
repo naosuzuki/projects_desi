@@ -69,11 +69,58 @@ Galaxies (0 < z < 1.6; files galaxy_*; HANDOVER.md)
 Quasars (0 < z < 5; files quasar_*; Quasar Template thread)
 -----------------------------------------------------------
 
-2026-10-29   quasar_eigenspectra_v1.fits (all z) and the redshift pieces _z0008, _z0820, _z2099: release v1 from the
-             pass-Q stacks (six-axis cells, 3000-3050 A normalization chained through overlapping quasars).
-2026-10-30 - 2026-11-02   Release 3 by that thread (direct 3000-3050 A normalization, pivoted EM-PCA, template
-             normalization, run 4 bins from corrected template amplitudes; run 5 = telluric-corrected, 2026-11-02).
-             See that thread's handover (docs/HANDOVER_quasars.md); nothing newer committed here yet.
+Grid: rest 600-9900 A, 12,175 pixels. Input: every SDSS and DESI quasar with the per-spectrum pass-Q measurements,
+1.28 million in the training set. Normalization window 3000-3050 A; luminosity M_AB(3025) = -2.5 log F_abs - 19.81,
+F_abs the absolute flux density at 10 pc. Scripts in programs_quasars/ (01/02 pass Q, 04_cells.py, 05_stack.py,
+06_empca.py, 12_lum_stacks.py, 13_telluric_export.py, 14_template_rebin.py; launchers run_stack_v3.sh,
+after_stack_v3.sh, run_v3_*.sh); logs in ~/data/sdssdesi_status/; products in ~/data/sdssdesi_products/quasar/.
+Files here: quasar_eigenspectra_v1*.fits/.png (= qso_empca_v1*.fits of 2026-10-29) and quasar_eigenspectra_v2.fits/.png
+(= qso_empca_v5.fits of 2026-11-02). The intermediate bases are in the products
+directory (qso_empca_v2*.fits, qso_empca_v3_{fitchain,winnorm,tplwin}.fits, qso_empca_v4.fits),
+not copied here.
+
+2026-10-24   Quasar thread started (docs/HANDOVER_quasars.md). Pass Q: per-spectrum measurements of every SDSS and
+             DESI quasar (spectrophotometric scale to fiber photometry, Milky Way extinction, power-law continuum,
+             broad and narrow lines, BAL indices, Lya-forest coverage); pipeline monitor (programs_monitor/).
+2026-10-25   Vacuum wavelengths throughout; SDSS master table; stack cells on six axes: redshift slice, luminosity,
+             equivalent width, continuum slope, oxygen-line strength, BAL class.
+2026-10-27   DESI master table; systemic redshift Z_SYS from the narrow lines and Mg II (O I excluded); luminosity
+             defined as the absolute flux density at the normalization window of the stack's redshift range
+             (5100-5130 A for z < 0.8, 3000-3050 A for 0.8 <= z < 2, 1275-1290 A for z >= 2); combined cells.
+2026-10-28   First stacks over all DESI coadds and SDSS plates (one read per coadd, shared with galaxies and stars).
+2026-10-29   v1: EM-PCA of the stacks, one basis for all redshifts and three redshift slices; released as
+             quasar_eigenspectra_v1*.fits (the files here).
+2026-10-30   v2: every spectrum re-read with sub-pixel placement on the 1e-4 grid (the shared DESI walk, stores on
+             exdisk3); stacks and EM-PCA redone (qso_empca_v2*.fits).
+2026-10-31   v3, no redshift cells: the flux ratios between the three windows depend on luminosity, not on redshift or
+             survey (R1 = F(3025)/F(5115) from +0.48 dex at M < -24 to -0.75 at -17.25 as the host takes over;
+             R2 = F(3025)/F(1282) -0.50 to -0.58 dex), so the redshift axis is dropped and every quasar is chained to
+             3025 A; labels L_E_S_O_B (0.4-dex luminosity bins). Run 1, fit-chained ratios: 0.4-dex population step
+             in the M -22..-20 bins (qso_empca_v3_fitchain).
+2026-11-01   Run 2, measured window normalization per quasar (75 % measured): faint stacks jump 20-130 % at the window
+             edge (qso_empca_v3_winnorm). Run 3, template normalization (each quasar scaled by the least-squares
+             amplitude of its cell's stack over all good pixels, 99.97 % of the members): 899 stacks of 1.28 M
+             quasars, R^2 0.546 / 0.998 / 0.999 for 1-3 vectors, 786-8492 A (qso_empca_v3_tplwin); the bins fainter
+             than M -20 still dive at 3000 A: selection on window noise (z 0.19-0.3, window at the DESI blue edge).
+             21:43 run 4 started: luminosity bins from the template amplitudes corrected per cell
+             (14_template_rebin.py), re-stack with mixed templates.
+2026-11-02   00:00 v4 cuts (Nao: the faintest bins show no Mg II, host galaxies): stacks fainter than M_AB(3025) = -18
+             dropped, blue end of every stack trimmed where the running S/N < 5 or the flux falls toward the blue by
+             > 10 % (qsolib.blue_trim). 04:42 run 4 done: 987 cells, 1,284,634 members (11,060 on the window
+             fallback); v4 = 856 stacks, 816-7993 A, R^2 0.978 / 0.989 / 0.995 / 0.996 for 1-4 vectors (0.55 for one
+             vector before the cuts).
+             04:47-13:55 run 5 (Nao: apply the telluric correction): every member divided by the Stellar thread's
+             observed-frame factor (tellapply.py: C = 1 + T0 on DESI and DR17, + O2/H2O eigenvectors on DR8; median
+             |C-1| 7e-4 DESI/DR17, 4e-3 DR8, 1-3 % at the 99th percentile), the run-4 stack as the model, forest and
+             broad lines excluded (05_stack.py --telluric); 1,284,227 of 1,284,634 members corrected. Faint cut moved
+             to M -19 (Nao; the -19..-18 bin still dipped below 3000 A). v5 = 839 stacks, 816-7663 A, R^2 0.981 /
+             0.992 / 0.996 / 0.996. Against the run-4 stacks of the same members: smooth factor within 1.5 % (the
+             normalization templates changed), and once removed 3e-4 rms inside the O2 A and 8200 A H2O bands vs
+             1e-4 outside (44 stacks with >= 5,000 quasars per pixel): the telluric step is negligible for the quasar
+             stacks. e1 unchanged (correlation 0.995 with v4); e2/e3 re-order after the faint cut. Luminosity
+             composites plots_luminosity/plots_qso_stacks_by_lum_v{4,5}_*.png, tables csv_files/. 00README quasar
+             section written.
+             RELEASE v2 (Nao, 2026-11-02): quasar_eigenspectra_v2.fits/.png = qso_empca_v5.fits byte-identical.
 
 
 Stars (files star_*; Stellar Template thread; STARS.md)
