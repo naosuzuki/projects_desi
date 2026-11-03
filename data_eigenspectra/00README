@@ -61,9 +61,17 @@ Galaxies (0 < z < 1.6; files galaxy_*; HANDOVER.md)
              07:25: release 3t started = the same re-read with the per-spectrum telluric correction
              (tellhook.py -> programs_telluric/tellapply.py, Stellar thread's per-survey telluric eigenspectra;
              C = 1 + T0 (+ sum a_k T_k on DR8); a_k recorded per galaxy as TELL_A0..6), outputs *_v3t on exdisk3,
-             then merge, chaining, plots and EM-PCA v3t_G / v3t_5450 (after_v3t.sh). Pending decisions for Nao:
-             version G vs 5450, stack weighting (equal vs sqrt N), rotation of e0 to the mean galaxy; the chosen basis
-             becomes galaxy_eigenspectra_v2.fits here.
+             then merge, chaining, plots and EM-PCA v3t_G / v3t_5450 (after_v3t.sh).
+2026-11-03   04:40: release 3t done (DESI 4 shards 19.2 h, DR8 3.2 h, DR17 5.1 h; 28.1 M DESI, 87 k DR8, 1.56 M DR17
+             spectra corrected). Stack-level effect of the telluric step (28_tell_compare.py, median of F_v3t/F_v3s - 1
+             in the observed frame): DESI 1e-4 inside and outside the O2/H2O bands (largest +1.3e-3 in H2O 9000-9700);
+             SDSS +1.4e-3 (B), +2.2e-3 (A), +2.9e-3 (H2O 8200), +2.6e-3 (H2O 9000) on top of +2.0e-3 outside the bands,
+             i.e. a 0.2 % normalization shift plus about 1e-3 in the bands. Per-spectrum amplitudes (csv_files/
+             gal_tell_amp_v3t.csv): DESI a_k 16-84 % +-0.001-0.0016, chi2r 1.00; DR8 a_0 +-0.065; DR17 a_0 +-0.0025.
+             Chaining still closes at 0.000 dex; bases galaxy_empca_v3t_G / _5450 (~/data/sdssdesi_passC_v3t/empca/)
+             R^2 0.9988 / 0.9989, identical to v3s to four digits. Plots plots_v3t_*, plots_gal_tell_compare_G.png.
+             Pending decisions for Nao: v3s or v3t, version G vs 5450, stack weighting (equal vs sqrt N), rotation of
+             e0 to the mean galaxy; the chosen basis becomes galaxy_eigenspectra_v2.fits here.
 
 
 Quasars (0 < z < 5; files quasar_*; Quasar Template thread)
@@ -74,10 +82,10 @@ Grid: rest 600-9900 A, 12,175 pixels. Input: every SDSS and DESI quasar with the
 F_abs the absolute flux density at 10 pc. Scripts in programs_quasars/ (01/02 pass Q, 04_cells.py, 05_stack.py,
 06_empca.py, 12_lum_stacks.py, 13_telluric_export.py, 14_template_rebin.py; launchers run_stack_v3.sh,
 after_stack_v3.sh, run_v3_*.sh); logs in ~/data/sdssdesi_status/; products in ~/data/sdssdesi_products/quasar/.
-Files here: quasar_eigenspectra_v1*.fits/.png (= qso_empca_v1*.fits of 2026-10-29) and quasar_eigenspectra_v2.fits/.png
-(= qso_empca_v5.fits of 2026-11-02). The intermediate bases are in the products
-directory (qso_empca_v2*.fits, qso_empca_v3_{fitchain,winnorm,tplwin}.fits, qso_empca_v4.fits),
-not copied here.
+Files here: quasar_eigenspectra_v1*.fits/.png (= qso_empca_v1*.fits of 2026-10-29), quasar_eigenspectra_v2.fits/.png
+(= qso_empca_v5.fits of 2026-11-02) and quasar_eigenspectra_v3.fits/.png (= qso_empca_v6.fits of 2026-11-03, the current
+basis; *_e0-e9.png shows its first ten vectors). The intermediate bases are in the products directory
+(qso_empca_v2*.fits, qso_empca_v3_{fitchain,winnorm,tplwin}.fits, qso_empca_v4.fits, qso_empca_v5.fits), not copied here.
 
 2026-10-24   Quasar thread started (docs/HANDOVER_quasars.md). Pass Q: per-spectrum measurements of every SDSS and
              DESI quasar (spectrophotometric scale to fiber photometry, Milky Way extinction, power-law continuum,
@@ -121,6 +129,16 @@ not copied here.
              composites plots_luminosity/plots_qso_stacks_by_lum_v{4,5}_*.png, tables csv_files/. 00README quasar
              section written.
              RELEASE v2 (Nao, 2026-11-02): quasar_eigenspectra_v2.fits/.png = qso_empca_v5.fits byte-identical.
+2026-11-03   v6, stack weights (Nao 2026-11-02: 'e5 is still bumpy at the normalization'). Cause: 06_empca.py gave
+             every stack the same weight (its ivar scaled to median 1), so the 300-3000-member stacks set the higher
+             vectors in the line-free 2970-3100 A region (the UV Fe II complex ends at 2960 A), with pixel noise 2-7x
+             that of e5 elsewhere and a step at 2967 A in e2, e3 and e5; the stacks themselves are smooth there.
+             Fix: --stack-weight sqrtn (each stack's weight x sqrt(N_max/median N_max); default since v6, 'equal'
+             reproduces v5). v6 = the v5 stacks (839, 815-7684 A), R^2 0.984 / 0.995 / 0.998 / 0.998 for 1-4
+             vectors; e1 as in v5 (correlation 0.99), e2 0.93, e3 0.75, higher orders re-order; pixel noise of e3/e5
+             at 2970-3100 A down 10x (2e-5 / 3e-5 from 2e-4 / 5e-4), the 2967 A step gone (< 1e-4). Header STACKWT.
+             RELEASE v3 (Nao, 2026-11-03 'Yes, make v6'): quasar_eigenspectra_v3.fits/.png = qso_empca_v6.fits
+             byte-identical; quasar_eigenspectra_v3_e0-e9.png (15_plot_eigvec.py).
 
 
 Stars (files star_*; Stellar Template thread; STARS.md)
@@ -220,7 +238,28 @@ Record, by date
             Nao accepted the recipe (DR8 T0 + a_k; DR17 and DESI T0 alone), changing the original per-spectrum plan on those two surveys.
             Telluric section written into ms.tex (uncommitted; Nao commits ms.tex).
             Stars: SDSS restacked with the correction (91,726 stars, 84,018 fitted, the rest T0 only), EM-PCA done, not yet compared with v2.
-            DESI restack running (195,284 stars). Its stack file in v2_tell is from a 150-file test until that run finishes.
             Stellar v2 and telluric eigenspectra copied here (this entry).
+            Stars: DESI restacked with the correction, same as v2 (195,284 members listed, 188,985 stacked in both, 188,978 fitted), EM-PCA done.
+            Step 3, stars (programs_telluric/06_star_compare.py, 07_plot_starcompare.py; csv_files/plots_telluric_starcompare_*.csv):
+              SDSS / DESI of the same cell, 175 cells: 5 of 6 bands improve, control windows unchanged. 6266-6315 A gets slightly worse, cause not established.
+              SDSS bases: water vapour largely leaves (star coefficients, rms, median over classes: T0 0.44 -> 0.12, H2O 3 0.075 -> 0.019); O2 2 and O2 3 do not change.
+              e1-e4 keep their shape. e5-e8 of GK and M rotate, because EM-PCA does not sort: compare or truncate those only at 10 vectors.
+              DESI bases: unchanged (T0 alone; smallest cosine of the first 10 >= 0.998). Only the mean and the stacks change, 0.2 % rms in the bands.
+              T0 amplitude right to about 20 %, sign not settled: WD stacks leave +0.23 (DESI), +0.22 (SDSS); SDSS / DESI gives -0.19.
+              Stars smear T0 in their rest frame (-3 to +2 pixels on DESI). The tests above use T0 at the members' velocities.
+              DR8 stack mean a_k: up to 0.02, about 0.1 % in flux, scatter 1.3-2.1 x noise. a_k do not follow colour (|r| <= 0.06).
+              Part of that is a flaw in tell_hook.models: it divides the stack by T0 at rest, but the stack holds T0 smeared (08_smear_ak.py: predicts the
+              sign of all seven medians, H2O 1 and H2O 4 r = 0.72, 0.63; not O2 1). DR8 only. Not fixed in these products; the fix means restacking SDSS.
+              Held-out, SDSS 9000 A band: GK stacks 1.02 -> 1.12 %, M 0.99 -> 1.04 %. Suspected basis rotation, not tested.
+            Results in ms.tex (sec:telluric, uncommitted; Nao commits ms.tex). Notes for the corrected products: /Volumes/exdisk3/sdssdesi_stars/v2_tell/README.
+2026-11-03: Stars, tell_hook.models fixed: the stack is divided by T0 of its members at their own velocities, and SDSS restacked (Nao's OK). The numbers of 2026-11-02 for SDSS above are superseded:
+              DR8 stack means of a_k, median, H2O 1-4: 0.018, 0.020, 0.006, 0.009 -> 0.010, 0.012, 0.004, 0.004; largest about 0.07 % in flux, scatter 1.2-2.0 x noise. SDSS stacks move 0.05 % rms in the bands.
+              SDSS / DESI, 175 cells: rms in % 7156-7335 1.430 -> 1.432, 7579-7709 1.504 -> 1.501, 8121-8335 1.329 -> 1.336, 8941-9207 1.117 -> 1.109; regression on dT0 -0.19 -> -0.13. Controls unchanged.
+              SDSS star coefficients: T0 0.12 -> 0.11, H2O 1-4 0.016, 0.017, 0.018, 0.014. New and old bases span the same first 10 vectors (smallest cosine >= 0.9987); e8 and e9 of M swap.
+              Left over, not understood: H2O 1 stack means still follow T0(rest) - T0(members) (r = 0.63, slope 0.9). The a_k are skewed over stars (H2O 2 mean -0.011, median +0.011). Not tested.
+              DESI not rerun: C = 1 + T0 does not depend on the model, only the recorded a_k in its tell_coeff still come from the old one.
+              Stellar test rerun with the fix. Same 400 plates (csv_files/plots_telluric_startest_sdss.csv): DR8 gains AF 11.34 -> 9.90, GK 11.72 -> 11.01, M 2.55 -> 2.52. On 1,500 plates (.._sdss_1500plates.csv): 13.17, 13.38, 5.63, more than the per-object errors allow, so plates differ. On 1,500 plates DR8 |r| with TiO or Ca II reaches 0.26, O2 2 and O2 3; O2 2 of M has the opposite sign to AF and GK (+0.26), so TiO may contribute there.
+              Held-out, SDSS 9000 A band: GK stacks 1.02 -> 1.11 %.
+              Old SDSS products: /Volumes/exdisk3/sdssdesi_stars/v2_tell/sdss_before_smearfix/.
 
-Not done: step 3 is unfinished. Nothing yet shows that the telluric structure has left the eigenspectra.
+Not done: the corrected stellar bases are not released; star_eigenspectra_v2_* here are still uncorrected v2. Copying them here waits for Nao's OK.

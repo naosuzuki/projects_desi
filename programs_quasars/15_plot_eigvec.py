@@ -11,7 +11,7 @@ LINES = {'Lya': 1215.67, 'CIV': 1549.06, 'CIII]': 1908.73, 'MgII': 2798.75, '[OI
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
-    ap.add_argument('--basis', default=os.path.join(HERE, '..', 'data_eigenspectra', 'quasar_eigenspectra_v2.fits'))
+    ap.add_argument('--basis', default=os.path.join(HERE, '..', 'data_eigenspectra', 'quasar_eigenspectra_v3.fits'))
     ap.add_argument('--nvec', type=int, default=10); ap.add_argument('--out', default=None); ap.add_argument('--title', default=None)
     a = ap.parse_args()
     E = fitsio.read(a.basis, ext='EIGVEC'); h = fitsio.read_header(a.basis, ext='EIGVEC'); wave = fitsio.read(a.basis, ext='WAVE')

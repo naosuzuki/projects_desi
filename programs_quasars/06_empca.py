@@ -64,6 +64,7 @@ def main():
     ap.add_argument('--no-status', action='store_true', help='test runs: do not touch the monitor gauge')
     ap.add_argument('--snmin', type=float, default=5.0, help='per stack, drop the blue end until the running median S/N per pixel (100 px) reaches this; 0 = off (Nao 2026-11-01)')
     ap.add_argument('--drop', type=float, default=0.9, help='... and until the running mean flux (100 px) is >= this x the 200 px redward; 0 = off')
+    ap.add_argument('--stack-weight', default='sqrtn', choices=['equal', 'sqrtn', 'n'], help='relative weight of the stacks: equal (each stack at median weight 1; v1-v5), x sqrt(N_max) (default since v6, Nao 2026-11-03), or x N_max')
     ap.add_argument('--max-mag', type=float, default=-19.0, help='drop stacks whose luminosity bin lies entirely fainter than this M_AB(3025) (label L; v4, Nao 2026-11-01: the faintest bins are host galaxies, not quasars; -19 since v5, Nao 2026-11-02)')
     a = ap.parse_args()
     global TAG, NO_STATUS; TAG = a.tag; NO_STATUS = a.no_status
@@ -94,8 +95,11 @@ def main():
         tot = (n[keep][good] * (W > 0)).sum(axis=0); edge = tot < a.min_total
         X[:, edge] = 0.0; W[:, edge] = 0.0
         print(f'edges with < {a.min_total:,} spectra per pixel dropped: basis spans {wave[~edge].min():.0f}-{wave[~edge].max():.0f} A', flush=True)
-    for i in range(len(W)):
+    nmax = n[keep][good].max(axis=1).astype(float)
+    for i in range(len(W)):                               # per-stack weight: equal (median 1), or x sqrt(N) / x N (Nao 2026-11-02: e5 noisy at 2970-3100 A from the small stacks)
         W[i] /= np.median(W[i][W[i] > 0])
+        if a.stack_weight == 'sqrtn': W[i] *= np.sqrt(nmax[i] / np.median(nmax))
+        elif a.stack_weight == 'n': W[i] *= nmax[i] / np.median(nmax)
     print(f'{len(X)} stacks (n >= {a.nmin}, >= {a.min_pix} good pixels) of {len(cells)}; {X.shape[1]} pixels', flush=True)
     status(1, 3, 'running', f'{a.tag}: EM-PCA on {len(X)} stacks', t0)
     nv = a.nvec + 1; hdr = {}
@@ -115,7 +119,7 @@ def main():
         sh = np.array([Pr[k][piv & pixok].mean() for k in range(a.nvec)])  # <e_k>_pivot
         P = np.vstack([e0, Pr - sh[:, None] * e0[None, :]])                # e_k = 0 at the pivot, same span
         C = np.hstack([(1.0 + Cr @ sh)[:, None], Cr])                       # X ~ e0 + sum c_k e_k^old = (1 + c.sh) e0 + sum c_k e_k
-        hdr = dict(PIVOT_LO=a.pivot[0], PIVOT_HI=a.pivot[1], MINTOTAL=a.min_total, SNMIN=a.snmin, DROP=a.drop, MAXMAG=a.max_mag)
+        hdr = dict(PIVOT_LO=a.pivot[0], PIVOT_HI=a.pivot[1], MINTOTAL=a.min_total, SNMIN=a.snmin, DROP=a.drop, MAXMAG=a.max_mag, STACKWT=a.stack_weight)
         print(f'pivot {a.pivot[0]:.0f}-{a.pivot[1]:.0f} A: e0 mean {P[0][piv].mean():.6f}, |e_k| there <= {np.abs(P[1:][:, piv].mean(axis=1)).max():.1e}', flush=True)
     R2 = explained(X, W, P)
     print('weighted R^2 vs number of vectors:', ' '.join(f'{r:.4f}' for r in R2), flush=True)
