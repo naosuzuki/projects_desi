@@ -169,7 +169,8 @@ Files added here on 2026-11-02 and 2026-11-03 are byte-identical copies; the wor
   star_eigenspectra_v1_<survey>_<class>.fits   release v1, frozen 2026-10-29, code tag stars-v1. Has the weighting bug fixed on 2026-10-31.
   star_eigenspectra_v2_<survey>_<class>.fits   uncorrected stellar bases (last rebuilt 2026-10-31). From ~/data/sdssdesi_stars/v2/empca_*.
   star_eigenspectra_v3_<survey>_<class>.fits   telluric corrected, equal stack weights, same stars as v2 (released 2026-11-03, Nao). + .png. From /Volumes/exdisk3/sdssdesi_stars/v2_tell/empca_*.
-  star_eigenspectra_v4_<survey>_<class>.fits   current stellar bases: as v3 with sqrt(N) stack weights (released 2026-11-03, Nao). + .png. From /Volumes/exdisk3/sdssdesi_stars/v2_tell/empca_*_sqrtn.*.
+  star_eigenspectra_v4_<survey>_<class>.fits   as v3 with sqrt(N) stack weights (released 2026-11-03, Nao). + .png. From /Volumes/exdisk3/sdssdesi_stars/v2_tell/empca_*_sqrtn.*. DESI HOT and WD contaminated, see below.
+  star_eigenspectra_v5_<survey>_<class>.fits   current stellar bases: as v4 without the DESI stars lacking BP or RP; no DESI HOT (released 2026-11-03, Nao). + .png, _e0-e9.png. DESI from /Volumes/exdisk3/sdssdesi_stars/v5, SDSS as v4.
   telluric_eigenspectra_<survey>.fits          dr8, dr17, desi (built 2026-11-02). From /Volumes/exdisk3/sdssdesi_telluric/basis/telluric_*.
   STARS.md                                     format of the stellar files and how v1 was built.
 
@@ -178,6 +179,10 @@ Plots of the telluric bases and their tables: plots_luminosity/plots_telluric_<s
 Paper: ~/github/papers/26_sdssdesi_spectra/ms.tex, sec:telluric. More detail: docs/HANDOVER_stars.md, docs/PLAN_telluric.md,
 README_desi.txt and README_sdss.txt in ~/data/sdssdesi_stars/v2.
 
+
+Stellar v5 bases (telluric corrected, sqrt(N) stack weights, no stars without BP or RP)
+--------------------------------------------------------------------------------------
+Only DESI WD differs from v4, and DESI HOT is gone. DESI WD: 78 stacks + 377 stars, 4354 pixels, R2 .822 .937 .980 .994.
 
 Stellar v4 bases (telluric corrected, sqrt(N) stack weights)
 ------------------------------------------------------------
@@ -313,4 +318,13 @@ Record, by date
               The step 3 numbers above (telluric comparison with v2) are for the equal weights of v3. step7_empca.py still defaults to --stack-weight equal; v4 needs --stack-weight sqrtn.
               Figures: star_eigenspectra_v4_<survey>_e0-e9.png here (= plots_luminosity/plots_star_empca_v4_<survey>.png, programs_stars/plot_v4.py); ms.tex sec:gaia.
               Known problems, not resolved (in ms.tex): (a) all 5 DESI HOT stacks (625 stars) and 5 DESI WD stacks at M_G0 9.3-10.3 (817 stars) have (BP-RP)_0 -0.02 to -0.04 but red spectra, so star_eigenspectra_v4_desi_HOT is not a basis of hot stars.
+                Cause found: BP = RP = 0 in the DESI pass tables means missing, but step5/step6 compute (BP-RP)_0 = 0 - E(BP-RP). 1,742 of 16,500 WD and HOT members (621 of 625 HOT; 6 WD stacks over half), programs_stars/check_missing_bprp.py, csv_files/plots_star_missing_bprp.csv.
+                438 of them are in the Gaia catalog: median (BP-RP)_0 2.4, 3 % bluer than 0.8. Without the stacks holding them, DESI WD e1, e2 gain 0.81, 0.09 instead of 0.66, 0.30 (stacks only), close to SDSS WD. Also in v1-v4. SDSS not affected. Fixed in v5.
               (b) SDSS WD has 2873 pixels, most pixels blue of 4600 A removed by the weight cut. (c) A step near 6000-6200 A in some higher SDSS vectors (e3 AF, e7 WD and GK), possibly the spectrograph arms; not tested.
+2026-11-03: RELEASE v5 of the stellar bases (Nao): star_eigenspectra_v5_{desi_{WD,AF,GK,M},sdss_{WD,AF,GK,M}}.fits, .png; star_eigenspectra_v5_<survey>_e0-e9.png (programs_stars/plot_v5.py). v4 and earlier stay here.
+              step5 hr_cells treats BP or RP = 0 as missing and drops the star (code fixed; step 5 not rerun). For this release: /Volumes/exdisk3/sdssdesi_stars/v5/drop_desi_0.5x0.1_gspphot.csv, 1,965 members: 1,742 without BP or RP, 223 others in the 10 cells below 100 without them. tell_hook.v2_sids leaves them out; run with STAR_TELL_OUT=/Volumes/exdisk3/sdssdesi_stars/v5.
+              DESI restacked from the store, no coadd read: 884 stacks, 187,022 stars, all fitted (was 898, 188,985). AF, GK and M stacks and bases identical to v4; SDSS bases byte-identical to v4. COL0_MED and MG0_MED in CELLS still come from the old cell table.
+              DESI WD e1, e2 gain 0.82, 0.11 (v4 0.52, 0.44; SDSS WD 0.85, 0.08). R2 at 10 vectors 0.994 (v4 0.999). DESI tell_coeff in v5 has a_k from the fixed T0 model; C does not depend on them.
+              Step 3 (telluric comparison) still uses v2_tell with these stars: without the stacks holding them DESI WD T0 left is +0.29 instead of +0.23; 3 of the 175 cross-survey cells are involved. Not rerun.
+              Open: step2b_spcal.py still gives these stars colour 0 in its colour-term fit (effect not measured). SDSS WD pixels and the 6000-6200 A step above are unchanged.
+              Figures: plots_luminosity/plots_star_lum_v5.png, plots_star_empca_v5_<survey>.png, plots_stars_by_lum_v5_desi[_flam].png.

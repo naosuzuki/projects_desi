@@ -3,18 +3,20 @@
 observed wavelengths (log10(1 + z) rounded to 0.1 pixel, enough for the smooth vectors and it lets the grids be cached). Same stars as v2.
 Model: the star's v2 stack with the T0 of its members divided out: each member's T0 (DR8 or DR17 on SDSS) at its own velocity, -3 to +2 pixels, averaged. Dividing by T0 at rest moved the DR8 stack means of a_k by about 0.1 % in flux (08_smear_ak.py; SDSS restacked 2026-11-03). The DESI tell_coeff still holds a_k from that older model, unused since C = 1 + T0 there.
 Then r = f / model - 1 - T0 is what tellapply fits, as for galaxies and quasars. A stack's own mean a_k cannot be seen against itself; it is small only if its stars span many observations.
-Outputs in OUT: the stacks and EM-PCA bases of steps 6 and 7, and tell_coeff_<tag>.parquet (SID, SURVEY, LOGZ, A0-A6, NPIX, DCHI2, S); step 7 divides the v2 individuals by the same factors.
+OUT is v2_tell unless STAR_TELL_OUT says otherwise (stellar v5: /Volumes/exdisk3/sdssdesi_stars/v5). Outputs in OUT: the stacks and EM-PCA bases of steps 6 and 7, and tell_coeff_<tag>.parquet (SID, SURVEY, LOGZ, A0-A6, NPIX, DCHI2, S); step 7 divides the v2 individuals by the same factors.
 """
 import os, sys
 import numpy as np, pandas as pd, fitsio
 
 HERE = os.path.dirname(os.path.abspath(__file__)); sys.path[:0] = [HERE, os.path.join(os.path.dirname(HERE), 'programs_telluric')]
 import tellapply, starlib
-SWAVE = starlib.SWAVE; V2 = os.path.expanduser('~/data/sdssdesi_stars/v2'); OUT = '/Volumes/exdisk3/sdssdesi_stars/v2_tell'; QUANT = 1e-5
+SWAVE = starlib.SWAVE; V2 = os.path.expanduser('~/data/sdssdesi_stars/v2'); OUT = os.environ.get('STAR_TELL_OUT', '/Volumes/exdisk3/sdssdesi_stars/v2_tell'); QUANT = 1e-5
 
 
 def v2_sids(tag):
-    return set(pd.read_csv(os.path.join(V2, f'members_{tag}.csv'), usecols=['SID']).SID.astype(str))
+    """the stars of v2, less OUT/drop_<tag>.csv if it exists (stellar v5: DESI stars without BP or RP, and cells that fall below 100 without them)."""
+    s = set(pd.read_csv(os.path.join(V2, f'members_{tag}.csv'), usecols=['SID']).SID.astype(str)); p = os.path.join(OUT, f'drop_{tag}.csv')
+    return s - set(pd.read_csv(p, usecols=['SID']).SID.astype(str)) if os.path.exists(p) else s
 
 
 def survey_of(fam, row):
@@ -66,4 +68,4 @@ def individuals(tag, v2dir, k, snmin):
     for i, (s, q) in enumerate(zip(t.SURVEY, t.LOGZ)):
         if not isinstance(s, str): miss += 1; continue
         b = tellapply.basis(s); C = b.factor_of(b.grid(SWAVE * 10**q), t[cols].iloc[i].to_numpy(float)); F[i] /= C; W[i] *= C**2
-    print(f'  individuals: {len(ids)} from v2, {miss} without a factor', flush=True); return F, W, ids.tolist(), z['STACKS'].astype(str).tolist()
+    keep = t.SURVEY.map(lambda s: isinstance(s, str)).to_numpy(); print(f'  individuals: {len(ids)} from v2, {miss} without a factor, left out', flush=True); return F[keep], W[keep], ids[keep].tolist(), z['STACKS'].astype(str)[keep].tolist()

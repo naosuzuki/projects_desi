@@ -48,4 +48,6 @@ v2 is now in this directory (`star_eigenspectra_v2_*`, 2026-11-02); dated record
 
 v3 is the same stars as v2 with the telluric correction applied per star before stacking (`star_eigenspectra_v3_*`, 2026-11-03); dated record and the v3 table in `00README`.
 
-v4 is v3 with sqrt(N) stack weights, as the quasars (`star_eigenspectra_v4_*`, 2026-11-03), the current stellar release.
+v4 is v3 with sqrt(N) stack weights, as the quasars (`star_eigenspectra_v4_*`, 2026-11-03).
+
+v5 is v4 without the DESI stars lacking Gaia BP or RP, which had fallen in blue cells (`star_eigenspectra_v5_*`, 2026-11-03), the current stellar release. There is no DESI HOT class in it.

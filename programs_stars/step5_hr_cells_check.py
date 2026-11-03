@@ -66,7 +66,7 @@ def hr_cells(df, dmg, dcol, feh_col):
     """cell keys from the pass columns (shared with step6_stack.py)."""
     with np.errstate(all='ignore'):
         mg0 = df['GAIA_PHOT_G_MEAN_MAG'] - df['DM'] - df['A_G_USED']
-        col0 = df['GAIA_BP_RP'] if 'GAIA_BP_RP' in df else df['GAIA_PHOT_BP_MEAN_MAG'] - df['GAIA_PHOT_RP_MEAN_MAG']
+        col0 = df['GAIA_BP_RP'] if 'GAIA_BP_RP' in df else (df['GAIA_PHOT_BP_MEAN_MAG'] - df['GAIA_PHOT_RP_MEAN_MAG']).where((df['GAIA_PHOT_BP_MEAN_MAG'] > 0) & (df['GAIA_PHOT_RP_MEAN_MAG'] > 0))     # 0 = no BP or RP on DESI (Nao 2026-11-03: it put red dwarfs in the blue cells)
         col0 = col0 - df['EBPRP_USED']
     feh = df[feh_col] if feh_col in df else pd.Series(np.nan, index=df.index)
     out = pd.DataFrame({'MG0': mg0, 'COL0': col0, 'FEH': feh,
@@ -173,7 +173,7 @@ def main():
     feh_col = 'GAIA_MH_GSPPHOT' if a.feh == 'gspphot' else 'ELODIE_FEH'
     sel = df.QUALITY.fillna(False).astype(bool) & (df.ZWARN == 0) & (df.SNR_ALL > a.snmin) & df.CAL_OK.fillna(False).astype(bool) & np.isfinite(df.DM)
     df = df[sel].reset_index(drop=True)
-    cells = hr_cells(df, a.dmg, a.dcol, feh_col); df = pd.concat([df, cells], axis=1)
+    cells = hr_cells(df, a.dmg, a.dcol, feh_col); df = pd.concat([df, cells], axis=1); df = df[np.isfinite(df.COL0)]
     # colors: raw -> 3D dereddening (EBV_USED already is the 3D value when step3b ran before the pass; here we recompute from
     # EBV_3D when the table has it) -> step-2b tilt correction where TILT_OK
     import importlib.util, sys as _s; _s.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import starlib
