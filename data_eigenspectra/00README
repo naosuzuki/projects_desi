@@ -191,7 +191,9 @@ Files added here on 2026-11-02 and 2026-11-03 are byte-identical copies; the wor
   star_eigenspectra_v2_<survey>_<class>.fits   uncorrected stellar bases (last rebuilt 2026-10-31). From ~/data/sdssdesi_stars/v2/empca_*.
   star_eigenspectra_v3_<survey>_<class>.fits   telluric corrected, equal stack weights, same stars as v2 (released 2026-11-03, Nao). + .png. From /Volumes/exdisk3/sdssdesi_stars/v2_tell/empca_*.
   star_eigenspectra_v4_<survey>_<class>.fits   as v3 with sqrt(N) stack weights (released 2026-11-03, Nao). + .png. From /Volumes/exdisk3/sdssdesi_stars/v2_tell/empca_*_sqrtn.*. DESI HOT and WD contaminated, see below.
-  star_eigenspectra_v5_<survey>_<class>.fits   current stellar bases: as v4 without the DESI stars lacking BP or RP; no DESI HOT (released 2026-11-03, Nao). + .png, _e0-e9.png. DESI from /Volumes/exdisk3/sdssdesi_stars/v5, SDSS as v4.
+  star_eigenspectra_v5_<survey>_<class>.fits   as v4 without the DESI stars lacking BP or RP; no DESI HOT (released 2026-11-03, Nao). + .png, _e0-e9.png. DESI from /Volumes/exdisk3/sdssdesi_stars/v5, SDSS as v4. Still the latest SDSS bases.
+  star_eigenspectra_v6_desi_<group>.fits       DESI only, 12 groups chosen in 2D on the HR diagram (released 2026-11-04, Nao). + _e0-e9_{wd,ms,other}.png. From /Volumes/exdisk3/sdssdesi_stars/hr2d/empca_desi_*.
+  star_eigenspectra_v7_desi_<group>.fits       current DESI stellar bases: v6 with stricter Gaia single-star flags (released 2026-11-04, Nao). + _e0-e9_{wd,ms,other}.png. From /Volumes/exdisk3/sdssdesi_stars/hr2d_single/empca_desi_*.
   telluric_eigenspectra_<survey>.fits          dr8, dr17, desi (built 2026-11-02). From /Volumes/exdisk3/sdssdesi_telluric/basis/telluric_*.
   STARS.md                                     format of the stellar files and how v1 was built.
 
@@ -199,6 +201,29 @@ Figures of e0-e9, corrected over v2: plots_luminosity/plots_eigen_v2tell_<survey
 Plots of the telluric bases and their tables: plots_luminosity/plots_telluric_<survey>.png, csv_files/plots_telluric_<survey>.csv.
 Paper: ~/github/papers/26_sdssdesi_spectra/ms.tex, sec:telluric. More detail: docs/HANDOVER_stars.md, docs/PLAN_telluric.md,
 README_desi.txt and README_sdss.txt in ~/data/sdssdesi_stars/v2.
+
+
+Stellar v6 and v7 bases (DESI, groups in 2D on the HR diagram, T0 corrected, sqrt(N) stack weights)
+---------------------------------------------------------------------------------------------------
+Format as STARS.md, with these differences: header GROUP instead of CLASS, and the NORM table has no FEH_CELL, NORM_SRC or window columns. M_G0_CELL and COL0_CELL are medians of the stack, NaN for individual stars. A stack is named <IA>_<IB>_<GROUP>, with IA = floor(M_G0 / 0.5) and IB = floor((BP-RP)_0 / 0.1).
+No GIANT or BLUE group, and few subgiants: those stars are in the backup program, whose coadds are not on disk. No SDSS. R2 at 1/2/3/10 vectors:
+
+  group    region                                  v6: stars  stacks + stars  R2                  v7: stars  stacks + stars  R2
+  WDHOT    WD sequence, colour < 0.1                    7,165   23 + 174      .839 .921 .957 .982      6,450   23 + 143      .836 .920 .955 .983
+  WDA      WD bright branch, colour 0.1-0.75            4,085   18 +  99      .908 .923 .929 .974      3,701   18 +  90      .908 .925 .929 .974
+  WDB      WD faint branch, colour 0.1-0.75             2,275   13 +  75      .831 .911 .939 .975      2,068   13 +  70      .831 .910 .939 .975
+  WDCOOL   WD sequence, colour >= 0.75                    397    5 +  13      .776 .793 .846 .952        361    5 +  12      .787 .841 .851 .958
+  MSF      main sequence, colour 0.55-0.75              1,680    8 +  33      .850 .907 .917 .969      1,519    7 +  31      .837 .898 .908 .968
+  MSG      main sequence, colour 0.75-1.05             13,119   15 + 275      .889 .953 .965 .980     11,839   14 + 251      .885 .952 .964 .980
+  MSK      main sequence, colour 1.05-1.9              45,399   30 + 914      .734 .976 .989 .995     39,882   30 + 810      .738 .976 .988 .995
+  MSM0     main sequence, colour 1.9-2.7               38,187   29 + 712      .884 .967 .974 .989     33,176   29 + 618      .885 .968 .976 .990
+  MSM5     main sequence, colour >= 2.7                10,662   27 + 288      .873 .895 .939 .966      9,130   25 + 244      .878 .900 .939 .966
+  BINARY   0.45-1.1 mag above the ridge                30,699   58 + 755      .618 .939 .989 .998     26,593   56 + 676      .617 .939 .989 .998
+  SD       > 0.6 mag below the ridge                   27,058   62 + 745      .533 .968 .993 .999     23,887   60 + 651      .533 .968 .993 .999
+  SGB      above the ridge and BINARY, M_G0 >= 3        4,871   32 + 160      .521 .925 .968 .999      4,098   32 + 141      .498 .904 .965 1.000
+  total                                               185,597  320 stacks                            162,704  312 stacks
+
+The names WDA and WDB mean the bright and faint branches, not DA and DB: the faint branch is a mix of H-weak stars and DA, and stars with He I lie in WDHOT. BINARY is the position on the HR diagram, not a Gaia flag, and it is still in v7. SD is a thin strip below the ridge; whether these are subdwarfs or scatter has not been tested.
 
 
 Stellar v5 bases (telluric corrected, sqrt(N) stack weights, no stars without BP or RP)
@@ -349,3 +374,14 @@ Record, by date
               Step 3 (telluric comparison) still uses v2_tell with these stars: without the stacks holding them DESI WD T0 left is +0.29 instead of +0.23; 3 of the 175 cross-survey cells are involved. Not rerun.
               Open: step2b_spcal.py still gives these stars colour 0 in its colour-term fit (effect not measured). SDSS WD pixels and the 6000-6200 A step above are unchanged.
               Figures: plots_luminosity/plots_star_lum_v5.png, plots_star_empca_v5_<survey>.png, plots_stars_by_lum_v5_desi[_flam].png.
+2026-11-04: Stars, groups in 2D on the HR diagram (Nao 2026-11-03: a 1D colour cut on the cell median lets contaminants in; DESI spectra with Gaia DR3 parallax). Released the same day as v6 and v7, see below.
+              programs_stars/hr_groups.py, hr_build.py, hr_plots.py. Colours and M_G0 from gaia_desi_stars_hr.parquet, not the fibermap. Spectra: the v2 store only, no coadd read. Stacks are 0.5 mag x 0.1 colour boxes inside a group, >= 30 stars; T0 as v5; sqrt(N) weights.
+              /Volumes/exdisk3/sdssdesi_stars/hr2d: 185,597 stars, 320 stacks, 12 groups (WD_HOT, WD_A, WD_B, WD_COOL, MS_F, MS_G, MS_K, MS_M0, MS_M5, BINARY, SD, SGB). Figures plots_luminosity/plots_star_hr_groups.png, plots_star_hr2d_*.png; tables csv_files/plots_star_hr_groups.csv, plots_star_hr2d_*.csv.
+              /Volumes/exdisk3/sdssdesi_stars/hr2d_single (STAR_HR=single): adds ipd_frac_multi_peak = 0, ipd_frac_odd_win = 0, one Gaia source, rv_chisq_pvalue > 0.01 where it exists, to the catalog's non_single_star = 0, RUWE < 1.4, not VARIABLE. 162,704 stars, 312 stacks. plots_star_hr2dsingle_*.
+              The extra flags change little: R2 at 10 vectors within 0.006, first vector the same (smallest cosine >= 0.997), pixel noise of the vectors within 8 %, about 12 % fewer stars. They remove 15 % of the BINARY sequence, about as much as of every other group.
+              Coverage: of 3.86 M catalog stars 2.62 M are in the backup program, whose coadds are not on disk: nearly all giants (253,633 of 258,957 catalog stars), 95 % of subgiants, nearly all blue stars. No GIANT or BLUE basis without them. All STAR spectra of backup would be about 2.2 TB (estimate from bright coadds); not downloaded.
+              WD: at colours 0.1-0.75 two branches. The faint branch has about 60 % of the Balmer strength and shows no He I; it is a mix of H-weak stars and DA, not DB. Stars with He I (438 at S/N > 10) lie at colours -0.4 to 0.1, 434 in WD_HOT, on the same part of the sequence as DA, so 2D does not isolate DB. /Volumes/exdisk3/sdssdesi_stars/hr2d/wd_line_ew.parquet.
+              Redrock: 13.5 % of the v5 WD class is not labelled WD by Redrock, but most of those lie on the WD sequence (cool WDs called F, G); not all contamination.
+2026-11-04: RELEASE v6 and v7 of the stellar bases (Nao): star_eigenspectra_v6_desi_<group>.fits = hr2d/empca_desi_<group>.fits and star_eigenspectra_v7_desi_<group>.fits = hr2d_single/empca_desi_<group>.fits, byte-identical (cmp). star_eigenspectra_v{6,7}_desi_e0-e9_{wd,ms,other}.png = plots_luminosity/plots_star_{hr2d,hr2dsingle}_empca_{wd,ms,other}.png. v7 is the current DESI release; v5 and earlier stay here, and v5 is still the latest for SDSS.
+              Checked before release: vectors orthonormal over PIXMASK and 0 outside it; no NaN in MEAN, EIGVEC, COEFF; VARIANCE rises; individual stars of each group are all in its selection; N of the stacks sums to 185,597 and 162,704.
+              members_desi_hr2d.csv and selection_desi_hr2d.parquet list more stars than were stacked: hr2d 191,879 listed, 185,597 stacked; hr2d_single 168,226 and 162,704. The rest (3.3 %, in 2,683 coadds for hr2d) are absent from the v2 store, though their coadd is there. tell_coeff_desi_hr2d.parquet lists the stars actually stacked. Their median S/N is the same as the stacked stars' (29.8, 29.2). The gap is older than these builds: v2 lists 195,284 and stacks 188,985. Cause not traced.
