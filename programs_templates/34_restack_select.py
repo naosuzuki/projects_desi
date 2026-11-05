@@ -26,7 +26,10 @@ def one(args):
     t = pd.read_parquet(os.path.join(TABLES, prog, base.replace('.npz', '.parquet')), columns=['TARGETID', 'ZWARN', 'ZB', 'MB_5450', 'MB_G']).drop_duplicates('TARGETID').set_index('TARGETID')
     f = f.join(t, on='TARGETID'); f['MB_5450'] = np.where(f.MB_5450 > -90, f.MB_5450, f.MB_G)   # z > 0.6: the 5450 window is not covered, bin by M_g
     sel = ((f.C1 / f.C0 < a.r1_max) & ((f.C2 / f.C0).abs() < a.r2_abs) & (f.ZWARN == 0) & (f.SNR >= a.min_snr) & (f.CHI2 / np.maximum(f.NPIX, 1) < a.max_rchi2)
-           & (f.MB_5450 > -90) & (f.C0 > 0.5) & (f.C0 < 2.0)).to_numpy()
+           & (f.MB_5450 > -90) & (f.C0 > 0)).to_numpy()
+    if a.norm == 'none':   # store units: unit mean in the galaxy's own window (5400-5500, or 3000-3100 at high z where C0 ~ 5 for passive galaxies)
+        sel &= ((f.C0 > 0.5) & (f.C0 < 2.0)).to_numpy()
+    c0 = f.C0.to_numpy(float)
     idx = np.where(sel)[0]
     if len(idx) == 0:
         return len(f), 0, {}
@@ -39,6 +42,8 @@ def one(args):
             out[key] = [np.zeros(pb.NREST), np.zeros(pb.NREST), 0]
         j0 = rid0 + int(st[i]) - pb.RID_MIN; fl = FL[off[i]:off[i + 1]].astype(np.float64); iv = IV[off[i]:off[i + 1]].astype(np.float64)
         ok = np.isfinite(fl) & (iv > 0); iv = np.where(ok, iv, 0.0); fl = np.where(ok, fl, 0.0)
+        if a.norm == 'c0':   # normalize by the fitted e0 amplitude instead of the window mean: every galaxy on the scale e0 = 1 at 5450 A
+            fl = fl / c0[i]; iv = iv * c0[i]**2
         out[key][0][j0:j0 + len(fl)] += iv * fl; out[key][1][j0:j0 + len(fl)] += iv; out[key][2] += 1
     return len(f), len(idx), out
 
@@ -47,6 +52,7 @@ def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--fit', required=True); ap.add_argument('--out', required=True); ap.add_argument('--tag', default='p1')
     ap.add_argument('--r1-max', type=float, default=5.0); ap.add_argument('--r2-abs', type=float, default=5.0); ap.add_argument('--min-snr', type=float, default=2.0)
     ap.add_argument('--max-rchi2', type=float, default=1.5); ap.add_argument('--workers', type=int, default=6); ap.add_argument('--min-cell', type=int, default=50)
+    ap.add_argument('--norm', default='c0', choices=['c0', 'none'], help='c0: divide each galaxy by its fitted e0 coefficient (model-based normalization, no window bias, works at z > 0.6); none: store units, C0 in 0.5-2 required')
     a = ap.parse_args(); t0 = time.time(); pb = importlib.import_module('02_passB_measure')
     jobs = [(p, f) for p in ['bright', 'dark'] for f in sorted(glob.glob(os.path.join(STORE, p, 'hpx*.npz')))]
     sj = os.path.join(STATUS, f'step_gal_restack_{a.tag}.json')

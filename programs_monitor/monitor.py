@@ -68,6 +68,8 @@ STEPS = [
     dict(track='galaxies', name='coefficient-selected passive galaxies restacked per (ZB, MB) cell, composite e0', kind='json', path=f'{STATUS_DIR}/step_gal_restack_p1.json', proc='34_restack_select'),
     dict(track='galaxies', name='p3: passive basis with the coefficient-selected composite as e0 (z <= 0.6 cells)', kind='json', path=f'{STATUS_DIR}/step_gal_v3t_p3.json', proc='run_p3'),
     dict(track='galaxies', name='restack of coefficient-selected galaxies with M_g bins above z 0.6 (p1g)', kind='json', path=f'{STATUS_DIR}/step_gal_restack_p1g.json', proc='tag p1g'),
+    dict(track='galaxies', name='restack of coefficient-selected galaxies normalized by the fitted C0, S/N >= 1 (p1c, all z)', kind='json', path=f'{STATUS_DIR}/step_gal_restack_p1c.json', proc='tag p1c'),
+    dict(track='galaxies', name='p3c: passive basis, e0 = composite of C0-normalized selected galaxies (all z), blue cut 2000 A', kind='json', path=f'{STATUS_DIR}/step_gal_v3t_p3c.json', proc='run_p3'),
     dict(track='galaxies', name='p1 basis fitted to every DESI galaxy (coefficients, chi2; rest-frame stores)', kind='json', path=f'{STATUS_DIR}/step_gal_fit_p1.json', proc='32_fit_galaxies.py'),
     dict(track='galaxies', name='Telluric Phase 0: galaxy observed-frame residuals (S/N > 20 individuals from the v2 store)', kind='json', path=f'{STATUS_DIR}/step_gal_telluric_phase0.json', proc='26_telluric_phase0'),
     dict(track='galaxies', name='Galaxy EM-PCA (latest run; v2 after the walk)', kind='json', path=f'{STATUS_DIR}/step_gal_empca.json', proc='10_galaxy_empca'),
