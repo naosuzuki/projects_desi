@@ -133,6 +133,9 @@ def main():
     ap.add_argument('--chain', action='store_true', help='v3: no z axis, chained to 3025 A with the fitted ratios')
     ap.add_argument('--template-bins', action='store_true', help='v3: luminosity from the template amplitude (v3/qso_norm_table_template.parquet) instead of the window mean')
     ap.add_argument('--template-table', default=NORM_TABLE_TPL, help='amplitude table for --template-bins (default v3/qso_norm_table_template.parquet; 14_template_rebin.py writes a corrected one)')
+    ap.add_argument('--bal-table', default=None, help='16_eigenfit.py table: BAL_CLASS_E (troughs against the eigenspectrum fit) replaces the pass-Q BAL_CLASS (Nao 2026-11-04)')
+    ap.add_argument('--bal-two', action='store_true', help='B axis with two classes, 0 non-BAL (class 0 or no coverage) / 1 BAL (classes 1-3), never collapsed')
+    ap.add_argument('--tag', default=None, help='output name qso_cells_<tag> (default v3_<survey> / <survey>)')
     a = ap.parse_args()
     t0 = time.time()
     json.dump(dict(done=0, total=4, status='running', note='reading', started=t0), open(STATUS, 'w'))
@@ -202,7 +205,21 @@ def main():
         oko = np.isfinite(ew_o) & np.isfinite(err_o) & (err_o > 0) & (ew_o / err_o >= MIN_LINE_SNR)
     d['OBIN'] = np.where(oko, np.digitize(ew_o, OXY_EDGES), -1).astype(np.int8)
     d['OXYGEN_EW'] = ew_o
+    if a.bal_table:        # eigenspectrum-based classes by exact id (DESI TARGETID + PROGRAM, SDSS PLATE/MJD/FIBERID)
+        e = pd.read_parquet(a.bal_table, columns=['SURVEY', 'TARGETID', 'PROGRAM', 'PLATE', 'MJD', 'FIBERID', 'BAL_CLASS_E'] + (['BAL_TWO'] if a.bal_two else []))
+        ed = e[e.SURVEY == 'desi'].dropna(subset=['TARGETID']).drop_duplicates(['TARGETID', 'PROGRAM'])
+        es = e[e.SURVEY != 'desi'].drop_duplicates(['PLATE', 'MJD', 'FIBERID'])
+        if a.bal_two: e['BAL_CLASS_E'] = e.BAL_TWO; ed = ed.assign(BAL_CLASS_E=ed.BAL_TWO); es = es.assign(BAL_CLASS_E=es.BAL_TWO)   # 0/1 flag of 18_bal_classes.py
+        k = pd.DataFrame({'TARGETID': d.TARGETID, 'PROGRAM': d.PROGRAM, 'PLATE': d.PLATE, 'MJD': d.MJD, 'FIBERID': d.FIBERID}).reset_index()
+        desi = (d.SURVEY == 'desi').to_numpy(); be = np.full(len(d), np.nan)
+        m = k[desi].merge(ed.assign(TARGETID=ed.TARGETID.astype('Int64'))[['TARGETID', 'PROGRAM', 'BAL_CLASS_E']], on=['TARGETID', 'PROGRAM'], how='left'); be[m['index'].to_numpy()] = m.BAL_CLASS_E.to_numpy(float)
+        m = k[~desi].merge(es.assign(PLATE=es.PLATE.astype('Int64'), MJD=es.MJD.astype('Int64'), FIBERID=es.FIBERID.astype('Int64'))[['PLATE', 'MJD', 'FIBERID', 'BAL_CLASS_E']], on=['PLATE', 'MJD', 'FIBERID'], how='left'); be[m['index'].to_numpy()] = m.BAL_CLASS_E.to_numpy(float)
+        print(f'BAL class from {a.bal_table}: {np.isfinite(be[train]).sum():,} of {train.sum():,} training quasars (pass-Q class kept for the rest)', flush=True)
+        fallback = (d.BAL_CLASS.fillna(-1) >= 2).to_numpy(float) if a.bal_two else d.BAL_CLASS.fillna(-1).to_numpy(float)   # the few without a fit: pass-Q BI / LoBAL
+        d['BAL_CLASS_Q'] = d.BAL_CLASS; d['BAL_CLASS'] = np.where(np.isfinite(be), be, fallback).astype(np.int8)
     d['BBIN'] = d.BAL_CLASS.fillna(-1).astype(np.int8)
+    if a.bal_two:
+        d['BBIN'] = (d.BBIN >= 1).astype(np.int8)
     json.dump(dict(done=2, total=4, status='running', note='merging cells', started=t0), open(STATUS, 'w'))
     # --- cells and merging (on the training set)
     key_cols = ['ZBIN', 'LBIN', 'EBIN', 'SBIN', 'OBIN', 'BBIN']
@@ -217,7 +234,7 @@ def main():
         c = df.groupby(key_cols)['i'].transform('size').to_numpy(); return c
     n6 = counts(cur)
     stage = np.zeros(len(d), np.int8)             # 0 full cell, 1 BAL collapsed, 2 + oxygen, 3 + slope, 4 pool (z,L,EW), 5 below floor even so
-    for s_idx, col in enumerate([5, 4, 3], start=1):       # BBIN, OBIN, SBIN
+    for s_idx, col in ([(2, 4), (3, 3)] if a.bal_two else enumerate([5, 4, 3], start=1)):       # BBIN, OBIN, SBIN (--bal-two: B is never collapsed)
         low = train & (n6 < a.floor)
         if not low.any():
             break
@@ -238,7 +255,7 @@ def main():
                                            EBIN=('STACK_EBIN', 'first'), SBIN=('STACK_SBIN', 'first'), OBIN=('STACK_OBIN', 'first'), BBIN=('STACK_BBIN', 'first'),
                                            primary=('PRIMARY_LINE', 'first'), oxygen=('OXYGEN_LINE', 'first')).reset_index()
     t['ok'] = t.n >= a.floor
-    tag = ('v3_' if a.chain else '') + a.survey
+    tag = a.tag or ('v3_' if a.chain else '') + a.survey
     d.to_parquet(f'{PROD}/qso_cells_{tag}.parquet')
     t.to_csv(f'{PROD}/qso_stack_cells_{tag}.csv', index=False); t.to_csv(f'{REPO}/qso_stack_cells_{tag}.csv', index=False)
     pd.DataFrame(med_table).to_csv(f'{REPO}/qso_primary_ew_medians_{tag}.csv', index=False)

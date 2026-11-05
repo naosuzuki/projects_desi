@@ -32,7 +32,9 @@ GROUPS = {'ew': ('STACK_EBIN', {0: 'weak lines  EW < 1/2 median', 1: 'typical  1
                                 -1: 'line EW not measured'},
                  lambda v: -1 if v < 0 else min(2, max(0, (int(v) - 1) // 2))),   # EBIN 0,1 / 2,3 / 4,5
           'slope': ('STACK_SBIN', {0: 'alpha_lam < -1.75', 1: '-1.75 .. -1.25', 2: '> -1.25', -1: 'slope unknown'},
-                    lambda v: -1 if v < 0 else min(2, int(v) // 2))}              # SBIN 0,1 / 2,3 / 4,5
+                    lambda v: -1 if v < 0 else min(2, int(v) // 2)),             # SBIN 0,1 / 2,3 / 4,5
+          'bal': ('STACK_BBIN', {0: 'non-BAL', 1: 'BAL', -1: 'BAL class collapsed'},
+                  lambda v: -1 if v < 0 else min(1, int(v)))}                   # BBIN 0 / 1-3 (two-class tables: 0 / 1; Nao 2026-11-04)
 LINES = {'Lya': 1215.67, 'CIV': 1549.06, 'CIII]': 1908.73, 'MgII': 2798.75, '[OII]': 3728.4, 'Hb': 4862.7, '[OIII]': 5008.2, 'Ha': 6564.6}
 
 
@@ -58,7 +60,7 @@ def main():
     ap.add_argument('--max-mag', type=float, default=-19.0, help='drop luminosity bins fainter than this M_AB(3025) (Nao 2026-11-01: the faintest bins are host galaxies, not quasars; -19 since v5, Nao 2026-11-02: the -19..-18 bin still dips at 3000 A)')
     ap.add_argument('--y', default='logflam', choices=['logflam', 'mag', 'ab'], help='y axis: log F_lambda,abs, ST magnitude of F_lambda, or AB magnitude of F_nu')
     a = ap.parse_args(); out = a.out or f'{OUT}/qso_lum_stacks_v3_{"simple" if a.simple else a.by}.png'
-    gcol, glab, gfun = GROUPS[a.by]; cols = [0, 1, 2, -1]
+    gcol, glab, gfun = GROUPS[a.by]; cols = [g for g in [0, 1, 2, -1] if g in glab]
     if a.simple:
         glab = {0: 'all quasars'}; gfun = lambda v: 0; cols = [0]
     s = np.load(a.stacks, allow_pickle=True); w = s['WAVE']; F = s['WMEAN'].astype(float); N = s['N'].astype(float); cells = s['STACK_CELL']
@@ -66,7 +68,7 @@ def main():
     # WMEAN (ivar-weighted), as the EM-PCA uses: the unweighted MEAN carries single-member spikes (e.g. 7173 A rest in L1_E2_S5_O2_B-1,
     # one DESI member with a ~1e7 flux pixel near 9650 A observed and ~zero ivar)
     # per stack: median M_AB(3025) and class of its members
-    c = pd.read_parquet(a.cells, columns=['TRAIN', 'STACK_CELL', 'LOGFABS_3025', 'STACK_EBIN', 'STACK_SBIN'])
+    c = pd.read_parquet(a.cells, columns=['TRAIN', 'STACK_CELL', 'LOGFABS_3025', 'STACK_EBIN', 'STACK_SBIN', 'STACK_BBIN'])
     c = c[c.TRAIN & (c.STACK_CELL != '')]
     info = c.groupby('STACK_CELL').agg(M=('LOGFABS_3025', lambda x: mab(np.median(x))), G=(gcol, 'first'))
     edges = np.arange(MRANGE[0], a.max_mag + 1e-9, a.dm); nb = len(edges) - 1

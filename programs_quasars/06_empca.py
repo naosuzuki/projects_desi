@@ -65,6 +65,7 @@ def main():
     ap.add_argument('--snmin', type=float, default=5.0, help='per stack, drop the blue end until the running median S/N per pixel (100 px) reaches this; 0 = off (Nao 2026-11-01)')
     ap.add_argument('--drop', type=float, default=0.9, help='... and until the running mean flux (100 px) is >= this x the 200 px redward; 0 = off')
     ap.add_argument('--stack-weight', default='sqrtn', choices=['equal', 'sqrtn', 'n'], help='relative weight of the stacks: equal (each stack at median weight 1; v1-v5), x sqrt(N_max) (default since v6, Nao 2026-11-03), or x N_max')
+    ap.add_argument('--cell-suffix', default=None, help='only stacks whose label ends with this, e.g. _B0 (non-BAL) or _B1 (BAL) of a --bal-two cells table (Nao 2026-11-04)')
     ap.add_argument('--max-mag', type=float, default=-19.0, help='drop stacks whose luminosity bin lies entirely fainter than this M_AB(3025) (label L; v4, Nao 2026-11-01: the faintest bins are host galaxies, not quasars; -19 since v5, Nao 2026-11-02)')
     a = ap.parse_args()
     global TAG, NO_STATUS; TAG = a.tag; NO_STATUS = a.no_status
@@ -73,6 +74,9 @@ def main():
     z = np.load(a.stacks, allow_pickle=True)
     wave, wm, we, n, cells = z['WAVE'], z['WMEAN'], z['WERR'], z['N'], z['STACK_CELL']
     keep = n.max(axis=1) >= a.nmin
+    if a.cell_suffix:
+        sfx = np.array([str(c).endswith(a.cell_suffix) for c in cells]); keep &= sfx
+        print(f'stacks with label suffix {a.cell_suffix}: {sfx.sum()} of {len(cells)}', flush=True)
     if a.max_mag is not None and str(cells[0]).startswith('L'):      # v3 labels L_E_S_O_B, L = floor(log F_abs(3025) / 0.4)
         lmin = int(np.floor(-(a.max_mag + 19.81) / 2.5 / 0.4)) + 1       # M_AB(3025) = -2.5 log F - 19.81
         lb = np.array([int(str(c).split('_')[0][1:]) for c in cells]); keep &= lb >= lmin
@@ -119,7 +123,16 @@ def main():
         sh = np.array([Pr[k][piv & pixok].mean() for k in range(a.nvec)])  # <e_k>_pivot
         P = np.vstack([e0, Pr - sh[:, None] * e0[None, :]])                # e_k = 0 at the pivot, same span
         C = np.hstack([(1.0 + Cr @ sh)[:, None], Cr])                       # X ~ e0 + sum c_k e_k^old = (1 + c.sh) e0 + sum c_k e_k
-        hdr = dict(PIVOT_LO=a.pivot[0], PIVOT_HI=a.pivot[1], MINTOTAL=a.min_total, SNMIN=a.snmin, DROP=a.drop, MAXMAG=a.max_mag, STACKWT=a.stack_weight)
+        # order e1.. by the weighted variance they explain (Nao 2026-11-04 'Yes, re-sort'): empca() sorts by the unweighted
+        # sum of c_k^2, which with sqrt(N) stack weights and small stacks (the BAL basis) is not the R^2 order
+        left = list(range(1, nv)); order = [0]
+        while left:
+            gain = [explained(X, W, P[order + [k]])[-1] for k in left]
+            order.append(left.pop(int(np.argmax(gain))))
+        if order != list(range(nv)):
+            print('vectors re-sorted by explained variance:', ' '.join(f'e{k}' for k in order[1:]), flush=True)
+        P, C = P[order], C[:, order]
+        hdr = dict(PIVOT_LO=a.pivot[0], PIVOT_HI=a.pivot[1], MINTOTAL=a.min_total, SNMIN=a.snmin, DROP=a.drop, MAXMAG=a.max_mag, STACKWT=a.stack_weight, SORTED='R2')
         print(f'pivot {a.pivot[0]:.0f}-{a.pivot[1]:.0f} A: e0 mean {P[0][piv].mean():.6f}, |e_k| there <= {np.abs(P[1:][:, piv].mean(axis=1)).max():.1e}', flush=True)
     R2 = explained(X, W, P)
     print('weighted R^2 vs number of vectors:', ' '.join(f'{r:.4f}' for r in R2), flush=True)
