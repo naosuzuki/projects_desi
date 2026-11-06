@@ -185,9 +185,11 @@ is the plan of record; status sections get appended below as work proceeds (HAND
 2. ~~Approve phase-0 downloads~~ — DONE 2026-11-06: 9.4 GB DR1 set (QSO_cat_iron_cumulative_v0 sha256-verified +
    BGS_ANY/LRG clustering dat + 2 randoms/cap, sizes byte-verified) in
    `/data/astrofs2_1/suzuki/data/DESI/catalog/dr1/`. LS sweeps on hold for Nao's go (→ `DESI/catalog/ls/`):
-   **DR11 is the program photometry** (dr11/{north,south}/sweep/, 1.0 TB N + 9.5 TB S = 10.5 TB; latest
-   reductions, i-band + full DES/DELVE depth south, Gaia DR3) — fits the 49 TB volume; DR9 sweeps (370 GB)
-   optional as the targeting-photometry cross-check. Run downloads on astro4 (gateway; mounts the volume,
+   **DR11 is the program photometry** (dr11/{north,south}/sweep/11.0/ MAIN sweeps only: 1,600 S files ≈3.0 TB
+   + 526 N files ≈0.1 TB ≈ **3.1 TB**; the -lightcurves/-extra/-photo-z row-matched trees bring the full
+   directory to ~10.5 TB and are NOT needed — photo-z maybe in phase 3; latest reductions, i-band + full
+   DES/DELVE depth south, Gaia DR3) — fits the 49 TB volume; DR9 sweeps (370 GB) optional as the
+   targeting-photometry cross-check. Run downloads on astro4 (gateway; mounts the volume,
    no SLURM), NEVER as an astrofs4 job — see
    machine notes in memory: astrofs4 wraps every ssh login/command in srun (system-level, no root; admin fix
    pending), so jobs there can lock everyone out.
