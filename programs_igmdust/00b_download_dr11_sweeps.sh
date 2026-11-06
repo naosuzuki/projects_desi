@@ -11,8 +11,10 @@
 #   blockers). Usage:
 #     nohup bash 00b_download_dr11_sweeps.sh > ~/dr11_dl.log 2>&1 &
 #
-# Idempotent: file lists are rebuilt from the portal index and wget -c
+# Idempotent: file lists are rebuilt from the portal index and aria2c -c
 # resumes partial files; three passes catch transient failures.
+# Parallel: aria2c -j6 (6 concurrent files, 1 connection each) — measured
+# 9 MiB/s single-stream 2026-11-06; parallel streams cut ~4 days to ~1.
 
 set -u
 DEST=/data/astrofs2_1/suzuki/data/DESI/catalog/ls/dr11
@@ -29,9 +31,12 @@ for PART in south north; do
     | sed "s|^|$BASE/|" > urls_$PART.txt
   n=$(wc -l < urls_$PART.txt)
   echo "== $PART: $n files queued -> $DEST/$PART"
+  ARIA=/home/suzuki/miniconda3/bin/aria2c
   for pass in 1 2 3; do
     echo "== $PART pass $pass $(date)"
-    wget -c -nv --retry-connrefused --tries=3 -i urls_$PART.txt && break
+    "$ARIA" -c -j 6 -x 1 -s 1 --auto-file-renaming=false \
+      --console-log-level=warn --summary-interval=0 \
+      -i urls_$PART.txt && break
   done
 done
 
