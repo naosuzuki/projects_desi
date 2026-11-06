@@ -61,9 +61,9 @@ unexploited. Frame against McCleary+25 and Crenshaw+26; simulations to compare: 
 
 ## 2. Survey choice (settled 2026-11-05)
 
-| | DESI Legacy Surveys (DR9/DR10) | DES (latest release) | HSC DR4 (internal) |
+| | DESI Legacy Surveys DR11 | DES (latest release) | HSC DR4 (internal) |
 |---|---|---|---|
-| area | 14,000–20,000 deg² | 5,000 deg² | ~1,100+ deg² Wide |
+| area | 22,731 deg² (3.9 B sources; released 2026) | 5,000 deg² | ~1,100+ deg² Wide |
 | bands | g,r,z (+i south) + WISE W1–W4 forced | g,r,i,z,Y | g,r,i,z,y |
 | depth (r) | 23.4–23.9 | ~24.1 | ~26 |
 | calibration | ~5 mmag | ~2 mmag (FGCM) | ~1 % |
@@ -184,8 +184,11 @@ is the plan of record; status sections get appended below as work proceeds (HAND
 1. ~~Project short name~~ — "igmdust" (settled).
 2. ~~Approve phase-0 downloads~~ — DONE 2026-11-06: 9.4 GB DR1 set (QSO_cat_iron_cumulative_v0 sha256-verified +
    BGS_ANY/LRG clustering dat + 2 randoms/cap, sizes byte-verified) in
-   `/data/astrofs2_1/suzuki/data/DESI/catalog/dr1/`. LS DR9 sweeps (~370 GB → `DESI/catalog/ls/`) on hold for
-   Nao's go; run it on astro4 (gateway; mounts the volume, no SLURM), NEVER as an astrofs4 job — see
+   `/data/astrofs2_1/suzuki/data/DESI/catalog/dr1/`. LS sweeps on hold for Nao's go (→ `DESI/catalog/ls/`):
+   **DR11 is the program photometry** (dr11/{north,south}/sweep/, 1.0 TB N + 9.5 TB S = 10.5 TB; latest
+   reductions, i-band + full DES/DELVE depth south, Gaia DR3) — fits the 49 TB volume; DR9 sweeps (370 GB)
+   optional as the targeting-photometry cross-check. Run downloads on astro4 (gateway; mounts the volume,
+   no SLURM), NEVER as an astrofs4 job — see
    machine notes in memory: astrofs4 wraps every ssh login/command in srun (system-level, no root; admin fix
    pending), so jobs there can lock everyone out.
 3. ~~Survey set~~ — settled 2026-11-06: LS primary + DES latest + HSC DR4 internal; Euclid dropped.
