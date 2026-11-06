@@ -54,8 +54,8 @@ Z_BGS, Z_LRG = 0.20, 0.65            # median foreground redshifts
 # [ASSUMED] background "crayon" samples in the imaging surveys
 DES_CRAYON_DENS = 650.0              # red-sequence gal / deg^2 (redMaGiC-like)
 DES_CRAYON_SIG = 0.04                # per-color scatter [mag]
-HSC_CRAYON_DENS = 10_800.0           # quiescent gal to i~24 / deg^2 (~3/arcmin^2)
-HSC_CRAYON_SIG = 0.06                # per-color scatter [mag] (fainter, photo-z)
+HSC_CRAYON_DENS = 25_000.0           # gal to i<25, photoz 0.4-1.7 / deg^2 (as queried 2026-11-06)
+HSC_CRAYON_SIG = 0.08                # per-color scatter [mag] (fainter, photo-z)
 
 # signal normalization: E(B-V) at 100 kpc [mag] (M10 ~1e-3; McCleary+25 A_V/3.1)
 EBV100, SLOPE = 1.2e-3, -0.86
