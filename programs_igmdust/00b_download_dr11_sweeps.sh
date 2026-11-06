@@ -32,10 +32,13 @@ for PART in south north; do
   n=$(wc -l < urls_$PART.txt)
   echo "== $PART: $n files queued -> $DEST/$PART"
   ARIA=/home/suzuki/miniconda3/bin/aria2c
+  # conda's aria2c needs conda's libstdc++ (system one lacks GLIBCXX_3.4.26)
+  export LD_LIBRARY_PATH=/home/suzuki/miniconda3/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
   for pass in 1 2 3; do
     echo "== $PART pass $pass $(date)"
-    "$ARIA" -c -j 6 -x 1 -s 1 --auto-file-renaming=false \
+    nice -n 19 "$ARIA" -c -j 6 -x 1 -s 1 --auto-file-renaming=false \
       --console-log-level=warn --summary-interval=0 \
+      --max-overall-download-limit=0 --file-allocation=none \
       -i urls_$PART.txt && break
   done
 done
