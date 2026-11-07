@@ -43,5 +43,7 @@ case "$ARG" in
   bgs|lrg)   exec $PY 02_paircount.py --fg "$ARG" ;;
   descrayon) exec $PY \
     /home/suzuki/github/projects_des/programs_igmdust/01_crayon_paircount.py ;;
-  *) echo "unknown arg: $ARG (use selftest|bgs|lrg|descrayon)"; exit 1 ;;
+  speczcalib) exec $PY \
+    /home/suzuki/github/projects_des/programs_igmdust/02_speczcalib.py ;;
+  *) echo "unknown arg: $ARG (selftest|bgs|lrg|descrayon|speczcalib)"; exit 1 ;;
 esac
