@@ -119,6 +119,44 @@ def load_lss(base, sample, kind="dat", nran=2):
             np.concatenate(z), np.concatenate(w))
 
 
+def load_qso_merged(path):
+    """Merged background (05_qso_merge + 06_sweepmatch): DESI + SDSS +
+    Quaia QSOs with uniform LS DR11 photometry.  PSF morphology only;
+    a color is valid when both bands have positive flux AND ivar.
+    NOTE for 04: M_c there is computed from the DESI selection alone —
+    acceptable around BGS where dmu is consistent with zero, wrong for
+    precision magnification work with this mixed-selection sample."""
+    with fits.open(path) as h:
+        d = h[1].data
+        ra = np.asarray(d["RA"], float)
+        dec = np.asarray(d["DEC"], float)
+        z = np.asarray(d["Z"], float)
+        src = np.asarray(d["SRC"], int)
+        sel = (np.asarray(d["MATCHED"], bool)
+               & (np.char.strip(d["LS_TYPE"].astype(str)) == "PSF")
+               & np.isfinite(z) & (z > 0.3) & (z < 4.0))
+        mags = {}
+        for b in ("G", "R", "Z", "W1"):
+            flux = np.asarray(d[f"FLUX_{b}"], float)
+            ivar = np.asarray(d[f"IVAR_{b}"], float)
+            mwt = np.asarray(d[f"MWT_{b}"], float)
+            with np.errstate(invalid="ignore", divide="ignore"):
+                flux = flux / mwt
+            ok = (np.isfinite(flux) & (flux > 0)
+                  & np.isfinite(ivar) & (ivar > 0))
+            m = np.full(len(flux), np.nan)
+            m[ok] = 22.5 - 2.5 * np.log10(flux[ok])
+            mags[b if b == "W1" else b.lower()] = m
+    colors = np.column_stack([mags[a] - mags[b] for a, b in COLORS])
+    valid = np.isfinite(colors)
+    colors = np.where(valid, colors, 0.0)
+    cnt = np.bincount(src[sel], minlength=3)
+    print(f"  merged QSO: {sel.sum():,} / {len(ra):,} after cuts "
+          f"(DESI {cnt[0]:,}, SDSS {cnt[1]:,}, Quaia {cnt[2]:,}); "
+          f"validity {valid[sel].mean(0).round(3)}")
+    return ra[sel], dec[sel], z[sel], colors[sel], valid[sel]
+
+
 def load_qso(base):
     """QSO backgrounds: positions, z, MW-dereddened colors + validity."""
     f = f"{base}/QSO_cat_iron_cumulative_v0.fits"
@@ -255,14 +293,17 @@ def solve_ebv(delta, sig):
 
 
 # ------------------------------------------------------------------ driver ---
-def run(fg_sample, base, out, max_fg, nran, tag=""):
+def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None):
     edges, rp_mid = rp_bins()
     print(f"== foregrounds: {fg_sample}")
     fra, fdec, fz, fw = load_lss(base, fg_sample, "dat")
     print("== randoms")
     rra, rdec, rz, rw = load_lss(base, fg_sample, "ran", nran=nran)
     print("== backgrounds: QSO")
-    qra, qdec, qz, qcol, qval = load_qso(base)
+    if qso_cat:
+        qra, qdec, qz, qcol, qval = load_qso_merged(qso_cat)
+    else:
+        qra, qdec, qz, qcol, qval = load_qso(base)
     return run_arrays(fg_sample, (fra, fdec, fz, fw), (rra, rdec, rz, rw),
                       (qra, qdec, qz, qcol, qval), edges, rp_mid,
                       out, max_fg, tag)
@@ -411,11 +452,20 @@ if __name__ == "__main__":
     ap.add_argument("--max-fg", type=int, default=0,
                     help="subsample foregrounds (quick look)")
     ap.add_argument("--nran", type=int, default=2, help="random files per cap")
+    ap.add_argument("--qso-cat", default=None,
+                    help="merged background (06 output) instead of DESI-only;"
+                         " output tag gains _mq")
+    ap.add_argument("--chunk", type=int, default=CHUNK,
+                    help="fg per tree-query chunk (lower on 20G SLURM "
+                         "with the denser merged background)")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
+    CHUNK = a.chunk
     if a.selftest:
         sys.exit(selftest())
     if not a.fg:
         ap.error("--fg required (or --selftest)")
     run(a.fg, a.base, a.out, a.max_fg, a.nran,
-        tag=f"_sub{a.max_fg}" if a.max_fg else "")
+        tag=("_mq" if a.qso_cat else "")
+            + (f"_sub{a.max_fg}" if a.max_fg else ""),
+        qso_cat=a.qso_cat)

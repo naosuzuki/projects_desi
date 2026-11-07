@@ -269,7 +269,8 @@ def selftest():
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
-    ap.add_argument("--fg", choices=["bgs", "lrg"], help="foreground sample")
+    ap.add_argument("--fg", help="profile name: bgs, lrg, bgs_mq, bgsdes, "
+                                 "... (reads paircount_<fg>_qso.npz)")
     ap.add_argument("--base", default=BASE_DEFAULT)
     ap.add_argument("--out", default=OUT_DEFAULT)
     ap.add_argument("--selftest", action="store_true")

@@ -51,6 +51,10 @@ case "$ARG" in
     /home/suzuki/github/projects_des/programs_igmdust/01_crayon_paircount.py \
     --fg lrg ;;
   sweepmatch) exec $PY 06_sweepmatch.py ;;
+  bgsmerged)
+    QCAT=/data/astrofs2_1/suzuki/data/DESI/catalog/qso_ext/qso_merged_dr11.fits
+    $PY 02_paircount.py --fg bgs --qso-cat "$QCAT" --chunk 10000 || exit 1
+    exec $PY 04_dustmag.py --fg bgs_mq ;;
   *) echo "unknown arg: $ARG (selftest|bgs|lrg|descrayon|speczcalib|qsodes)"
      exit 1 ;;
 esac
