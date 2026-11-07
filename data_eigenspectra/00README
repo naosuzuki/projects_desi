@@ -193,7 +193,8 @@ Files added here on 2026-11-02 and 2026-11-03 are byte-identical copies; the wor
   star_eigenspectra_v4_<survey>_<class>.fits   as v3 with sqrt(N) stack weights (released 2026-11-03, Nao). + .png. From /Volumes/exdisk3/sdssdesi_stars/v2_tell/empca_*_sqrtn.*. DESI HOT and WD contaminated, see below.
   star_eigenspectra_v5_<survey>_<class>.fits   as v4 without the DESI stars lacking BP or RP; no DESI HOT (released 2026-11-03, Nao). + .png, _e0-e9.png. DESI from /Volumes/exdisk3/sdssdesi_stars/v5, SDSS as v4. Still the latest SDSS bases.
   star_eigenspectra_v6_desi_<group>.fits       DESI only, 12 groups chosen in 2D on the HR diagram (released 2026-11-04, Nao). + _e0-e9_{wd,ms,other}.png. From /Volumes/exdisk3/sdssdesi_stars/hr2d/empca_desi_*.
-  star_eigenspectra_v7_desi_<group>.fits       current DESI stellar bases: v6 with stricter Gaia single-star flags (released 2026-11-04, Nao). + _e0-e9_{wd,ms,other}.png. From /Volumes/exdisk3/sdssdesi_stars/hr2d_single/empca_desi_*.
+  star_eigenspectra_v7_desi_<group>.fits       v6 with stricter Gaia single-star flags (released 2026-11-04, Nao). + _e0-e9_{wd,ms,other}.png. From /Volumes/exdisk3/sdssdesi_stars/hr2d_single/empca_desi_*.
+  star_eigenspectra_v8_desi_<group>.fits       current DESI stellar bases: every bright and dark catalog star, single stars, no BINARY, He I white dwarfs as WDHE (released 2026-11-06, Nao). + _e0-e9_{wd,ms,other}.png. From /Volumes/exdisk3/sdssdesi_stars/hr2d_all/empca_desi_*.
   telluric_eigenspectra_<survey>.fits          dr8, dr17, desi (built 2026-11-02). From /Volumes/exdisk3/sdssdesi_telluric/basis/telluric_*.
   STARS.md                                     format of the stellar files and how v1 was built.
 
@@ -201,6 +202,28 @@ Figures of e0-e9, corrected over v2: plots_luminosity/plots_eigen_v2tell_<survey
 Plots of the telluric bases and their tables: plots_luminosity/plots_telluric_<survey>.png, csv_files/plots_telluric_<survey>.csv.
 Paper: ~/github/papers/26_sdssdesi_spectra/ms.tex, sec:telluric. More detail: docs/HANDOVER_stars.md, docs/PLAN_telluric.md,
 README_desi.txt and README_sdss.txt in ~/data/sdssdesi_stars/v2.
+
+
+Stellar v8 bases (DESI, every bright and dark catalog star, Gaia single stars, T0 corrected, sqrt(N) stack weights)
+------------------------------------------------------------------------------------------------------------------
+Format and groups as v6 and v7 below, with these changes: stars from all of DESI main bright and dark, not only the v2 store (18 % of them); the single-star flags of v7; BINARY and OTHER left out;
+WDHE = stars on the WD locus with S/N > 10, EW(He I 5876) > 1.5 A at > 4 sigma, EW(4471) > 1 A and |EW(H beta)| < 3 A (taken out of WDHOT and WDA; fainter He I white dwarfs stay in WDHOT).
+A stack is any 0.5 mag x 0.1 colour box of one group with at least 30 stars, no cap per stack. Distances from the Gaia DR3 parallax + 0.017 mas (as M_G0). No GIANT or BLUE group (backup program; of 561 giants in bright and dark, 318 have no flux calibration). R2 at 1/2/3/10 vectors:
+
+  group    stars    stacks + stars   R2
+  WDHOT    10,927   28 + 140         .870 .957 .982 .994
+  WDHE        718    7 +  35         .829 .861 .875 .943
+  WDA       5,858   19 +  94         .915 .931 .967 .987
+  WDB       3,380   16 +  76         .861 .930 .957 .985
+  WDCOOL    1,649   13 +  59         .804 .933 .961 .984
+  MSF       4,171    8 +  40         .659 .849 .875 .982
+  MSG     124,235   15 +  75         .832 .948 .972 .996
+  MSK     329,721   31 + 155         .728 .978 .989 .997
+  MSM0    238,012   29 + 145         .872 .969 .978 .995
+  MSM5     18,724   41 + 185         .845 .913 .957 .983
+  SD       68,946   97 + 447         .528 .964 .990 .999
+  SGB       7,853   45 + 225         .528 .973 .993 .999
+  total   814,194  349 stacks
 
 
 Stellar v6 and v7 bases (DESI, groups in 2D on the HR diagram, T0 corrected, sqrt(N) stack weights)
@@ -394,3 +417,10 @@ Record, by date
               non-BAL: 519 stacks, 814-7546 A, R2 0.985 / 0.994 / 0.997 / 0.998 (v6: 0.984 / 0.995 / 0.998 / 0.998). BAL: 63 stacks (median BAL cell 275 members), 991-3473 A, R2 0.988 / 0.988 / 0.996 / 0.996; e0 carries the Si IV and C IV troughs, e1-e2 their depth and velocity. Only 2,930 BALs below z = 1, so no BAL basis reaches the red half of the grid: a test with n >= 100 and edge floor 1000 (qso_empca_v7bal_wide.fits, not released) spans 835-4704 A with 87 stacks but R2 stalls at 0.985.
               Checked: same structure as v3 (e1-e9 gram off-diagonal <= 0.02 from the pivot rotation, zero outside PIXMASK, no NaN, VARIANCE rising). Luminosity-bin stacks by class: plots_luminosity/plots_qso_stacks_by_lum_v7_bal.png, csv_files/plots_qso_stacks_by_lum_v7_bal.csv (12_lum_stacks.py --by bal on the v3bal_all stacks).
               2026-11-04 later (Nao 'Yes, re-sort'): v4_nonbal and v4_bal replaced by the same EM-PCAs with the vectors re-sorted by the weighted variance each adds (06_empca.py, greedy by R2 increment after the pivot shift; header SORTED='R2'). step7_empca.empca orders by the unweighted sum of c_k^2, which for the BAL basis had put a 5 % vector first and the 65 % vector second. Cumulative R2 now non-BAL 0.985 / 0.994 / 0.997 / 0.9987, BAL 0.988 / 0.994 / 0.996 / 0.9985; v3 unchanged (its order is right to e4). Eigenvalue histogram (lambda_k / sum over e1-e10): programs_quasars/20_eigval_hist.py -> plots_luminosity/plots_qso_eigval_hist_v4.png, csv_files/plots_qso_eigval_hist_v4.csv.
+2026-11-06: Stars, version 8 (Nao: 'please create single star only stack and PCA', 'please use all of the stars', He I white dwarfs split off; no download). programs_stars/hr_all.py (select | store | lines | stack | pca), run_v8.sh, STAR_HR=all hr_plots.py.
+              Spectra: the native store of the shared v2 walk (/Volumes/exdisk3/sdssdesi_native/desi) holds every DESI main SPECTYPE STAR in bright and dark, so no coadd read; rest-frame store /Volumes/exdisk3/sdssdesi_stars/hr2d_all/store (26,022 coadds, identical to the v2 store for shared stars). Backup-program coadds are on no disk.
+              Selection: 1,042,711 catalog stars with S/N > 5, one spectrum per star; 920,748 pass the v7 single-star flags; 814,194 stacked in 349 stacks (every star listed in members is stacked; the 3.3 % gap of v6 and v7 is gone).
+              First run spoiled 69 of 358 stacks: where the fibermap has PARALLAX = 0 the pass tables hold ABS_SCALE for 0.017 mas (59 kpc), 5,836 stars. Fixed: ABS_SCALE from the Gaia DR3 parallax of the gaiadr3_desidr2pix csvs (identical for every v7 star), spectra without A_FLUX or GAIA_DG dropped (10,474), one spectrum per Gaia source (155 dropped).
+              WD lines (lines step): 26,333 stars on the WD locus measured, 959 He-I-like (946 from WD_HOT, 13 from WD_A), 868 single, 718 stacked as WDHE. Faint-branch Balmer EWs as v7 (csv_files/plots_star_hr2dall_wdbranch.csv).
+2026-11-06: RELEASE v8 of the stellar bases (Nao): star_eigenspectra_v8_desi_<group>.fits = hr2d_all/empca_desi_<group>.fits, byte-identical (cmp); star_eigenspectra_v8_desi_e0-e9_{wd,ms,other}.png = plots_luminosity/plots_star_hr2dall_empca_{wd,ms,other}.png. v8 is the current DESI release; v5 is still the latest for SDSS.
+              Checked before release: vectors orthonormal over PIXMASK (error < 2e-8), no NaN, 4,353-4,354 pixels, VARIANCE rises. hr2d_all/empca_desi_GIANT.fits is left over from the first run and is not part of v8.

@@ -75,7 +75,7 @@ def main():
     pd.set_option('display.width', 180); pd.set_option('display.max_columns', 30); c, fl, ns, s, g = load(); lum(c, fl, ns, g)
     for k, v in SETS.items(): eigen(k, v)
     print(branches(c, fl, ns, s, g).round(2).to_string(index=False)); r = []
-    for n in [x for x in LAB if os.path.exists(f'{OUT}/empca_desi_{x}.fits')]:
+    for n in [x for x in LAB if os.path.exists(f'{OUT}/empca_desi_{x}.fits') and (g == x).any()]:     # a basis file of a group with no stacks now is left over from an earlier run
         p = f'{OUT}/empca_desi_{n}.fits'; V = fitsio.read(p, ext='VARIANCE'); k = np.char.strip(fitsio.read(p, ext='NORM')['KIND'].astype(str)); i = g == n; d = np.diff(np.r_[0, V]); N = ns[i].max(axis=1).astype(float); r.append(dict(group=n, stacks=int(i.sum()), stars=int(c['N'][i].sum()), individuals=int((k == 'star').sum()), N_min=int(N.min()), N_med=int(np.median(N)), N_max=int(N.max()), e1=d[0], e2=d[1], e3=d[2], r2_10=V[9], colmin=c['COL0_MED'][i].min(), colmax=c['COL0_MED'][i].max(), mgmin=c['MG0_MED'][i].min(), mgmax=c['MG0_MED'][i].max()))
     t = pd.DataFrame(r); t.to_csv(f'{CSV}/plots_star_{PRE}_summary.csv', index=False); print(t.round(3).to_string(index=False))
 

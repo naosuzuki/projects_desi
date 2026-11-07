@@ -52,4 +52,6 @@ v4 is v3 with sqrt(N) stack weights, as the quasars (`star_eigenspectra_v4_*`, 2
 
 v5 is v4 without the DESI stars lacking Gaia BP or RP, which had fallen in blue cells (`star_eigenspectra_v5_*`, 2026-11-03). There is no DESI HOT class in it. It is still the latest SDSS release.
 
-v6 is DESI only, with 12 groups chosen in 2D on the HR diagram from Gaia DR3 parallaxes (`star_eigenspectra_v6_desi_<group>.fits`, 2026-11-04). v7 is the same with stricter Gaia single-star flags (`star_eigenspectra_v7_desi_<group>.fits`, 2026-11-04), the current DESI release. Neither has giants or blue stars, whose backup-program coadds are not on disk. Groups, table and format differences in `00README`.
+v6 is DESI only, with 12 groups chosen in 2D on the HR diagram from Gaia DR3 parallaxes (`star_eigenspectra_v6_desi_<group>.fits`, 2026-11-04). v7 is the same with stricter Gaia single-star flags (`star_eigenspectra_v7_desi_<group>.fits`, 2026-11-04). Neither has giants or blue stars, whose backup-program coadds are not on disk. Groups, table and format differences in `00README`.
+
+v8 is DESI only from every bright and dark catalog star with a spectrum on disk (814,194 stacked, v7 had 162,704), Gaia single stars, no BINARY, and the He I white dwarfs as their own group WDHE (`star_eigenspectra_v8_desi_<group>.fits`, 2026-11-06), the current DESI release. Distances from the Gaia DR3 parallax. Table in `00README`.
