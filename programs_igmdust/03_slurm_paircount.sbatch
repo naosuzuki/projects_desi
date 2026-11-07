@@ -39,7 +39,9 @@ ls -d /data/astrofs2_1/suzuki/data/DESI/catalog/dr1 >/dev/null 2>&1 \
   || echo "WARN: /data/astrofs2_1 not visible on $(hostname) (selftest still fine)"
 
 case "$ARG" in
-  selftest) exec $PY 02_paircount.py --selftest ;;
-  bgs|lrg)  exec $PY 02_paircount.py --fg "$ARG" ;;
-  *)        echo "unknown arg: $ARG (use selftest|bgs|lrg)"; exit 1 ;;
+  selftest)  exec $PY 02_paircount.py --selftest ;;
+  bgs|lrg)   exec $PY 02_paircount.py --fg "$ARG" ;;
+  descrayon) exec $PY \
+    /home/suzuki/github/projects_des/programs_igmdust/01_crayon_paircount.py ;;
+  *) echo "unknown arg: $ARG (use selftest|bgs|lrg|descrayon)"; exit 1 ;;
 esac
