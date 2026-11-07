@@ -56,6 +56,8 @@ case "$ARG" in
   rmgcsfd) exec $PY \
     /home/suzuki/github/projects_des/programs_igmdust/01_crayon_paircount.py \
     --fg redmagic --crayon-zmin 0.65 --rp-min 0.01 --rp-max 45 --mwcorr ;;
+  assess) exec $PY \
+    /home/suzuki/github/projects_des/programs_igmdust/07_assess_mccleary.py ;;
   menarddes) exec $PY \
     /home/suzuki/github/projects_des/programs_igmdust/05_qso_menard_des.py ;;
   lrgmatch)

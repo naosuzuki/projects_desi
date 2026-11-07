@@ -79,15 +79,15 @@ elif m:
            f"ETA ~{fmt_eta((2126 - n) * t / n)}")
 else:
     p60, d60 = (2.0, "starting") if t60 else (0.0, "queued")
-gauges.append(dict(name="DR11 photometry match (job 60)",
+gauges.append(dict(name="Legacy: QSO × DR11 photometry match",
                    state=state_of(t60, p60), pct=p60,
                    unit="of 2126 sweeps", detail=d60))
 
 t61 = read(f"{LOGS}/igmdust_61.log")
 p61, s61 = pairstage(t61)
-gauges.append(dict(name="BGS × merged QSOs (job 61)",
+gauges.append(dict(name="Legacy: quasars (Ménard recipe) × BGS",
                    state=state_of(t61, p61), pct=p61, unit="pair counting",
-                   detail=s61 + ("" if t61 else " (after job 60)")))
+                   detail=s61 + ("" if t61 else " (after photometry match)")))
 
 import glob as _g
 for pat, label, det in (
@@ -95,8 +95,14 @@ for pat, label, det in (
          "685k highdens fg × 0.65–0.90 crayons, 10 kpc–45 Mpc"),
         ("igmdust_rmw_*.log", "DES: redMaPPer × crayons (wide)",
          "19k λ>20 clusters, 10 kpc–45 Mpc"),
+        ("igmdust_rmc_*.log", "DES: redMaGiC × crayons (CSFD)",
+         "iteration 2: Milky Way re-correction, mid-scale test"),
         ("igmdust_mqd_*.log", "DES: quasars (Ménard recipe)",
          "redMaGiC fg × merged QSOs, DECam griz"),
+        ("igmdust_lmq_*.log", "Legacy: quasars × LRG fg",
+         "merged QSOs, joint dust+μ fit"),
+        ("igmdust_snl_*.log", "Legacy: star null test",
+         "DR11 PSF stars × BGS — systematics template"),
         ("igmdust_lcr_*.log", "Legacy: LRG crayons × BGS",
          "spec-z locus (f_abs = 1), 10 kpc–45 Mpc")):
     files = sorted(_g.glob(f"{LOGS}/{pat}"))
