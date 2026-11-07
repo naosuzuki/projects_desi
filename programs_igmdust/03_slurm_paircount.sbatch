@@ -55,6 +55,12 @@ case "$ARG" in
     --fg redmagic --crayon-zmin 0.65 --rp-min 0.01 --rp-max 45 ;;
   menarddes) exec $PY \
     /home/suzuki/github/projects_des/programs_igmdust/05_qso_menard_des.py ;;
+  lrgmatch)
+    EXT=/data/astrofs2_1/suzuki/data/DESI/catalog/qso_ext
+    $PY 07_crayon_legacy.py --make-input $EXT/lrg_positions.fits || exit 1
+    exec $PY 06_sweepmatch.py --in $EXT/lrg_positions.fits \
+      --out $EXT/lrg_dr11.fits ;;
+  legacycrayon) exec $PY 07_crayon_legacy.py ;;
   sweepmatch) exec $PY 06_sweepmatch.py ;;
   redmapper) shift; exec $PY \
     /home/suzuki/github/projects_des/programs_igmdust/04_redmapper_crayons.py \

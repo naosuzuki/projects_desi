@@ -91,15 +91,54 @@ gauges.append(dict(name="BGS × merged QSOs (job 61)",
 
 import glob as _g
 for pat, label, det in (
-        ("igmdust_rmg_*.log", "redMaGiC × crayons (wide)",
+        ("igmdust_rmg_*.log", "DES: redMaGiC × crayons (wide)",
          "685k highdens fg × 0.65–0.90 crayons, 10 kpc–45 Mpc"),
-        ("igmdust_rmw_*.log", "redMaPPer × crayons (wide)",
-         "19k λ>20 clusters, 10 kpc–45 Mpc")):
+        ("igmdust_rmw_*.log", "DES: redMaPPer × crayons (wide)",
+         "19k λ>20 clusters, 10 kpc–45 Mpc"),
+        ("igmdust_mqd_*.log", "DES: quasars (Ménard recipe)",
+         "redMaGiC fg × merged QSOs, DECam griz"),
+        ("igmdust_lcr_*.log", "Legacy: LRG crayons × BGS",
+         "spec-z locus (f_abs = 1), 10 kpc–45 Mpc")):
     files = sorted(_g.glob(f"{LOGS}/{pat}"))
     txt = read(files[-1]) if files else ""
     p, s = pairstage(txt, w_data=10, w_ran=85)
     gauges.append(dict(name=label, state=state_of(txt, p), pct=p,
                        unit="pair counting", detail=f"{det} — {s}"))
+
+# Legacy: LRG positions x DR11 sweep match (06 via lrgmatch case)
+files = sorted(_g.glob(f"{LOGS}/igmdust_lmt_*.log"))
+tl = read(files[-1]) if files else ""
+ml = re.findall(r"\[(\d+)/(\d+)\] matched so far ([\d,]+)\s+(\d+)s", tl)
+if "saved ->" in tl:
+    pl, dl = 100.0, "lrg_dr11.fits written"
+elif ml:
+    n, tot, t = int(ml[-1][0]), int(ml[-1][1]), int(ml[-1][3])
+    pl = 100.0 * n / tot
+    dl = (f"sweep {n}/{tot}; {ml[-1][2]} LRGs matched; "
+          f"ETA ~{fmt_eta((tot - n) * t / n)}")
+else:
+    pl, dl = (2.0, "starting") if tl else (0.0, "queued")
+gauges.append(dict(name="Legacy: LRG × DR11 sweep match",
+                   state=state_of(tl, pl), pct=pl,
+                   unit="of sweeps", detail=dl))
+
+# HSC catalog downloads (3 CAS jobs; .part suffix = still streaming)
+hsc_dir = "/home/suzuki/data/HSC/catalog"
+jobs_hsc = ["669956", "669957", "669937"]
+try:
+    names = os.listdir(hsc_dir)
+    done = [j for j in jobs_hsc if f"hsc_dr4_igmdust_{j}" in names]
+    gb = sum(os.path.getsize(os.path.join(hsc_dir, n))
+             for n in names if n.startswith("hsc_dr4")) / 1e9
+    ph = 100.0 * len(done) / len(jobs_hsc)
+    sh = "done" if len(done) == 3 else "run"
+    gauges.append(dict(name="HSC DR4 catalog download",
+                       state=sh if sh == "run" else "done", pct=ph,
+                       unit=f"{len(done)}/3 files",
+                       detail=f"{gb:.1f} GB on disk (CAS jobs "
+                              "669956/669957/669937)"))
+except OSError:
+    pass
 
 results = [
     ["BGS × QSO colors (joint dust+μ fit)",

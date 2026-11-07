@@ -125,13 +125,12 @@ def match_one(fname):
 
 def run(a):
     wait_for_downloads()
+    inp = a.inp or f"{a.ext}/qso_merged.fits"
     t0 = time.time()
-    while (not os.path.exists(f"{a.ext}/qso_merged.fits")
-           and time.time() - t0 < 7200):
-        print("  waiting for qso_merged.fits (05 still running?)",
-              flush=True)
+    while not os.path.exists(inp) and time.time() - t0 < 7200:
+        print(f"  waiting for {inp}", flush=True)
         time.sleep(300)
-    q = Table.read(f"{a.ext}/qso_merged.fits")
+    q = Table.read(inp)
     n = len(q)
     print(f"  merged QSOs: {n:,}")
     sweeps = sorted(glob.glob(f"{a.ls}/south/sweep-*.fits")
@@ -170,7 +169,7 @@ def run(a):
     for k, v in res.items():
         q[k.upper() if k != "type" else "LS_TYPE"] = v
     q["MATCHED"] = matched
-    fo = f"{a.ext}/qso_merged_dr11.fits"
+    fo = a.out or f"{a.ext}/qso_merged_dr11.fits"
     q.write(fo, overwrite=True)
     print(f"saved -> {fo}")
 
@@ -211,6 +210,10 @@ def selftest():
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     ap.add_argument("--ext", default=EXT_DEFAULT)
+    ap.add_argument("--in", dest="inp", default=None,
+                    help="input catalog with RA/DEC (default: the merged "
+                         "QSO list); any table works, e.g. LRG positions")
+    ap.add_argument("--out", default=None)
     ap.add_argument("--ls", default=LS_DEFAULT)
     ap.add_argument("--nproc", type=int, default=NPROC)
     ap.add_argument("--selftest", action="store_true")
