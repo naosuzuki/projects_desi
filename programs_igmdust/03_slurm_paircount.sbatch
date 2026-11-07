@@ -60,6 +60,15 @@ case "$ARG" in
     $PY 07_crayon_legacy.py --make-input $EXT/lrg_positions.fits || exit 1
     exec $PY 06_sweepmatch.py --in $EXT/lrg_positions.fits \
       --out $EXT/lrg_dr11.fits ;;
+  onepass)
+    EXT=/data/astrofs2_1/suzuki/data/DESI/catalog/qso_ext
+    $PY 07_crayon_legacy.py --make-input $EXT/lrg_positions.fits || exit 1
+    exec $PY 09_sweep_onepass.py ;;
+  starnull) exec $PY 08_qso_legacy.py ;;
+  lrgmerged)
+    QCAT=/data/astrofs2_1/suzuki/data/DESI/catalog/qso_ext/qso_merged_dr11.fits
+    $PY 02_paircount.py --fg lrg --qso-cat "$QCAT" --chunk 10000 || exit 1
+    exec $PY 04_dustmag.py --fg lrg_mq ;;
   legacycrayon) exec $PY 07_crayon_legacy.py ;;
   sweepmatch) exec $PY 06_sweepmatch.py ;;
   redmapper) shift; exec $PY \
