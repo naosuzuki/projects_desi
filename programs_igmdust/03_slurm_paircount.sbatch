@@ -50,9 +50,9 @@ case "$ARG" in
   lrgcrayon) exec $PY \
     /home/suzuki/github/projects_des/programs_igmdust/01_crayon_paircount.py \
     --fg lrg ;;
-  mccleary) exec $PY \
+  rmgcrayon) exec $PY \
     /home/suzuki/github/projects_des/programs_igmdust/01_crayon_paircount.py \
-    --fg redmagic --crayon-zmin 0.65 --rp-max 30 ;;
+    --fg redmagic --crayon-zmin 0.65 --rp-min 0.01 --rp-max 45 ;;
   sweepmatch) exec $PY 06_sweepmatch.py ;;
   redmapper) shift; exec $PY \
     /home/suzuki/github/projects_des/programs_igmdust/04_redmapper_crayons.py \

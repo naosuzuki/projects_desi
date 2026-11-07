@@ -76,12 +76,17 @@ gauges.append(dict(name="BGS × merged QSOs (job 61)",
                    state=state_of(t61, p61), pct=p61, unit="pair counting",
                    detail=s61 + ("" if t61 else " (after job 60)")))
 
-t66 = read(f"{LOGS}/igmdust_mcc_66.log")
-p66, s66 = pairstage(t66, w_data=10, w_ran=85)
-gauges.append(dict(name="McCleary config (job 66)",
-                   state=state_of(t66, p66), pct=p66, unit="pair counting",
-                   detail=f"685k redMaGiC fg × 0.65–0.90 crayons, "
-                          f"30 Mpc — {s66}"))
+import glob as _g
+for pat, label, det in (
+        ("igmdust_rmg_*.log", "redMaGiC × crayons (wide)",
+         "685k highdens fg × 0.65–0.90 crayons, 10 kpc–45 Mpc"),
+        ("igmdust_rmw_*.log", "redMaPPer × crayons (wide)",
+         "19k λ>20 clusters, 10 kpc–45 Mpc")):
+    files = sorted(_g.glob(f"{LOGS}/{pat}"))
+    txt = read(files[-1]) if files else ""
+    p, s = pairstage(txt, w_data=10, w_ran=85)
+    gauges.append(dict(name=label, state=state_of(txt, p), pct=p,
+                       unit="pair counting", detail=f"{det} — {s}"))
 
 results = [
     ["BGS × QSO colors (joint dust+μ fit)",
