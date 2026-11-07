@@ -9,6 +9,7 @@
   :root {
     --bg: #0e1420; --card: #17202f; --ink: #e8edf5; --dim: #8b98ab;
     --ok: #4cc38a; --run: #4ea1f7; --warn: #e5a50a; --edge: #27354a;
+    --fail: #e0453f;
   }
   @media (prefers-color-scheme: light) {
     :root { --bg:#f4f6f9; --card:#ffffff; --ink:#1b2430; --dim:#5d6b7e;
@@ -18,78 +19,100 @@
   body { margin: 0; background: var(--bg); color: var(--ink);
          font: 15px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif;
          padding: 24px 16px; }
-  .wrap { max-width: 980px; margin: 0 auto; }
+  .wrap { max-width: 900px; margin: 0 auto; }
   h1 { font-size: 22px; margin: 0 0 2px; }
-  .sub { color: var(--dim); margin-bottom: 20px; font-size: 13px; }
-  .grid { display: grid; gap: 14px;
-          grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  h2 { font-size: 15px; margin: 26px 0 10px; color: var(--dim);
+       text-transform: uppercase; letter-spacing: .06em; }
+  .sub { color: var(--dim); margin-bottom: 8px; font-size: 13px; }
   .card { background: var(--card); border: 1px solid var(--edge);
-          border-radius: 12px; padding: 16px; text-align: center; }
-  .card h2 { font-size: 14px; margin: 0 0 10px; font-weight: 600; }
-  .gauge { width: 130px; height: 130px; margin: 0 auto 8px; position: relative; }
-  .gauge svg { transform: rotate(-90deg); }
-  .gauge .pct { position: absolute; inset: 0; display: flex; flex-direction: column;
-                align-items: center; justify-content: center; }
-  .gauge .pct b { font-size: 24px; }
-  .gauge .pct span { font-size: 11px; color: var(--dim); }
-  .detail { font-size: 12.5px; color: var(--dim); min-height: 2.6em; }
-  .state { display: inline-block; font-size: 11px; padding: 2px 9px;
-           border-radius: 999px; margin-bottom: 8px; font-weight: 600; }
+          border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+  .row { display: flex; align-items: baseline; gap: 10px; }
+  .row b { font-size: 14px; }
+  .state { font-size: 11px; padding: 1px 9px; border-radius: 999px;
+           font-weight: 600; white-space: nowrap; }
   .s-done { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
   .s-run  { background: color-mix(in srgb, var(--run) 18%, transparent); color: var(--run); }
   .s-wait { background: color-mix(in srgb, var(--dim) 18%, transparent); color: var(--dim); }
-  .s-fail { background: color-mix(in srgb, #e01b24 18%, transparent); color: #e01b24; }
-  .foot { margin-top: 22px; color: var(--dim); font-size: 12px; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 18px; }
+  .s-fail { background: color-mix(in srgb, var(--fail) 18%, transparent); color: var(--fail); }
+  .pct { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .bar { height: 10px; border-radius: 6px; background: var(--edge);
+         margin: 8px 0 6px; overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 6px;
+           transition: width .6s; }
+  .detail { font-size: 12.5px; color: var(--dim); }
+  .hostgrid { display: grid; gap: 10px;
+              grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .mini { font-size: 12px; color: var(--dim); display: flex;
+          justify-content: space-between; margin-top: 7px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--edge); }
   th { color: var(--dim); font-weight: 600; }
+  .foot { margin-top: 20px; color: var(--dim); font-size: 12px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>igmdust — pipeline monitor</h1>
-  <div class="sub">DESI &times; Legacy Surveys &times; DES circumgalactic dust
-    (M&eacute;nard+10 / McCleary+26 reproduction) &mdash;
-    updated <b id="when">&hellip;</b></div>
-  <div class="grid" id="grid"></div>
-  <table id="results"></table>
-  <div class="foot">Auto-refreshes every 5 min (data regenerated on astro4
-    every 2 min). Static page; no cookies, no external assets.</div>
+  <div class="sub">DESI &times; Legacy Surveys &times; DES circumgalactic
+    dust &mdash; updated <b id="when">&hellip;</b></div>
+
+  <h2>Pipeline</h2>
+  <div id="jobs"></div>
+
+  <h2>Hosts</h2>
+  <div class="hostgrid" id="hosts"></div>
+
+  <h2>Latest results</h2>
+  <div class="card"><table id="results"></table></div>
+
+  <div class="foot">Auto-refreshes every 5 min (data regenerated every
+    ~3 min). Static page; no cookies, no external assets.</div>
 </div>
 <script>
-const R = 56, CIRC = 2 * Math.PI * R;
-function gauge(g) {
+const COLOR = {done: "var(--ok)", run: "var(--run)",
+               wait: "var(--dim)", fail: "var(--fail)"};
+const LABEL = {done: "DONE", run: "RUNNING", wait: "QUEUED", fail: "CHECK"};
+function jobCard(g) {
   const pct = Math.max(0, Math.min(100, g.pct));
-  const color = {done: "var(--ok)", run: "var(--run)",
-                 wait: "var(--dim)", fail: "#e01b24"}[g.state] || "var(--dim)";
-  const label = {done: "DONE", run: "RUNNING", wait: "QUEUED",
-                 fail: "CHECK"}[g.state] || "?";
   return `<div class="card">
-    <h2>${g.name}</h2>
-    <span class="state s-${g.state}">${label}</span>
-    <div class="gauge">
-      <svg width="130" height="130">
-        <circle cx="65" cy="65" r="${R}" fill="none"
-                stroke="var(--edge)" stroke-width="11"/>
-        <circle cx="65" cy="65" r="${R}" fill="none" stroke="${color}"
-                stroke-width="11" stroke-linecap="round"
-                stroke-dasharray="${CIRC}"
-                stroke-dashoffset="${CIRC * (1 - pct / 100)}"/>
-      </svg>
-      <div class="pct"><b>${pct.toFixed(pct >= 99.95 ? 0 : 1)}%</b>
-        <span>${g.unit || ""}</span></div>
-    </div>
-    <div class="detail">${g.detail || ""}</div>
+    <div class="row"><b>${g.name}</b>
+      <span class="state s-${g.state}">${LABEL[g.state] || "?"}</span>
+      <span class="pct">${pct.toFixed(pct >= 99.95 ? 0 : 1)}%</span></div>
+    <div class="bar"><i style="width:${pct}%;
+      background:${COLOR[g.state] || "var(--dim)"}"></i></div>
+    <div class="detail">${g.detail || ""} ${g.unit ? "&middot; " + g.unit : ""}</div>
   </div>`;
+}
+function statbar(label, used, total, fmt, color) {
+  const pct = total > 0 ? Math.min(100, 100 * used / total) : 0;
+  const c = color || (pct > 90 ? "var(--fail)"
+                      : pct > 70 ? "var(--warn)" : "var(--run)");
+  return `<div class="mini"><span>${label}</span><span>${fmt}</span></div>
+    <div class="bar"><i style="width:${pct}%;background:${c}"></i></div>`;
+}
+function hostCard(h) {
+  const gb = b => (b / 1073741824).toFixed(1);
+  let s = `<div class="card"><div class="row"><b>${h.name}</b>
+    <span class="pct">${h.cores} cores</span></div>`;
+  s += statbar("CPU load (1 min)", h.load, h.cores,
+               `${h.load.toFixed(1)} / ${h.cores}`);
+  if (h.alloc != null)
+    s += statbar("SLURM-allocated cores", h.alloc, h.alloc_total,
+                 `${h.alloc} / ${h.alloc_total}`, "var(--ok)");
+  s += statbar("Memory", h.mem_used, h.mem_total,
+               `${gb(h.mem_used)} / ${gb(h.mem_total)} GB`);
+  return s + "</div>";
 }
 async function load() {
   try {
     const r = await fetch("status.json?t=" + Date.now(), {cache: "no-store"});
     const s = await r.json();
     document.getElementById("when").textContent = s.updated;
-    document.getElementById("grid").innerHTML = s.gauges.map(gauge).join("");
-    const t = document.getElementById("results");
-    t.innerHTML = "<tr><th>Latest results</th><th></th></tr>" +
+    document.getElementById("jobs").innerHTML = s.gauges.map(jobCard).join("");
+    document.getElementById("hosts").innerHTML =
+      (s.hosts || []).map(hostCard).join("") ||
+      "<div class='detail'>host stats unavailable</div>";
+    document.getElementById("results").innerHTML =
       (s.results || []).map(x =>
         `<tr><td>${x[0]}</td><td>${x[1]}</td></tr>`).join("");
   } catch (e) {
