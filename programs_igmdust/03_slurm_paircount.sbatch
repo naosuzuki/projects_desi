@@ -51,6 +51,8 @@ case "$ARG" in
     /home/suzuki/github/projects_des/programs_igmdust/01_crayon_paircount.py \
     --fg lrg ;;
   sweepmatch) exec $PY 06_sweepmatch.py ;;
+  redmapper) exec $PY \
+    /home/suzuki/github/projects_des/programs_igmdust/04_redmapper_crayons.py ;;
   bgsmerged)
     QCAT=/data/astrofs2_1/suzuki/data/DESI/catalog/qso_ext/qso_merged_dr11.fits
     $PY 02_paircount.py --fg bgs --qso-cat "$QCAT" --chunk 10000 || exit 1
