@@ -47,6 +47,9 @@ case "$ARG" in
     /home/suzuki/github/projects_des/programs_igmdust/02_speczcalib.py ;;
   qsodes) exec $PY \
     /home/suzuki/github/projects_des/programs_igmdust/03_qso_desoverlap.py ;;
+  lrgcrayon) exec $PY \
+    /home/suzuki/github/projects_des/programs_igmdust/01_crayon_paircount.py \
+    --fg lrg ;;
   *) echo "unknown arg: $ARG (selftest|bgs|lrg|descrayon|speczcalib|qsodes)"
      exit 1 ;;
 esac
