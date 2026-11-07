@@ -20,13 +20,20 @@ def read(path):
         return ""
 
 
+def fmt_eta(s):
+    s = max(0, int(s))
+    return f"{s // 3600}h{s % 3600 // 60:02d}m" if s >= 3600 \
+        else f"{s // 60}m"
+
+
 def frac(text, tag):
-    """Last 'fg done X/Y' after a [tag] marker; returns (x, y) or None."""
-    hits = re.findall(rf"\[{tag}\].*?fg done ([\d,]+)/([\d,]+)", text)
+    """Last 'fg done X/Y ... Ts' after a [tag] marker, or None."""
+    hits = re.findall(
+        rf"\[{tag}\].*?fg done ([\d,]+)/([\d,]+).*?(\d+)s", text)
     if not hits:
         return None
-    x, y = (int(v.replace(",", "")) for v in hits[-1])
-    return x, y
+    x, y = (int(v.replace(",", "")) for v in hits[-1][:2])
+    return x, y, int(hits[-1][2])
 
 
 def pairstage(text, w_data=45, w_ran=50):
@@ -34,11 +41,15 @@ def pairstage(text, w_data=45, w_ran=50):
     if "saved ->" in text or "contours ->" in text:
         return 100.0, "done"
     r = frac(text, "random")
-    if r:
-        return w_data + w_ran * r[0] / max(r[1], 1), "randoms pass"
+    if r and r[0] > 0:
+        eta = (r[1] - r[0]) * r[2] / r[0]
+        return (w_data + w_ran * r[0] / max(r[1], 1),
+                f"randoms pass, ETA ~{fmt_eta(eta)}")
     d = frac(text, "data")
-    if d:
-        return w_data * d[0] / max(d[1], 1), "data pass"
+    if d and d[0] > 0:
+        eta = (d[1] - d[0]) * d[2] / d[0]
+        return (w_data * d[0] / max(d[1], 1),
+                f"data pass, ETA ~{fmt_eta(eta)} + randoms")
     return (2.0, "loading catalogs") if text else (0.0, "queued")
 
 
@@ -55,15 +66,17 @@ gauges = [dict(name="DR11 sweeps (1.9 TB)", state="done", pct=100,
                detail="south+north complete, sha256 verified 04:10 Sat")]
 
 t60 = read(f"{LOGS}/igmdust_60.log")
-m = re.findall(r"\[(\d+)/2126\] matched so far ([\d,]+)", t60)
+m = re.findall(r"\[(\d+)/2126\] matched so far ([\d,]+)\s+(\d+)s", t60)
 if "saved ->" in t60:
     p60, d60 = 100.0, "qso_merged_dr11.fits written"
     mm = re.search(r"matched ([\d,]+) / ([\d,]+) \(([\d.]+%)\)", t60)
     if mm:
         d60 = f"{mm.group(1)} of {mm.group(2)} QSOs matched ({mm.group(3)})"
 elif m:
-    p60 = 100.0 * int(m[-1][0]) / 2126
-    d60 = f"sweep {m[-1][0]}/2126; {m[-1][1]} QSOs matched so far"
+    n, t = int(m[-1][0]), int(m[-1][2])
+    p60 = 100.0 * n / 2126
+    d60 = (f"sweep {n}/2126; {m[-1][1]} QSOs matched; "
+           f"ETA ~{fmt_eta((2126 - n) * t / n)}")
 else:
     p60, d60 = (2.0, "starting") if t60 else (0.0, "queued")
 gauges.append(dict(name="DR11 photometry match (job 60)",
