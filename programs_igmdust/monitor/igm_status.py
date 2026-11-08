@@ -20,6 +20,13 @@ def read(path):
         return ""
 
 
+def mtime(path):
+    try:
+        return os.path.getmtime(os.path.expanduser(path))
+    except OSError:
+        return 0
+
+
 def fmt_eta(s):
     s = max(0, int(s))
     return f"{s // 3600}h{s % 3600 // 60:02d}m" if s >= 3600 \
@@ -62,7 +69,7 @@ def state_of(text, pct):
 
 
 gauges = [dict(name="DR11 sweeps (1.9 TB)", state="done", pct=100,
-               unit="2126/2126 files",
+               unit="2126/2126 files", ts=0,
                detail="south+north complete, sha256 verified 04:10 Sat")]
 
 t60 = read(f"{LOGS}/igmdust_60.log")
@@ -81,13 +88,15 @@ else:
     p60, d60 = (2.0, "starting") if t60 else (0.0, "queued")
 gauges.append(dict(name="Legacy: QSO × DR11 photometry match",
                    state=state_of(t60, p60), pct=p60,
-                   unit="of 2126 sweeps", detail=d60))
+                   unit="of 2126 sweeps", detail=d60,
+                   ts=mtime(f"{LOGS}/igmdust_60.log")))
 
 t61 = read(f"{LOGS}/igmdust_61.log")
 p61, s61 = pairstage(t61)
 gauges.append(dict(name="Legacy: quasars (Ménard recipe) × BGS",
                    state=state_of(t61, p61), pct=p61, unit="pair counting",
-                   detail=s61 + ("" if t61 else " (after photometry match)")))
+                   detail=s61 + ("" if t61 else " (after photometry match)"),
+                   ts=mtime(f"{LOGS}/igmdust_61.log")))
 
 import glob as _g
 for pat, label, det in (
@@ -123,7 +132,8 @@ for pat, label, det in (
     txt = read(files[-1]) if files else ""
     p, s = pairstage(txt, w_data=10, w_ran=85)
     gauges.append(dict(name=label, state=state_of(txt, p), pct=p,
-                       unit="pair counting", detail=f"{det} — {s}"))
+                       unit="pair counting", detail=f"{det} — {s}",
+                       ts=mtime(files[-1]) if files else 0))
 
 # sweep-match style gauges: "[i/N] matched so far X  Ts" progress lines
 for pat, label, what, obj in (
@@ -146,7 +156,8 @@ for pat, label, what, obj in (
     else:
         pl, dl = (2.0, "starting") if tl else (0.0, "queued")
     gauges.append(dict(name=label, state=state_of(tl, pl), pct=pl,
-                       unit="of files", detail=dl))
+                       unit="of files", detail=dl,
+                       ts=mtime(files[-1]) if files else 0))
 
 # HSC catalog downloads (3 CAS jobs; .part suffix = still streaming)
 hsc_dir = "/home/suzuki/data/HSC/catalog"
@@ -162,7 +173,10 @@ try:
                        state=sh if sh == "run" else "done", pct=ph,
                        unit=f"{len(done)}/3 files",
                        detail=f"{gb:.1f} GB on disk (CAS jobs "
-                              "669956/669957/669937)"))
+                              "669956/669957/669937)",
+                       ts=max((mtime(os.path.join(hsc_dir, n))
+                               for n in names if n.startswith("hsc_dr4")),
+                              default=0)))
 except OSError:
     pass
 
@@ -199,6 +213,17 @@ results = [
     ["QSO merge", "2,836,852 QSOs (DESI + SDSS DR16Q + Quaia, 1\" dedup)"],
     ["DES crayon colors", "846,578/850,028 matched to Y3 Gold (99.6%)"],
 ]
+
+# order: failures first (need attention), then running, then queued,
+# then done — done sorted newest-finished first, oldest at the bottom
+_rank = {"fail": 0, "run": 1, "wait": 2, "done": 3}
+gauges = [g for _, g in sorted(
+    enumerate(gauges),
+    key=lambda ig: (_rank.get(ig[1]["state"], 2),
+                    -ig[1].get("ts", 0) if ig[1]["state"] == "done"
+                    else ig[0]))]
+for g in gauges:
+    g.pop("ts", None)
 
 print(json.dumps(dict(updated=time.strftime("%Y-%m-%d %H:%M:%S %Z"),
                       gauges=gauges, results=results)))
