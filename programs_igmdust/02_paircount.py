@@ -366,6 +366,10 @@ def run_arrays(name, fg, ran, bg, edges, rp_mid, out, max_fg=0, tag=""):
     np.savez(fo, rp_edges=edges, rp_mid=rp_mid, delta=delta, sigma=sig,
              ebv=ebv, ebv_err=ebv_err, npair_data=npair_d, npair_ran=npair_r,
              colors=np.array(cnames),
+             # per-region accumulations: enable covariance-weighted
+             # re-estimation (color-color covariance from jackknife)
+             jk_sw_d=dat[0], jk_swc_d=dat[1],
+             jk_sw_r=rnd[0], jk_swc_r=rnd[1],
              meta=json.dumps(dict(fg=name, zrange=[float(zlo), float(zhi)],
                                   zbuffer=Z_BUFFER, nreg=int(nreg),
                                   date=time.strftime("%F %T"))))
