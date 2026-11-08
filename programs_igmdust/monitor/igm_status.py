@@ -146,7 +146,24 @@ try:
 except OSError:
     pass
 
+# McCleary reproduction verdict (07_assess, SLURM job or astro4 nohup run)
+files = sorted(_g.glob(f"{LOGS}/igmdust_ass_*.log"), key=os.path.getmtime)
+ta = read(files[-1]) if files else ""
+verdict = re.search(r"MCCLEARY_REPRODUCTION_(PASS|FAIL)", ta)
+zones = re.findall(r"zone\s+(\S+): (mean pull [^\n]+)", ta)
+if verdict:
+    vres = ["McCleary 2026 reproduction — CSFD iteration VERDICT",
+            verdict.group(1) + "; " +
+            "; ".join(f"{z}: {d}" for z, d in zones)]
+elif ta:
+    vres = ["McCleary 2026 reproduction — CSFD iteration",
+            "assessment running..."]
+else:
+    vres = ["McCleary 2026 reproduction — CSFD iteration",
+            "waiting for CSFD pair counts (iteration 2)"]
+
 results = [
+    vres,
     ["BGS × QSO colors (joint dust+μ fit)",
      "E(B−V) = +5.7±2.3×10⁻³ at 27 kpc; "
      "pure dust, δμ ≈ 0"],
