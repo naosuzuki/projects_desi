@@ -108,29 +108,37 @@ for pat, label, det in (
         ("igmdust_bqw_*.log", "Legacy: BGS × QSOs wide (CSFD)",
          "fix wave: 45 Mpc, CSFD, 6 shards + cov-ML"),
         ("igmdust_lqw_*.log", "Legacy: LRG × QSOs wide (CSFD)",
-         "fix wave: 45 Mpc, CSFD + cov-ML")):
+         "fix wave: 45 Mpc, CSFD + cov-ML"),
+        ("igmdust_pgw_*.log", "Legacy: phot. galaxies × QSOs (Ménard replica)",
+         "r<21 sweep galaxies (~17× BGS pairs), 45 Mpc, CSFD, astrofs4")):
     files = sorted(_g.glob(f"{LOGS}/{pat}"))
     txt = read(files[-1]) if files else ""
     p, s = pairstage(txt, w_data=10, w_ran=85)
     gauges.append(dict(name=label, state=state_of(txt, p), pct=p,
                        unit="pair counting", detail=f"{det} — {s}"))
 
-# Legacy: LRG positions x DR11 sweep match (06 via lrgmatch case)
-files = sorted(_g.glob(f"{LOGS}/igmdust_lmt_*.log"))
-tl = read(files[-1]) if files else ""
-ml = re.findall(r"\[(\d+)/(\d+)\] matched so far ([\d,]+)\s+(\d+)s", tl)
-if "saved ->" in tl:
-    pl, dl = 100.0, "lrg_dr11.fits written"
-elif ml:
-    n, tot, t = int(ml[-1][0]), int(ml[-1][1]), int(ml[-1][3])
-    pl = 100.0 * n / tot
-    dl = (f"sweep {n}/{tot}; {ml[-1][2]} LRGs matched; "
-          f"ETA ~{fmt_eta((tot - n) * t / n)}")
-else:
-    pl, dl = (2.0, "starting") if tl else (0.0, "queued")
-gauges.append(dict(name="Legacy: LRG × DR11 sweep match",
-                   state=state_of(tl, pl), pct=pl,
-                   unit="of sweeps", detail=dl))
+# sweep-match style gauges: "[i/N] matched so far X  Ts" progress lines
+for pat, label, what, obj in (
+        ("igmdust_lmt_*.log", "Legacy: LRG × DR11 sweep match",
+         "lrg_dr11.fits written", "LRGs"),
+        ("igmdust_pgs_*.log", "Legacy: sweep scan — photometric foregrounds",
+         "photgal_dr11.fits written", "r<21 galaxies"),
+        ("igmdust_pgr_*.log", "Legacy: DR11 imaging randoms cut",
+         "photran_dr11.fits written", "randoms")):
+    files = sorted(_g.glob(f"{LOGS}/{pat}"), key=os.path.getmtime)
+    tl = read(files[-1]) if files else ""
+    ml = re.findall(r"\[(\d+)/(\d+)\] matched so far ([\d,]+)\s+(\d+)s", tl)
+    if "saved ->" in tl:
+        pl, dl = 100.0, what
+    elif ml:
+        n, tot, t = int(ml[-1][0]), int(ml[-1][1]), int(ml[-1][3])
+        pl = 100.0 * n / tot
+        dl = (f"file {n}/{tot}; {ml[-1][2]} {obj}; "
+              f"ETA ~{fmt_eta((tot - n) * t / max(n, 1))}")
+    else:
+        pl, dl = (2.0, "starting") if tl else (0.0, "queued")
+    gauges.append(dict(name=label, state=state_of(tl, pl), pct=pl,
+                       unit="of files", detail=dl))
 
 # HSC catalog downloads (3 CAS jobs; .part suffix = still streaming)
 hsc_dir = "/home/suzuki/data/HSC/catalog"

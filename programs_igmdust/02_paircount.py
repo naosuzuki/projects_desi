@@ -120,6 +120,21 @@ def load_lss(base, sample, kind="dat", nran=2):
             np.concatenate(z), np.concatenate(w))
 
 
+def load_photcat(path, zeff, label):
+    """Photometric foreground (11_sweepgal output): RA/DEC only; a tiny
+    linear z spread around zeff keeps the ZSLICE machinery alive (rp
+    changes by < 0.2%) while binning physically at the effective z."""
+    with fits.open(path) as h:
+        d = h[1].data
+        ra = np.asarray(d["RA"], float)
+        dec = np.asarray(d["DEC"], float)
+    n = len(ra)
+    z = zeff + np.linspace(0.0, 1e-3, n)
+    print(f"  {label}: {n:,} rows from {os.path.basename(path)} "
+          f"(z_eff = {zeff})")
+    return ra, dec, z, np.ones(n)
+
+
 def load_qso_merged(path):
     """Merged background (05_qso_merge + 06_sweepmatch): DESI + SDSS +
     Quaia QSOs with uniform LS DR11 photometry.  PSF morphology only;
@@ -256,6 +271,11 @@ def accumulate(fg_ra, fg_dec, fg_z, fg_w, fg_reg, bg_tree, bg_vec, bg_z,
                 wv = w * valid[bi, c]
                 np.add.at(sumw[c], key, wv)
                 np.add.at(sumwc[c], key, wv * colors[bi, c])
+            if (c0 // CHUNK) % 25 == 24:        # keep ETAs alive when one
+                print(f"  [{label}] z<{za+ZSLICE:.3f}  fg done "
+                      f"{done + c0 + CHUNK:,}/{len(fg_z):,}"
+                      f"  pairs {npair.sum():,.0f}  {time.time()-t0:.0f}s",
+                      flush=True)                # z-slice holds the sample
         done += i1 - i0
         print(f"  [{label}] z<{za+ZSLICE:.3f}  fg done {done:,}/{len(fg_z):,}"
               f"  pairs {npair.sum():,.0f}  {time.time()-t0:.0f}s",
@@ -311,12 +331,18 @@ def csfd_recorrect(qra, qdec, qcol, qval):
 
 
 def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
-        mwcorr=False, nshard=1, shard=0):
+        mwcorr=False, nshard=1, shard=0, fg_cat=None, fg_ran=None,
+        zeff=0.30):
     edges, rp_mid = rp_bins()
     print(f"== foregrounds: {fg_sample}")
-    fra, fdec, fz, fw = load_lss(base, fg_sample, "dat")
-    print("== randoms")
-    rra, rdec, rz, rw = load_lss(base, fg_sample, "ran", nran=nran)
+    if fg_sample == "photgal":
+        fra, fdec, fz, fw = load_photcat(fg_cat, zeff, "photgal")
+        print("== randoms")
+        rra, rdec, rz, rw = load_photcat(fg_ran, zeff, "photran")
+    else:
+        fra, fdec, fz, fw = load_lss(base, fg_sample, "dat")
+        print("== randoms")
+        rra, rdec, rz, rw = load_lss(base, fg_sample, "ran", nran=nran)
     print("== backgrounds: QSO")
     if qso_cat:
         qra, qdec, qz, qcol, qval = load_qso_merged(qso_cat)
@@ -481,7 +507,17 @@ def selftest():
 # --------------------------------------------------------------------- cli ---
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
-    ap.add_argument("--fg", choices=["bgs", "lrg"], help="foreground sample")
+    ap.add_argument("--fg", choices=["bgs", "lrg", "photgal"],
+                    help="foreground sample")
+    ap.add_argument("--fg-cat", default="/data/astrofs2_1/suzuki/data/DESI/"
+                    "catalog/qso_ext/photgal_dr11.fits",
+                    help="photgal: foreground fits from 11_sweepgal")
+    ap.add_argument("--fg-ran", default="/data/astrofs2_1/suzuki/data/DESI/"
+                    "catalog/qso_ext/photran_dr11.fits",
+                    help="photgal: randoms fits from 11_sweepgal --mode "
+                         "randoms")
+    ap.add_argument("--zeff", type=float, default=0.30,
+                    help="photgal: effective z for physical binning")
     ap.add_argument("--base", default=BASE_DEFAULT)
     ap.add_argument("--out", default=OUT_DEFAULT)
     ap.add_argument("--max-fg", type=int, default=0,
@@ -518,4 +554,5 @@ if __name__ == "__main__":
             + (f"_sub{a.max_fg}" if a.max_fg else "")
             + (f"_s{a.nshard}.{a.shard}" if a.nshard > 1 else ""),
         qso_cat=a.qso_cat, mwcorr=a.mwcorr,
-        nshard=a.nshard, shard=a.shard)
+        nshard=a.nshard, shard=a.shard,
+        fg_cat=a.fg_cat, fg_ran=a.fg_ran, zeff=a.zeff)
