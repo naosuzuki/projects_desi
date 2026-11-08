@@ -110,7 +110,11 @@ for pat, label, det in (
         ("igmdust_lqw_*.log", "Legacy: LRG × QSOs wide (CSFD)",
          "fix wave: 45 Mpc, CSFD + cov-ML"),
         ("igmdust_pgw_*.log", "Legacy: phot. galaxies × QSOs (Ménard replica)",
-         "r<21 sweep galaxies (~17× BGS pairs), 45 Mpc, CSFD, astrofs4")):
+         "r<21 sweep galaxies (~17× BGS pairs), 45 Mpc, CSFD, astrofs4"),
+        ("igmdust_hcr_*.log", "HSC: BGS × quiescent crayons",
+         "DR4 Wide i<24, photo-z 0.7–1.7, 45 Mpc, CSFD, 2 shards"),
+        ("igmdust_hsn_*.log", "HSC: star null test",
+         "i<22.5 point sources × BGS — systematics template")):
     files = sorted(_g.glob(f"{LOGS}/{pat}"))
     txt = read(files[-1]) if files else ""
     p, s = pairstage(txt, w_data=10, w_ran=85)
