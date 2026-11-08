@@ -273,8 +273,13 @@ if __name__ == "__main__":
                                  "... (reads paircount_<fg>_qso.npz)")
     ap.add_argument("--base", default=BASE_DEFAULT)
     ap.add_argument("--out", default=OUT_DEFAULT)
+    ap.add_argument("--anchor", type=float, default=RP_ANCHOR,
+                    help="offset-anchor radius, Mpc; on wide (45 Mpc) "
+                         "runs use >=15 so the anchor stops eating the "
+                         "Menard tail (law E < 2e-5 there)")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
+    RP_ANCHOR = a.anchor
     if a.selftest:
         sys.exit(selftest())
     if not a.fg:

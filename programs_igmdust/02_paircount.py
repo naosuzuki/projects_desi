@@ -29,6 +29,7 @@ Output:
     $OUT/paircount_<fg>_qso.npz  + table to stdout
 """
 import argparse
+import importlib.util
 import json
 import os
 import sys
@@ -293,7 +294,24 @@ def solve_ebv(delta, sig):
 
 
 # ------------------------------------------------------------------ driver ---
-def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None):
+def csfd_recorrect(qra, qdec, qcol, qval):
+    """Re-express the SFD-dereddened sweep colors in the CSFD convention
+    (the DES iteration-2 ingredient; see projects_des 06_csfd.py).
+    colors += (E_SFD - E_CSFD) * dR with the Legacy R coefficients."""
+    path = os.path.expanduser(
+        "~/github/projects_des/programs_igmdust/06_csfd.py")
+    spec = importlib.util.spec_from_file_location("csfd06", path)
+    c6 = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(c6)
+    dE = c6.delta_ebv(qra, qdec)
+    dRc = np.array([R_COEF[a] - R_COEF[b] for a, b in COLORS])
+    print(f"  CSFD recorrection (Legacy R): E_SFD-E_CSFD "
+          f"mean {dE.mean():+.5f}, rms {dE.std():.5f} mag")
+    return np.where(qval, qcol + dE[:, None] * dRc[None, :], 0.0)
+
+
+def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
+        mwcorr=False, nshard=1, shard=0):
     edges, rp_mid = rp_bins()
     print(f"== foregrounds: {fg_sample}")
     fra, fdec, fz, fw = load_lss(base, fg_sample, "dat")
@@ -304,12 +322,15 @@ def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None):
         qra, qdec, qz, qcol, qval = load_qso_merged(qso_cat)
     else:
         qra, qdec, qz, qcol, qval = load_qso(base)
+    if mwcorr:
+        qcol = csfd_recorrect(qra, qdec, qcol, qval)
     return run_arrays(fg_sample, (fra, fdec, fz, fw), (rra, rdec, rz, rw),
                       (qra, qdec, qz, qcol, qval), edges, rp_mid,
-                      out, max_fg, tag)
+                      out, max_fg, tag, nshard=nshard, shard=shard)
 
 
-def run_arrays(name, fg, ran, bg, edges, rp_mid, out, max_fg=0, tag=""):
+def run_arrays(name, fg, ran, bg, edges, rp_mid, out, max_fg=0, tag="",
+               nshard=1, shard=0):
     fra, fdec, fz, fw = fg
     rra, rdec, rz, rw = ran
     qra, qdec, qz, qcol, qval = bg
@@ -337,6 +358,16 @@ def run_arrays(name, fg, ran, bg, edges, rp_mid, out, max_fg=0, tag=""):
     lut = np.zeros(labels.max() + 1, dtype=int)
     lut[labels] = np.arange(nreg)
     print(f"  jackknife regions: {nreg}")
+
+    if nshard > 1:
+        # regions/lut are built from the FULL samples above, so every
+        # shard shares one region indexing and the per-region jk arrays
+        # are directly addable by 02b_merge_shards.py
+        fra, fdec, fz, fw, freg = (x[shard::nshard]
+                                   for x in (fra, fdec, fz, fw, freg))
+        rra, rdec, rz, rw, rreg = (x[shard::nshard]
+                                   for x in (rra, rdec, rz, rw, rreg))
+        print(f"  shard {shard}/{nshard}: fg {len(fz):,}  ran {len(rz):,}")
 
     bg_vec = unitvec(qra, qdec)
     tree = cKDTree(bg_vec)
@@ -462,14 +493,29 @@ if __name__ == "__main__":
     ap.add_argument("--chunk", type=int, default=CHUNK,
                     help="fg per tree-query chunk (lower on 20G SLURM "
                          "with the denser merged background)")
+    ap.add_argument("--rp-min", type=float, default=RP_MIN,
+                    help="inner radius, Mpc physical")
+    ap.add_argument("--rp-max", type=float, default=RP_MAX,
+                    help="outer radius, Mpc physical (45 = wide/McCleary)")
+    ap.add_argument("--mwcorr", action="store_true",
+                    help="CSFD re-correction of the SFD-dereddened sweep "
+                         "colors (tag gains csfd)")
+    ap.add_argument("--nshard", type=int, default=1,
+                    help="split fg+randoms into N interleaved shards")
+    ap.add_argument("--shard", type=int, default=0,
+                    help="which shard to run (0..nshard-1)")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
     CHUNK = a.chunk
+    RP_MIN, RP_MAX = a.rp_min, a.rp_max
     if a.selftest:
         sys.exit(selftest())
     if not a.fg:
         ap.error("--fg required (or --selftest)")
     run(a.fg, a.base, a.out, a.max_fg, a.nran,
         tag=("_mq" if a.qso_cat else "")
-            + (f"_sub{a.max_fg}" if a.max_fg else ""),
-        qso_cat=a.qso_cat)
+            + ("csfd" if a.mwcorr else "")
+            + (f"_sub{a.max_fg}" if a.max_fg else "")
+            + (f"_s{a.nshard}.{a.shard}" if a.nshard > 1 else ""),
+        qso_cat=a.qso_cat, mwcorr=a.mwcorr,
+        nshard=a.nshard, shard=a.shard)

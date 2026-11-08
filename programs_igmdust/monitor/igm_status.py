@@ -104,7 +104,11 @@ for pat, label, det in (
         ("igmdust_snl_*.log", "Legacy: star null test",
          "DR11 PSF stars × BGS — systematics template"),
         ("igmdust_lcr_*.log", "Legacy: LRG crayons × BGS",
-         "spec-z locus (f_abs = 1), 10 kpc–45 Mpc")):
+         "spec-z locus (f_abs = 1), 10 kpc–45 Mpc"),
+        ("igmdust_bqw_*.log", "Legacy: BGS × QSOs wide (CSFD)",
+         "fix wave: 45 Mpc, CSFD, 6 shards + cov-ML"),
+        ("igmdust_lqw_*.log", "Legacy: LRG × QSOs wide (CSFD)",
+         "fix wave: 45 Mpc, CSFD + cov-ML")):
     files = sorted(_g.glob(f"{LOGS}/{pat}"))
     txt = read(files[-1]) if files else ""
     p, s = pairstage(txt, w_data=10, w_ran=85)
