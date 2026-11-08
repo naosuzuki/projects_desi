@@ -114,7 +114,11 @@ for pat, label, det in (
         ("igmdust_hcr_*.log", "HSC: BGS × quiescent crayons",
          "DR4 Wide i<24, photo-z 0.7–1.7, 45 Mpc, CSFD, 2 shards"),
         ("igmdust_hsn_*.log", "HSC: star null test",
-         "i<22.5 point sources × BGS — systematics template")):
+         "i<22.5 point sources × BGS — systematics template"),
+        ("igmdust_hlr_*.log", "HSC: LRG × quiescent crayons",
+         "higher-z fg slice (0.4–1.1), i<24, 45 Mpc, CSFD"),
+        ("igmdust_hls_*.log", "HSC: LRG star null",
+         "i<22.5 point sources × LRG — systematics template")):
     files = sorted(_g.glob(f"{LOGS}/{pat}"))
     txt = read(files[-1]) if files else ""
     p, s = pairstage(txt, w_data=10, w_ran=85)
