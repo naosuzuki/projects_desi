@@ -266,6 +266,28 @@ bqw + lqw (CSFD, anchor 15 Mpc, cov-ML, 45 Mpc) finished in ~7 h wall (6 BGS sha
   flagged for snl.
 - ms.tex + av_profile_legacy.pdf updated (Overleaf re-upload pending).
 
+### Star null verdict (snl landed 2026-11-09 02:55, paircount_bgsstars_qso.npz)
+- **Quasar-side offset confirmed**: star-crossed QSO colors sit at a *flat* −1.2e−3
+  E(B−V)-equiv from 125 kpc all the way to 34 Mpc (−1.32±0.30e−3 @ 671 kpc,
+  −1.04±0.24e−3 @ 34 Mpc). Stars cannot redden quasars → flat large-scale offsets are
+  photometric zero-point/selection artifacts, exactly what the ≥15 Mpc anchor removes.
+  **Anchor method validated; anchored fits stay the results of record.**
+- Null subtraction is a shape test only: star and BGS samples carry *different* flat
+  offsets (Δ≈1.3e−3; ML --null plateau = +1.0–1.45e−3 over 219 kpc–34 Mpc), as expected
+  from different sky weighting (PSF-star density tracks galactic latitude → extinction
+  residuals). So --null cannot replace the anchor.
+- **125 kpc BGS dip survives the null**: the star profile is featureless there
+  (−1.16±0.80e−3, same as neighbors), so subtraction leaves the dip intact relative to
+  the plateau (−0.47e−3 vs +1.25e−3 at 219 kpc). Not a star-proximity artifact; stays an
+  open feature of BGS × QSO colors.
+- **23 kpc headline strengthens** under null subtraction: +8.44±2.0e−3 (4.2σ, vs
+  +4.83e−3 anchored) — the star template is *negative* inward (−9.2e−3 @ 23 kpc,
+  dominated by z−W1 = −5.1e−2: WISE blending/scattered light near stars), so if anything
+  the anchored headline is conservative.
+- LRG δμ<0 @ 1.2–2.1 Mpc: null colors are featureless there → not a star-proximity
+  *color* artifact; a magnitude-channel star null is still needed to arbitrate the
+  magnification sign. Partial.
+
 ## 11. Backgrounds v2 (Nao, 2026-11-08): multi-survey quasar photometry + DR2 spec-z
 
 Nao's direction: integrate SDSS + Pan-STARRS + Legacy photometry, DESI DR2 for quasar spec-z. Division of labor
