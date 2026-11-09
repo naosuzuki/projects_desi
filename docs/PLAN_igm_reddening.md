@@ -285,8 +285,22 @@ bqw + lqw (CSFD, anchor 15 Mpc, cov-ML, 45 Mpc) finished in ~7 h wall (6 BGS sha
   dominated by z−W1 = −5.1e−2: WISE blending/scattered light near stars), so if anything
   the anchored headline is conservative.
 - LRG δμ<0 @ 1.2–2.1 Mpc: null colors are featureless there → not a star-proximity
-  *color* artifact; a magnitude-channel star null is still needed to arbitrate the
-  magnification sign. Partial.
+  *color* artifact. Magnitude channel (04_dustmag --fg bgsstars, 2026-11-09): star
+  δμ = +0.000±0.011 and −0.001±0.011 at 1.2/2.1 Mpc — no systematic; generic
+  quasar-side magnitude systematics cannot supply the LRG −0.021±0.004, though the
+  null's ±0.011 still admits ~half that amplitude. ms.tex item (iv) added
+  (§legacyresults) + DES quasar-tail and anchor-diagnostic passages updated
+  (**Overleaf re-upload pending**).
+
+### Replica logistics (2026-11-09 morning)
+- SLURM auto-killed queued jobs 79/80/81 (DependencyNeverSatisfied on job 78's exit
+  status) although the scan output is good: photgal_dr11.fits, 135,952,763 galaxies.
+- A pgw shard needs **~23 GB RSS** (measured on astro4) → can never run inside the
+  20 GB astrofs4 cap (jobs 89 shards OOM-killed in <1 min). All four shards now run
+  on astro4: 2+3 in parallel since 10:49; runner_pgw01.sh (nohup, ~/runner on astro4)
+  waits for them, runs 0+1, then 02b merge + 04 anchor 15 + 10_ml + 10_ml --null.
+- astrofs4 steady state: job 84 (HSC LRG, 2c/16G) + job 87 (HSC BGS wave, 10c/18G);
+  memory, not cores, binds — 20.5 GB headroom fits no pgw shard.
 
 ## 11. Backgrounds v2 (Nao, 2026-11-08): multi-survey quasar photometry + DR2 spec-z
 
