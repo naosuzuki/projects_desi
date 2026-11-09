@@ -324,6 +324,24 @@ bqw + lqw (CSFD, anchor 15 Mpc, cov-ML, 45 Mpc) finished in ~7 h wall (6 BGS sha
 - astrofs4 steady state: job 84 (HSC LRG, 2c/16G) + job 87 (HSC BGS wave, 10c/18G);
   memory, not cores, binds — 20.5 GB headroom fits no pgw shard.
 
+### lcr "264 h" ETA is a gauge artifact; 07 gains shard support (2026-11-09 evening)
+- The lcr randoms pass sits in the z<0.075 slice, where the 45 Mpc aperture is a
+  ~13° search circle — the slowest objects in the whole run. The gauge ETA
+  extrapolates that opening rate to all 35.4M randoms → 264 h. The data pass's
+  measured cost curve (61 fg/s at z<0.075 → 180+ at z≥0.125; 5.24M done in
+  4.4 h) says the truth: randoms = 6.77× data with the same z shape ≈ 30 h
+  clean, ~40–50 h under the current pgw contention. **Realistic finish:
+  Tuesday.** Job left running (per Nao); a sharded restart would not beat it —
+  astro4 has no memory for shards (each needs ~30 GB) until the replica frees
+  44 GB tomorrow morning, by which point the head start wins.
+- Design critique accepted: 02's inner bookkeeping loop (neighbor-list
+  unpacking, np.add.at) is serial Python — workers=-1 only parallelizes the
+  tree query, so lcr burns 1.6 of 64 cores. 02 has had interleaved fg+random
+  sharding all along; 07 just never exposed it. Fixed: 07_crayon_legacy.py now
+  takes --nshard/--shard (output paircount_bgslrgcrayon_sN.i_qso.npz, merged by
+  02b_merge_shards --name bgslrgcrayon). Every future crayon run (wide-anchor
+  reruns, Backgrounds v2, HSC generalization) should use 4–6 shards.
+
 ## 11. Backgrounds v2 (Nao, 2026-11-08): multi-survey quasar photometry + DR2 spec-z
 
 Nao's direction: integrate SDSS + Pan-STARRS + Legacy photometry, DESI DR2 for quasar spec-z. Division of labor

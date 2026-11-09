@@ -110,9 +110,12 @@ def main(a):
     fra, fdec, fz, fw = pc.load_lss(a.base, "bgs", "dat")
     rra, rdec, rz, rw = pc.load_lss(a.base, "bgs", "ran", nran=a.nran)
 
+    tag = f"_sub{a.max_fg}" if a.max_fg else ""
+    if a.nshard > 1:
+        tag += f"_s{a.nshard}.{a.shard}"
     pc.run_arrays(name, (fra, fdec, fz, fw), (rra, rdec, rz, rw), bg,
-                  edges, rp_mid, a.out,
-                  a.max_fg, tag=f"_sub{a.max_fg}" if a.max_fg else "")
+                  edges, rp_mid, a.out, a.max_fg, tag=tag,
+                  nshard=a.nshard, shard=a.shard)
 
 
 def selftest():
@@ -144,6 +147,10 @@ if __name__ == "__main__":
     ap.add_argument("--make-input", default=None,
                     help="write LRG positions fits for 06_sweepmatch")
     ap.add_argument("--max-fg", type=int, default=0)
+    ap.add_argument("--nshard", type=int, default=1,
+                    help="split fg+randoms into N interleaved shards "
+                         "(merge with 02b_merge_shards --name bgslrgcrayon)")
+    ap.add_argument("--shard", type=int, default=0)
     ap.add_argument("--nran", type=int, default=2)
     ap.add_argument("--rp-min", type=float, default=0.01)
     ap.add_argument("--rp-max", type=float, default=45.0)
