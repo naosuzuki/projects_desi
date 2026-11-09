@@ -249,6 +249,23 @@ the tail *amplitude* crown comes from the crayon route — DES already matches M
 the Legacy spec-z crayons forecast 8.7%, 2.3× better than McCleary+26, with no photo-z absorption
 systematic.
 
+### Fix-wave results (landed 2026-11-08 evening)
+
+bqw + lqw (CSFD, anchor 15 Mpc, cov-ML, 45 Mpc) finished in ~7 h wall (6 BGS shards + LRG):
+
+- **LRG tail detected**: cov-ML E(B−V) = +1.24±0.25e−3 @ 671 kpc (5.0σ), +2.71±0.84e−4
+  @ 2.06 Mpc (3.2σ), +1.24±0.50e−4 @ 3.6 Mpc (2.5σ); positive every bin to 19 Mpc;
+  **5.0σ combined over the contamination-safe 1.2–19 Mpc**, tracking M10 r^−0.86 in slope,
+  amplitude ~2–3× (LRG bias). The anchor-move prediction (§10) confirmed: the hidden 2.8σ
+  anchor-zone excess resolved into the profile.
+- Contamination χ² decays outward: 157/1 @ 219 kpc → 40/1 @ 671 kpc → ≤4.8/1 from 1.2 Mpc.
+  671 kpc bin flagged. Joint fit still prefers δμ<0 at 1.2–2.1 Mpc (−5σ!) — unphysical sign,
+  so quoted tail = conservative lower bookmark until snl arbitrates.
+- **BGS**: 23 kpc +4.83±2.0e−3 (cov-ML) — headline survives CSFD+anchor+ML. Tail still
+  noise-dominated (as budgeted). 144 kpc dip → 125 kpc −2.6σ: reduced by CSFD, not gone;
+  flagged for snl.
+- ms.tex + av_profile_legacy.pdf updated (Overleaf re-upload pending).
+
 ## 11. Backgrounds v2 (Nao, 2026-11-08): multi-survey quasar photometry + DR2 spec-z
 
 Nao's direction: integrate SDSS + Pan-STARRS + Legacy photometry, DESI DR2 for quasar spec-z. Division of labor
