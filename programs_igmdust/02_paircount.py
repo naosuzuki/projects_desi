@@ -29,6 +29,7 @@ Output:
     $OUT/paircount_<fg>_qso.npz  + table to stdout
 """
 import argparse
+import importlib.util
 import json
 import os
 import sys
@@ -117,6 +118,59 @@ def load_lss(base, sample, kind="dat", nran=2):
         print(f"  {os.path.basename(f)}: {len(ra[-1]):,} rows")
     return (np.concatenate(ra), np.concatenate(dec),
             np.concatenate(z), np.concatenate(w))
+
+
+def load_photcat(path, zeff, label):
+    """Photometric foreground (11_sweepgal output): RA/DEC only; a tiny
+    linear z spread around zeff keeps the ZSLICE machinery alive (rp
+    changes by < 0.2%) while binning physically at the effective z."""
+    with fits.open(path) as h:
+        d = h[1].data
+        ra = np.asarray(d["RA"], float)
+        dec = np.asarray(d["DEC"], float)
+    n = len(ra)
+    z = zeff + np.linspace(0.0, 1e-3, n)
+    print(f"  {label}: {n:,} rows from {os.path.basename(path)} "
+          f"(z_eff = {zeff})")
+    return ra, dec, z, np.ones(n)
+
+
+def load_qso_merged(path):
+    """Merged background (05_qso_merge + 06_sweepmatch): DESI + SDSS +
+    Quaia QSOs with uniform LS DR11 photometry.  PSF morphology only;
+    a color is valid when both bands have positive flux AND ivar.
+    NOTE for 04: M_c there is computed from the DESI selection alone —
+    acceptable around BGS where dmu is consistent with zero, wrong for
+    precision magnification work with this mixed-selection sample."""
+    with fits.open(path) as h:
+        d = h[1].data
+        ra = np.asarray(d["RA"], float)
+        dec = np.asarray(d["DEC"], float)
+        z = np.asarray(d["Z"], float)
+        src = np.asarray(d["SRC"], int)
+        sel = (np.asarray(d["MATCHED"], bool)
+               & (np.char.strip(d["LS_TYPE"].astype(str)) == "PSF")
+               & np.isfinite(z) & (z > 0.3) & (z < 4.0))
+        mags = {}
+        for b in ("G", "R", "Z", "W1"):
+            flux = np.asarray(d[f"FLUX_{b}"], float)
+            ivar = np.asarray(d[f"IVAR_{b}"], float)
+            mwt = np.asarray(d[f"MWT_{b}"], float)
+            with np.errstate(invalid="ignore", divide="ignore"):
+                flux = flux / mwt
+            ok = (np.isfinite(flux) & (flux > 0)
+                  & np.isfinite(ivar) & (ivar > 0))
+            m = np.full(len(flux), np.nan)
+            m[ok] = 22.5 - 2.5 * np.log10(flux[ok])
+            mags[b if b == "W1" else b.lower()] = m
+    colors = np.column_stack([mags[a] - mags[b] for a, b in COLORS])
+    valid = np.isfinite(colors)
+    colors = np.where(valid, colors, 0.0)
+    cnt = np.bincount(src[sel], minlength=3)
+    print(f"  merged QSO: {sel.sum():,} / {len(ra):,} after cuts "
+          f"(DESI {cnt[0]:,}, SDSS {cnt[1]:,}, Quaia {cnt[2]:,}); "
+          f"validity {valid[sel].mean(0).round(3)}")
+    return ra[sel], dec[sel], z[sel], colors[sel], valid[sel]
 
 
 def load_qso(base):
@@ -217,6 +271,11 @@ def accumulate(fg_ra, fg_dec, fg_z, fg_w, fg_reg, bg_tree, bg_vec, bg_z,
                 wv = w * valid[bi, c]
                 np.add.at(sumw[c], key, wv)
                 np.add.at(sumwc[c], key, wv * colors[bi, c])
+            if (c0 // CHUNK) % 25 == 24:        # keep ETAs alive when one
+                print(f"  [{label}] z<{za+ZSLICE:.3f}  fg done "
+                      f"{done + c0 + CHUNK:,}/{len(fg_z):,}"
+                      f"  pairs {npair.sum():,.0f}  {time.time()-t0:.0f}s",
+                      flush=True)                # z-slice holds the sample
         done += i1 - i0
         print(f"  [{label}] z<{za+ZSLICE:.3f}  fg done {done:,}/{len(fg_z):,}"
               f"  pairs {npair.sum():,.0f}  {time.time()-t0:.0f}s",
@@ -255,20 +314,49 @@ def solve_ebv(delta, sig):
 
 
 # ------------------------------------------------------------------ driver ---
-def run(fg_sample, base, out, max_fg, nran, tag=""):
+def csfd_recorrect(qra, qdec, qcol, qval):
+    """Re-express the SFD-dereddened sweep colors in the CSFD convention
+    (the DES iteration-2 ingredient; see projects_des 06_csfd.py).
+    colors += (E_SFD - E_CSFD) * dR with the Legacy R coefficients."""
+    path = os.path.expanduser(
+        "~/github/projects_des/programs_igmdust/06_csfd.py")
+    spec = importlib.util.spec_from_file_location("csfd06", path)
+    c6 = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(c6)
+    dE = c6.delta_ebv(qra, qdec)
+    dRc = np.array([R_COEF[a] - R_COEF[b] for a, b in COLORS])
+    print(f"  CSFD recorrection (Legacy R): E_SFD-E_CSFD "
+          f"mean {dE.mean():+.5f}, rms {dE.std():.5f} mag")
+    return np.where(qval, qcol + dE[:, None] * dRc[None, :], 0.0)
+
+
+def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
+        mwcorr=False, nshard=1, shard=0, fg_cat=None, fg_ran=None,
+        zeff=0.30):
     edges, rp_mid = rp_bins()
     print(f"== foregrounds: {fg_sample}")
-    fra, fdec, fz, fw = load_lss(base, fg_sample, "dat")
-    print("== randoms")
-    rra, rdec, rz, rw = load_lss(base, fg_sample, "ran", nran=nran)
+    if fg_sample == "photgal":
+        fra, fdec, fz, fw = load_photcat(fg_cat, zeff, "photgal")
+        print("== randoms")
+        rra, rdec, rz, rw = load_photcat(fg_ran, zeff, "photran")
+    else:
+        fra, fdec, fz, fw = load_lss(base, fg_sample, "dat")
+        print("== randoms")
+        rra, rdec, rz, rw = load_lss(base, fg_sample, "ran", nran=nran)
     print("== backgrounds: QSO")
-    qra, qdec, qz, qcol, qval = load_qso(base)
+    if qso_cat:
+        qra, qdec, qz, qcol, qval = load_qso_merged(qso_cat)
+    else:
+        qra, qdec, qz, qcol, qval = load_qso(base)
+    if mwcorr:
+        qcol = csfd_recorrect(qra, qdec, qcol, qval)
     return run_arrays(fg_sample, (fra, fdec, fz, fw), (rra, rdec, rz, rw),
                       (qra, qdec, qz, qcol, qval), edges, rp_mid,
-                      out, max_fg, tag)
+                      out, max_fg, tag, nshard=nshard, shard=shard)
 
 
-def run_arrays(name, fg, ran, bg, edges, rp_mid, out, max_fg=0, tag=""):
+def run_arrays(name, fg, ran, bg, edges, rp_mid, out, max_fg=0, tag="",
+               nshard=1, shard=0):
     fra, fdec, fz, fw = fg
     rra, rdec, rz, rw = ran
     qra, qdec, qz, qcol, qval = bg
@@ -296,6 +384,16 @@ def run_arrays(name, fg, ran, bg, edges, rp_mid, out, max_fg=0, tag=""):
     lut = np.zeros(labels.max() + 1, dtype=int)
     lut[labels] = np.arange(nreg)
     print(f"  jackknife regions: {nreg}")
+
+    if nshard > 1:
+        # regions/lut are built from the FULL samples above, so every
+        # shard shares one region indexing and the per-region jk arrays
+        # are directly addable by 02b_merge_shards.py
+        fra, fdec, fz, fw, freg = (x[shard::nshard]
+                                   for x in (fra, fdec, fz, fw, freg))
+        rra, rdec, rz, rw, rreg = (x[shard::nshard]
+                                   for x in (rra, rdec, rz, rw, rreg))
+        print(f"  shard {shard}/{nshard}: fg {len(fz):,}  ran {len(rz):,}")
 
     bg_vec = unitvec(qra, qdec)
     tree = cKDTree(bg_vec)
@@ -325,6 +423,10 @@ def run_arrays(name, fg, ran, bg, edges, rp_mid, out, max_fg=0, tag=""):
     np.savez(fo, rp_edges=edges, rp_mid=rp_mid, delta=delta, sigma=sig,
              ebv=ebv, ebv_err=ebv_err, npair_data=npair_d, npair_ran=npair_r,
              colors=np.array(cnames),
+             # per-region accumulations: enable covariance-weighted
+             # re-estimation (color-color covariance from jackknife)
+             jk_sw_d=dat[0], jk_swc_d=dat[1],
+             jk_sw_r=rnd[0], jk_swc_r=rnd[1],
              meta=json.dumps(dict(fg=name, zrange=[float(zlo), float(zhi)],
                                   zbuffer=Z_BUFFER, nreg=int(nreg),
                                   date=time.strftime("%F %T"))))
@@ -405,17 +507,52 @@ def selftest():
 # --------------------------------------------------------------------- cli ---
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1])
-    ap.add_argument("--fg", choices=["bgs", "lrg"], help="foreground sample")
+    ap.add_argument("--fg", choices=["bgs", "lrg", "photgal"],
+                    help="foreground sample")
+    ap.add_argument("--fg-cat", default="/data/astrofs2_1/suzuki/data/DESI/"
+                    "catalog/qso_ext/photgal_dr11.fits",
+                    help="photgal: foreground fits from 11_sweepgal")
+    ap.add_argument("--fg-ran", default="/data/astrofs2_1/suzuki/data/DESI/"
+                    "catalog/qso_ext/photran_dr11.fits",
+                    help="photgal: randoms fits from 11_sweepgal --mode "
+                         "randoms")
+    ap.add_argument("--zeff", type=float, default=0.30,
+                    help="photgal: effective z for physical binning")
     ap.add_argument("--base", default=BASE_DEFAULT)
     ap.add_argument("--out", default=OUT_DEFAULT)
     ap.add_argument("--max-fg", type=int, default=0,
                     help="subsample foregrounds (quick look)")
     ap.add_argument("--nran", type=int, default=2, help="random files per cap")
+    ap.add_argument("--qso-cat", default=None,
+                    help="merged background (06 output) instead of DESI-only;"
+                         " output tag gains _mq")
+    ap.add_argument("--chunk", type=int, default=CHUNK,
+                    help="fg per tree-query chunk (lower on 20G SLURM "
+                         "with the denser merged background)")
+    ap.add_argument("--rp-min", type=float, default=RP_MIN,
+                    help="inner radius, Mpc physical")
+    ap.add_argument("--rp-max", type=float, default=RP_MAX,
+                    help="outer radius, Mpc physical (45 = wide/McCleary)")
+    ap.add_argument("--mwcorr", action="store_true",
+                    help="CSFD re-correction of the SFD-dereddened sweep "
+                         "colors (tag gains csfd)")
+    ap.add_argument("--nshard", type=int, default=1,
+                    help="split fg+randoms into N interleaved shards")
+    ap.add_argument("--shard", type=int, default=0,
+                    help="which shard to run (0..nshard-1)")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
+    CHUNK = a.chunk
+    RP_MIN, RP_MAX = a.rp_min, a.rp_max
     if a.selftest:
         sys.exit(selftest())
     if not a.fg:
         ap.error("--fg required (or --selftest)")
     run(a.fg, a.base, a.out, a.max_fg, a.nran,
-        tag=f"_sub{a.max_fg}" if a.max_fg else "")
+        tag=("_mq" if a.qso_cat else "")
+            + ("csfd" if a.mwcorr else "")
+            + (f"_sub{a.max_fg}" if a.max_fg else "")
+            + (f"_s{a.nshard}.{a.shard}" if a.nshard > 1 else ""),
+        qso_cat=a.qso_cat, mwcorr=a.mwcorr,
+        nshard=a.nshard, shard=a.shard,
+        fg_cat=a.fg_cat, fg_ran=a.fg_ran, zeff=a.zeff)

@@ -200,3 +200,86 @@ is the plan of record; status sections get appended below as work proceeds (HAND
 6. Standalone paper vs section; and whether the spectroscopic extinction curve (estimator 3b) and the mean-opacity
    measurement (estimator 4) are in the first paper or split into a second.
 7. HSC DR4 internal-data publication rights — confirm with the collaboration before HSC numbers go in a paper.
+
+## 10. Status 2026-11-08 — why the Legacy QSO results are weaker than Ménard+10, and the fix
+
+Nao's question: Legacy is deeper than SDSS and we have 28× Ménard's quasars — why are the first results *less*
+powerful than M10? Measured answer (per-pair scatter = `sigma × sqrt(npair)` from `paircount_bgs_mq_qso.npz`):
+
+1. **Depth is irrelevant; the noise is intrinsic.** Per-pair QSO color scatter is 0.33–0.36 (g−r), 0.35–0.45
+   (r−z), 0.85–0.93 (z−W1) mag — quasar SED diversity + variability, NOT photometric error. The §6 feasibility
+   assumption (0.03–0.05 mag) was ~8× optimistic; the promised "S/N of tens per bin" is really 2–4σ per bin.
+   Same floor applied to M10 — deeper imaging cannot beat it; only pair counts and intrinsically-narrow
+   backgrounds (crayons) can.
+2. **Inside ~500 kpc (shot-noise regime): the foreground side is the deficit.** BGS ≈ 370/deg² vs M10's 24M
+   photometric galaxies ≈ 6,300/deg² — 17× sparser. Net pairs: only ~8× M10 at 144 kpc (5.8×10⁵ vs ~7×10⁴),
+   nowhere near the naive 34×, and the estimator systematics (anchor, SFD imprint, g-band covariance) spent
+   that margin.
+3. **Beyond ~1 Mpc (saturation regime): only N_QSO matters, and we win 5× — if systematics allow.** The
+   effective per-pair scatter grows to 3.8 (g−r) by 7.5 Mpc because each quasar sits in the annuli of
+   hundreds of foregrounds (pairs stop being independent); the error floor is σ_c/√N_QSO. With 2.37M vs 85k
+   QSOs our floor is √28 ≈ 5.3× below M10's. The 2 Mpc offset anchor was subtracting the signal there; the
+   fix wave (15 Mpc anchor + CSFD + cov-ML + star null) is exactly the repair. (McCleary verdict on DES shows
+   the recipe works.)
+
+**Revision (promotes the phase-3 photometric-foreground item to active):** the Ménard-replica run —
+foreground = every 16 < r < 21 galaxy in the DR11 sweeps (TYPE≠PSF/DUP, NOBS_GRZ≥1, MASKBITS clean; ~17×
+BGS pair counts inside 500 kpc, z_eff = 0.30 for physical binning), randoms = official DR11 imaging randoms
+(2 files, cut with the same footprint rules — LSS randoms would imprint DESI fiber-assignment holes the
+photometric sample doesn't have), backgrounds = merged QSOs with CSFD, 10 kpc – 45 Mpc, 4 shards, cov-ML.
+Scripts: `11_sweepgal.py` (sweep scan + randoms cut), `02_paircount.py --fg photgal`,
+`00d_download_dr11_randoms.sh` (astro4), `12_submit_menard_astrofs4.sh` → `13_slurm_menard.sbatch`
+(astrofs4 SLURM chain scan → count0+count1 → finish; 2×10 cores/20G so logins stay possible).
+Expected: ~4× smaller errors than BGS×QSO inside 500 kpc, M10-beating errors at every radius; BGS/LRG
+spec-z runs remain the physical-radius/host-split measurement, the replica is the raw-power measurement.
+
+**Forecast (`14_forecast.py`, empirical noise model from the measured pair counts, 2026-11-08):**
+
+| route | per-bin S/N at 27–450 kpc | profile S/N vs Ménard law | tail amplitude δC/C |
+|---|---|---|---|
+| BGS × QSO (measured) | 2.8–3.7σ | 8.5σ | 79% |
+| M10 shot-only (flattered: no systematics charged) | 1.4–2.0σ | 7.1σ | ~21% |
+| **replica ×17 pairs (forecast)** | **3.6–14.4σ** | **25σ** | 78% (systematics-floored) |
+| DES crayons (measured, iteration 4) | — | — | **14.5%** |
+| **Legacy crayons ×2.8 area (lcr, running)** | — | — | **8.7%** (spec-z: no f_abs) |
+
+Verdict: the replica beats M10 ~7× per bin in the halo term; the tail via QSO colors stays
+systematics-floored until the fix wave + star null land (best case √28 ≈ 5× below M10's floor);
+the tail *amplitude* crown comes from the crayon route — DES already matches McCleary's ~20%, and
+the Legacy spec-z crayons forecast 8.7%, 2.3× better than McCleary+26, with no photo-z absorption
+systematic.
+
+### Fix-wave results (landed 2026-11-08 evening)
+
+bqw + lqw (CSFD, anchor 15 Mpc, cov-ML, 45 Mpc) finished in ~7 h wall (6 BGS shards + LRG):
+
+- **LRG tail detected**: cov-ML E(B−V) = +1.24±0.25e−3 @ 671 kpc (5.0σ), +2.71±0.84e−4
+  @ 2.06 Mpc (3.2σ), +1.24±0.50e−4 @ 3.6 Mpc (2.5σ); positive every bin to 19 Mpc;
+  **5.0σ combined over the contamination-safe 1.2–19 Mpc**, tracking M10 r^−0.86 in slope,
+  amplitude ~2–3× (LRG bias). The anchor-move prediction (§10) confirmed: the hidden 2.8σ
+  anchor-zone excess resolved into the profile.
+- Contamination χ² decays outward: 157/1 @ 219 kpc → 40/1 @ 671 kpc → ≤4.8/1 from 1.2 Mpc.
+  671 kpc bin flagged. Joint fit still prefers δμ<0 at 1.2–2.1 Mpc (−5σ!) — unphysical sign,
+  so quoted tail = conservative lower bookmark until snl arbitrates.
+- **BGS**: 23 kpc +4.83±2.0e−3 (cov-ML) — headline survives CSFD+anchor+ML. Tail still
+  noise-dominated (as budgeted). 144 kpc dip → 125 kpc −2.6σ: reduced by CSFD, not gone;
+  flagged for snl.
+- ms.tex + av_profile_legacy.pdf updated (Overleaf re-upload pending).
+
+## 11. Backgrounds v2 (Nao, 2026-11-08): multi-survey quasar photometry + DR2 spec-z
+
+Nao's direction: integrate SDSS + Pan-STARRS + Legacy photometry, DESI DR2 for quasar spec-z. Division of labor
+per the §10 power budget:
+
+* **Quasar side (do it)** — beyond ~1 Mpc only N_QSO matters, so (a) rebuild the merged background on **DESI DR2**
+  spec quasars (2.72M, vs the DR1 piece in the current 2.84M merge; 05_qso_merge → 06_sweepmatch rerun; DR2 QSO
+  catalog source: Mac mini pass-Q master table or public DR2 release — confirm which), plus **SDSS DR8 + DR17
+  spec-z quasars** (DR8 ⊂ DR17 specObjAll, cumulative: one DR17 pull of CLASS=QSO, ZWARNING=0 covers both; dedupe
+  1" against DR16Q/DESI/Quaia, z priority DESI > SDSS > Quaia); (b) attach **SDSS DR16 and
+  Pan-STARRS DR2 mean photometry** per quasar (PS1 via MAST CasJobs upload-match on astro4): multi-epoch averaging
+  cuts the variability part of the 0.33 mag per-pair scatter, and u→y→W1 colors extend the extinction-curve lever
+  arm. Keep per-survey color systems separate in the fit (never mix zero-points into one "color"); each survey
+  contributes its own Δcolor vector with its own R coefficients, combined in the cov-ML solve.
+* **Galaxy side (don't)** — SDSS/PS1 galaxy catalogs are shallower than Legacy everywhere Legacy exists, with worse
+  star-galaxy separation at r≈21; the §10 photgal run already supplies the dense foreground. No integration.
+* Sequence: after the fix wave + replica land (they validate the estimator), not before — one variable at a time.
