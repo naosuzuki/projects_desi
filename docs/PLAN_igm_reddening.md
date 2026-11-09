@@ -292,6 +292,28 @@ bqw + lqw (CSFD, anchor 15 Mpc, cov-ML, 45 Mpc) finished in ~7 h wall (6 BGS sha
   (§legacyresults) + DES quasar-tail and anchor-diagnostic passages updated
   (**Overleaf re-upload pending**).
 
+### HSC LRG star null (hls landed 2026-11-09 13:18, paircount_hsclrgstarscsfd_qso.npz)
+- **HSC anchor validated in the E(B−V) channel**: star-crossed QSO E(B−V) is zero
+  within 1σ at every bin from 71 kpc to 34 Mpc (|E(B−V)| ≤ 1.5e−3, typical err
+  2–4e−3; e.g. −1.49±4.2e−3 @ 125 kpc, +0.24±1.3e−3 @ 34 Mpc). Cleaner than the
+  Legacy null — no flat offset to speak of, so the ≥15 Mpc anchor costs nothing
+  in HSC.
+- **Coherent quasar-side r−i zero point**: d(r−i) sits at +1.1–1.3e−2 from 125 kpc
+  to ~6 Mpc, declining to +3.0e−3 at 34 Mpc (per-bin ~2σ but coherent across 10
+  bins). It does not project onto the extinction vector (E(B−V) column stays
+  null), so dust results are immune; worth remembering for any future per-color
+  HSC analysis.
+- **Star-proximity artifacts confined to <~50 kpc**: +3.97±2.2e−2 @ 13 kpc,
+  +2.43±1.6e−2 @ 23 kpc, +6.3±6.8e−3 @ 41 kpc — positive (opposite sign to
+  Legacy's −9.2e−3 @ 23 kpc, which was WISE-driven; HSC has no WISE bands, this
+  is optical blending/scattered light). HSC crayon bins inside ~50 kpc get a
+  star-contamination caveat; beyond that the profiles are clean.
+- Run context: inside job 84 (astrofs4, 2c/16G); randoms pass took 42,384 s
+  (~11.8 h) for 6.47M fg × 268.8e9 pairs. Job 84 moved straight on to hlr
+  (HSC LRG × quiescent crayons) at 13:24.
+- HSC DR4 is collaboration-internal — these numbers stay in the plan, not in
+  ms.tex, until publication rights are confirmed.
+
 ### Replica logistics (2026-11-09 morning)
 - SLURM auto-killed queued jobs 79/80/81 (DependencyNeverSatisfied on job 78's exit
   status) although the scan output is good: photgal_dr11.fits, 135,952,763 galaxies.
