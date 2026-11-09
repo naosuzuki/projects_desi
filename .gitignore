@@ -200,6 +200,3 @@ csvfiles/
 programs/zall-pix-loa.csv
 programs_setups/manifests/
 programs_setups/logs/
-
-# products, not code: parquet/npz tables live in ~/data and exdisk3
-data_eigencoeff/**/*.parquet
