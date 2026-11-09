@@ -43,20 +43,61 @@ def frac(text, tag):
     return x, y, int(hits[-1][2])
 
 
+def fmt_t(e):
+    return time.strftime("%m-%d %H:%M", time.localtime(e))
+
+
+def runtimes(elapsed, ts, done):
+    """'started ~A' (log mtime minus in-log elapsed; catalog-loading time
+    is not in the counter, so '~') plus ', ended B' once finished — the
+    mtime of a finished log is the moment of its last write."""
+    if not elapsed or not ts:
+        return ""
+    s = f"started ~{fmt_t(ts - elapsed)}"
+    return s + (f", ended {fmt_t(ts)}" if done else "")
+
+
+def pairhits(text, tag):
+    """All '[tag] ... fg done X/Y pairs P Ts' tuples (X, Y, P, T)."""
+    return [(int(x.replace(",", "")), int(y.replace(",", "")),
+             float(p.replace(",", "")), int(t)) for x, y, p, t in
+            re.findall(rf"\[{tag}\].*?fg done ([\d,]+)/([\d,]+)"
+                       rf"\s+pairs ([\d,]+)\s+(\d+)s", text)]
+
+
 def pairstage(text, w_data=45, w_ran=50):
-    """Progress through a 02-style run: data pass then randoms pass."""
+    """Progress through a 02-style run: data pass then randoms pass.
+
+    The naive per-object ETA is badly wrong on z-ordered passes: the
+    opening low-z slices have huge search apertures (13 deg at z=0.075
+    for 45 Mpc), so extrapolating the opening rate over-estimates by
+    ~an order of magnitude (the lcr '264 h' of 2026-11-09). For the
+    randoms pass the total pair count is predictable from the finished
+    data pass (x ran/fg), and the PAIRS rate is nearly constant in
+    time, so use pairs when possible; data-pass ETAs are upper bounds.
+    """
     if "saved ->" in text or "contours ->" in text:
         return 100.0, "done"
     r = frac(text, "random")
     if r and r[0] > 0:
-        eta = (r[1] - r[0]) * r[2] / r[0]
+        eta = (r[1] - r[0]) * r[2] / r[0]        # per-object fallback
+        rh, dh = pairhits(text, "random"), pairhits(text, "data")
+        if rh and dh and dh[-1][0] >= dh[-1][1]:   # data pass complete
+            pred = dh[-1][2] * r[1] / max(dh[-1][1], 1)  # total ran pairs
+            pnow, tnow = rh[-1][2], rh[-1][3]
+            old = next((h for h in reversed(rh) if tnow - h[3] >= 1800),
+                       rh[0])
+            dt = tnow - old[3]
+            rate = (pnow - old[2]) / dt if dt > 0 else 0.0
+            if rate > 0 and pred > pnow:
+                eta = (pred - pnow) / rate
         return (w_data + w_ran * r[0] / max(r[1], 1),
                 f"randoms pass, ETA ~{fmt_eta(eta)}")
     d = frac(text, "data")
     if d and d[0] > 0:
         eta = (d[1] - d[0]) * d[2] / d[0]
         return (w_data * d[0] / max(d[1], 1),
-                f"data pass, ETA ~{fmt_eta(eta)} + randoms")
+                f"data pass, ETA ≲{fmt_eta(eta)} + randoms")
     return (2.0, "loading catalogs") if text else (0.0, "queued")
 
 
@@ -86,16 +127,28 @@ elif m:
            f"ETA ~{fmt_eta((2126 - n) * t / n)}")
 else:
     p60, d60 = (2.0, "starting") if t60 else (0.0, "queued")
+ti = runtimes(int(m[-1][2]) if m else 0, mtime(f"{LOGS}/igmdust_60.log"),
+              p60 >= 100)
 gauges.append(dict(name="Legacy: QSO × DR11 photometry match",
                    state=state_of(t60, p60), pct=p60,
-                   unit="of 2126 sweeps", detail=d60,
+                   unit="of 2126 sweeps",
+                   detail=d60 + (f"; {ti}" if ti else ""),
                    ts=mtime(f"{LOGS}/igmdust_60.log")))
+
+def pair_elapsed(text):
+    """Seconds of counting so far: last data T + last random T."""
+    return sum(h[-1][3] for h in (pairhits(text, "data"),
+                                  pairhits(text, "random")) if h)
+
 
 t61 = read(f"{LOGS}/igmdust_61.log")
 p61, s61 = pairstage(t61)
+ti = runtimes(pair_elapsed(t61), mtime(f"{LOGS}/igmdust_61.log"),
+              p61 >= 100)
 gauges.append(dict(name="Legacy: quasars (Ménard recipe) × BGS",
                    state=state_of(t61, p61), pct=p61, unit="pair counting",
-                   detail=s61 + ("" if t61 else " (after photometry match)"),
+                   detail=s61 + ("" if t61 else " (after photometry match)")
+                   + (f"; {ti}" if ti else ""),
                    ts=mtime(f"{LOGS}/igmdust_61.log")))
 
 import glob as _g
@@ -143,8 +196,11 @@ for pat, label, det in (
         if jf and mtime(jf[-1]) >= (mtime(files[-1]) if files else 0) \
                 and re.search(r"oom_kill|Killed", read(jf[-1])):
             st, s = "fail", "OOM-killed — needs resubmit"
+    ti = runtimes(pair_elapsed(txt), mtime(files[-1]) if files else 0,
+                  st == "done")
     gauges.append(dict(name=label, state=st, pct=p,
-                       unit="pair counting", detail=f"{det} — {s}",
+                       unit="pair counting",
+                       detail=f"{det} — {s}" + (f"; {ti}" if ti else ""),
                        ts=mtime(files[-1]) if files else 0))
 
 # sweep-match style gauges: "[i/N] matched so far X  Ts" progress lines
@@ -167,8 +223,10 @@ for pat, label, what, obj in (
               f"ETA ~{fmt_eta((tot - n) * t / max(n, 1))}")
     else:
         pl, dl = (2.0, "starting") if tl else (0.0, "queued")
+    ti = runtimes(int(ml[-1][3]) if ml else 0,
+                  mtime(files[-1]) if files else 0, pl >= 100)
     gauges.append(dict(name=label, state=state_of(tl, pl), pct=pl,
-                       unit="of files", detail=dl,
+                       unit="of files", detail=dl + (f"; {ti}" if ti else ""),
                        ts=mtime(files[-1]) if files else 0))
 
 # HSC catalog downloads (3 CAS jobs; .part suffix = still streaming)
