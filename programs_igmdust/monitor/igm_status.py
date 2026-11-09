@@ -131,7 +131,19 @@ for pat, label, det in (
     files = sorted(_g.glob(f"{LOGS}/{pat}"))
     txt = read(files[-1]) if files else ""
     p, s = pairstage(txt, w_data=10, w_ran=85)
-    gauges.append(dict(name=label, state=state_of(txt, p), pct=p,
+    st = state_of(txt, p)
+    # per-task logs never see the kill — sniff the SLURM job log too
+    # (the 2026-11-08 OOMs sat at "loading catalogs" for hours)
+    jpat = {"igmdust_hcr_*.log": "igmdust_hsc_[0-9]*.log",
+            "igmdust_hsn_*.log": "igmdust_hsc_[0-9]*.log",
+            "igmdust_hlr_*.log": "igmdust_hsclrg_[0-9]*.log",
+            "igmdust_hls_*.log": "igmdust_hsclrg_[0-9]*.log"}.get(pat)
+    if st != "done" and jpat:
+        jf = sorted(_g.glob(f"{LOGS}/{jpat}"), key=os.path.getmtime)
+        if jf and mtime(jf[-1]) >= (mtime(files[-1]) if files else 0) \
+                and re.search(r"oom_kill|Killed", read(jf[-1])):
+            st, s = "fail", "OOM-killed — needs resubmit"
+    gauges.append(dict(name=label, state=st, pct=p,
                        unit="pair counting", detail=f"{det} — {s}",
                        ts=mtime(files[-1]) if files else 0))
 
