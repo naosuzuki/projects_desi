@@ -1,0 +1,5 @@
+qso_specphot_coeff_v1.parquet (708 MB, 3,387,884 non-BAL quasars) is NOT in git: GitHub refuses files above 100 MB.
+Master copy: ~/data/sdssdesi_products/quasar/specphot/qso_specphot_coeff_v1.parquet (BALs: qso_specphot_bal_v1.parquet).
+Columns and method: programs_quasars/21_specphot_fit.py, data_eigenspectra/00README (2026-11-07), ms.tex sec:qsocoeff.
+Per quasar: identifiers, SURVEY, Z, Z_SYS, EBV, photometric correction (PCORR_*), NORM (pivot flux 3000-3050 A),
+C1..C9 (non-BAL eigencoefficients / NORM), CHI2, NPIX, general-basis fit G0..G9 and BAL trough measurements.
