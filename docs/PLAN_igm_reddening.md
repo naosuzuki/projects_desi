@@ -324,6 +324,45 @@ bqw + lqw (CSFD, anchor 15 Mpc, cov-ML, 45 Mpc) finished in ~7 h wall (6 BGS sha
 - astrofs4 steady state: job 84 (HSC LRG, 2c/16G) + job 87 (HSC BGS wave, 10c/18G);
   memory, not cores, binds — 20.5 GB headroom fits no pgw shard.
 
+### Ménard replica verdict (2026-11-10 09:02, paircount_photgal_mqcsfdml_qso.npz)
+- **M10 halo profile reproduced at 0.6× amplitude**: 135,952,763 r<21 sweep
+  galaxies × 2.4M merged QSOs, CSFD + cov-ML (anchor ≥10 Mpc). Detected
+  23–383 kpc: +2.52(±1.1)e−3 @ 23 kpc, +1.43(±0.57)e−3 @ 41, +0.97(±0.36)e−3
+  @ 71, +0.35(±0.13)e−3 @ 219, +0.17(±0.09)e−3 @ 383 — 5.4σ combined, slope
+  ≈ −0.9 (M10: −0.86), normalization 0.58±0.11 × M10 (coherent per bin →
+  sample-level difference, not scale-dependent systematics).
+- **125 kpc dip reappears**: +0.06(±0.20)e−3 vs +0.58e−3 predicted by the law
+  through its neighbors — 2.6σ deficit at the same radius as the BGS dip, in
+  an independent 26×-larger photometric foreground sample. The dip is now a
+  feature of Legacy galaxy×QSO color profiles, not a BGS fluke.
+- **Mpc tail below the extrapolation**: per-bin precision 2–7e−5 beyond 2 Mpc;
+  the three bins at 2–7 Mpc each sit 1.7–2.4σ BELOW r^−0.86 — around typical
+  r<21 galaxies the Mpc tail is smaller than the inward law continued
+  outward; the (more biased) LRG sample does show a law-consistent tail.
+- ms.tex: item (v) added, "Five results stand", caption + item (i) updated;
+  av_profile_legacy.pdf regenerated with the replica (blue squares).
+  **Overleaf re-upload pending (ms.tex + av_profile_legacy.pdf).**
+- **Bug found & fixed (6c6c478)**: 10_ml_legacy --null wrote to the SAME npz
+  as the anchored ML — the 09:02 null run overwrote the replica record file,
+  and the 11-09 BGS null run had overwritten paircount_bgs_mqcsfdml_qso.npz.
+  Both regenerated 11-10 11:05; null outputs now get *mlnull_qso.npz.
+- ML(null) replica for reference: +3.93e−3 @ 23 kpc; +4–7e−4 plateau at Mpc
+  scales = star-footprint constant, as expected (anchor stays the treatment).
+- Still pending: 14_forecast.py --boost rerun with the real replica/BGS pair
+  ratio; direct M10 table comparison figure if Nao wants one.
+
+### HSC LRG × quiescent crayons (hlr landed 2026-11-10 00:30, paircount_hsclrgcsfd_qso.npz)
+- Raw per-bin table (NOT yet anchored/ML — needs 10_ml_legacy --rcoef
+  generalization for HSC griz+y): <50 kpc strongly blue (−8.3e−2 @ 23 kpc,
+  −7.4e−2 @ 41), the DES-style crayon contamination (foreground light +
+  blending); +7.52(±1.5)e−3 raw spike at 125 kpc (5σ against the −2e−4
+  plateau) — intriguing, opposite sign to the Legacy dip, verdict deferred
+  to the anchored solve; flat −2e−4 quasar-side plateau beyond 2 Mpc; z−y
+  carries a persistent −3e−3 Mpc-scale offset (y-band systematic to watch).
+- Collaboration-internal (HSC DR4): plan only, not ms.tex.
+- Job 84 complete (hls + hlr); astrofs4 now runs job 87 only (hsn randoms,
+  692k/6.71M at 55.6 ks — days to go).
+
 ### lcr "264 h" ETA is a gauge artifact; 07 gains shard support (2026-11-09 evening)
 - The lcr randoms pass sits in the z<0.075 slice, where the 45 Mpc aperture is a
   ~13° search circle — the slowest objects in the whole run. The gauge ETA
