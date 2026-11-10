@@ -125,7 +125,10 @@ def main():
     meta.update(estimator="ml_fullcov",
                 offset_model=("null:" + a.null) if a.null
                 else f"anchor>={a.anchor}Mpc")
-    fo = a.npz.replace("_qso.npz", "ml_qso.npz")
+    # --null writes its own suffix: it must never overwrite the anchored
+    # ML result of record (it did, 2026-11-10, replica + BGS npz)
+    fo = a.npz.replace("_qso.npz",
+                       "mlnull_qso.npz" if a.null else "ml_qso.npz")
     np.savez(fo, rp_edges=d["rp_edges"], rp_mid=rp, delta=delta, sigma=sig,
              ebv=ebv, ebv_err=err, npair_data=d["npair_data"],
              npair_ran=d["npair_ran"], colors=d["colors"],
