@@ -460,13 +460,22 @@ bqw + lqw (CSFD, anchor 15 Mpc, cov-ML, 45 Mpc) finished in ~7 h wall (6 BGS sha
   1.60 (r−z), 1.36 (g−z), 0.694/0.378 = 1.84 (z−W1). Measured locus widths σ_int:
   0.129 / 0.152 / 0.221 / 0.369 — the g−r floor matches the SDSS-equal 0.124 fixed-z bright
   scatter from the §"Power budget" decomposition.
-- Recount wave launched on astro4 (nohup, nice 19, staggered): replica 4 shards
+- Recount wave launched on astro4 (nohup, nice 19): replica 4 shards
   (igmdust_pgw_lw_s0..3.log), BGS wide 6 shards (igmdust_bqw_lw_s0..5.log), LRG wide single
   (igmdust_lqw_lw.log); all `--qso-cat qso_merged_dr11.fits --mwcorr --qweight --rp-min 0.01
   --rp-max 45`. Old gauge logs archived to ~/slurmlogs/archive/; gauge cards now track the lw
   recount. Merge after finish: 02b --name {photgal,bgs}_mqcsfdlw, then 10_ml_legacy (anchored +
   --null star-null check per sample). Expectation: 1.6–2× smaller errors; replica 23 kpc bin at
-  4–5σ. ETA: BGS/LRG hours, replica ~21–30 h (Nov 12 afternoon).
+  4–5σ.
+- **OOM incident (11:00–12:25)**: the initial 90 s-staggered launch of all 11 jobs collided in
+  their catalog-load phases (real peaks 30–55 GB/job, not the ~10 GB estimated — the pre-shard
+  phase loads the FULL fg+randoms in every shard); the kernel OOM killer took everything except
+  lqw, memory pressure stopped sshd accepting logins for ~40 min, and the gauge updater died.
+  Rule reaffirmed (Nao): measure one job's load peak before sizing a wave; gates belong in the
+  launcher, not the alarm. Recovery: ~/qtest/lw_babysit.sh (committed pattern: relaunch missing
+  shards strictly one at a time, each gated on ≥45 GB available AND loadavg<48, waiting for the
+  newcomer's post-peak log line; 3 passes). lqw unharmed (33% at 12:26, ETA ~14:40). Faint-cut
+  verdict unaffected. Replica ETA slips ~2 h (Nov 12 afternoon).
 
 ## 11. Backgrounds v2 (Nao, 2026-11-08): multi-survey quasar photometry + DR2 spec-z
 
