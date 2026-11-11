@@ -324,6 +324,26 @@ bqw + lqw (CSFD, anchor 15 Mpc, cov-ML, 45 Mpc) finished in ~7 h wall (6 BGS sha
 - astrofs4 steady state: job 84 (HSC LRG, 2c/16G) + job 87 (HSC BGS wave, 10c/18G);
   memory, not cores, binds — 20.5 GB headroom fits no pgw shard.
 
+### Spec-z crayon verdict (lcr landed 2026-11-10 20:51; ML 2026-11-11, paircount_bgslrgcrayonml_qso.npz)
+- lcr finished in 38 h total (data 4.4 h + randoms ~29 h), not the gauge's
+  264 h scare. Anchored cov-ML (O_c ≈ −0.3 to −1.7e−4, anchor ≥10 Mpc):
+- **The verdict is on the recipe, not the dust**: coherent color DEFICIT,
+  −4.96(±1.1)e−3 @ 41 kpc (−4.5σ), −2.45(±0.59)e−3 @ 71 kpc, negative every
+  bin to 1.2 Mpc (−1.67±0.72e−4), null beyond 2 Mpc (|E|<1e−4 to 34 Mpc);
+  only 13 kpc is red (+2.48e−2, foreground light).
+- With spec-z locus anchoring f_abs ≡ 1 → the DES/McCleary quiescent-crayon
+  deficit (0.15–1.4 Mpc) is NOT a photo-z absorption artifact; it is
+  intrinsic to the quiescent-crayon recipe around low-z foregrounds
+  (candidates: magnification selection on the red-sequence CM slope;
+  background-light contamination near bright foregrounds).
+- QSO colors around the same BGS foregrounds are POSITIVE there (items i, v)
+  → quasar route = measurement of record; crayon 8.7% amplitude-crown
+  forecast does not transfer to BGS-like foregrounds; crayons stay the
+  systematics channel. ms.tex "In execution" subsection updated accordingly.
+- Follow-up candidates: linear-scale figure of the deficit profile;
+  magnification-selection model fit (does δμ from item ii predict the
+  deficit amplitude via the red-sequence dm/dc slope?).
+
 ### Ménard replica verdict (2026-11-10 09:02, paircount_photgal_mqcsfdml_qso.npz)
 - **M10 halo profile reproduced at 0.6× amplitude**: 135,952,763 r<21 sweep
   galaxies × 2.4M merged QSOs, CSFD + cov-ML (anchor ≥10 Mpc). Detected
