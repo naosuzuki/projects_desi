@@ -249,6 +249,45 @@ the tail *amplitude* crown comes from the crayon route — DES already matches M
 the Legacy spec-z crayons forecast 8.7%, 2.3× better than McCleary+26, with no photo-z absorption
 systematic.
 
+### Power budget revisited — replica noise anatomy (2026-11-11, Nao: "why noisy/weak vs M10?")
+Measured end-to-end from paircount_photgal_mqcsfdml / bgs_mqcsfdml npz + the
+merged QSO catalog. Four factors, all quantified:
+1. **Replica pair gain is 4.2×, not 17×**: fg count ratio is 25.9× BGS, but
+   pairs ∝ N_fg/d_A²; pair-weighted BGS sits at z≈0.1 (d_A≈380 Mpc) vs the
+   replica's z_eff=0.30 (940 Mpc) → ~6× angular-aperture penalty. Errors
+   gain √4.2 ≈ 2.05 inside 125 kpc (measured 1.7–2.1), decaying to 1.2–1.3
+   beyond 1 Mpc — **quasar-side saturation**: both runs share the same 2.4M
+   QSOs, so large-scale floors converge regardless of fg density.
+2. **Per-pair scatter 0.33–0.37 (g−r) … 0.86–0.97 (z−W1)** at 13–41 kpc =
+   catalog color scatter × √2 (random side) × validity. Catalog robust σ:
+   | color | all | z-binned | r<19.5 | r<19.5 + z-binned |
+   | g−r | 0.216 | 0.166 | 0.172 | **0.124** |
+   | r−z | 0.254 | 0.204 | 0.217 | **0.129** |
+   | g−z | 0.307 | 0.293 | 0.237 | **0.195** |
+   | z−W1 | 0.694 | 0.479 | 0.660 | **0.246** |
+   The fixed-z bright floor ≈ 0.124 **equals SDSS's** — DR11 coadds average
+   out variability; epoch mismatch is NOT the dominant inflation. The
+   inflation is (a) color–z trend mixing (~0.14 in g−r; the estimator uses
+   raw colors over z=0.1–3.7) and (b) faint-end photometric noise (~0.11).
+   Both are removable in software.
+3. **vs M10 at 23 kpc** (their pairs ≈ 3×10³ est. from 85k QSOs × 6,300/deg²):
+   we hold ~18× their pairs but 2.5× their per-object scatter and 0.58×
+   their signal → per-bin S/N ≈ parity with M10's inner bins. That is the
+   whole "weak and noisy" impression in one line.
+4. **Large-scale floor advantage over M10 is ~2×, not √28 ≈ 5.3×**: the 28×
+   QSO count is discounted by the 2.5× scatter ratio.
+**The identified upgrade (quasar locus residuals + weighting)**, mirroring
+the crayon treatment: in 02 load_qso_merged, (i) replace colors by
+color − median_color(z) (running z-locus, dz≈0.05; deterministic per
+quasar, cancels exactly in delta — pure variance reduction), and (ii)
+per-quasar per-color inverse-variance weights 1/(σ_floor² + σ_phot(ivar)²).
+Expected effective σ: g−r → ~0.15, z−W1 → ~0.30 → errors shrink ~1.6–2×
+→ replica 23 kpc goes 2.3σ → ~4–5σ, full profile ~2× current significance;
+same medicine applies to the BGS/LRG runs. Cost: colors enter the sumwc
+accumulations, so this is a RECOUNT of the QSO-background runs (all
+sharded/automated now). Decision pending Nao; natural slot = Backgrounds
+v2 wave (plan §11), which recounts anyway.
+
 ### Fix-wave results (landed 2026-11-08 evening)
 
 bqw + lqw (CSFD, anchor 15 Mpc, cov-ML, 45 Mpc) finished in ~7 h wall (6 BGS shards + LRG):
