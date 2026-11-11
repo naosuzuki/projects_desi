@@ -50,10 +50,8 @@ for pass in 1 2 3; do
     one photgal 4 $s $L/igmdust_pgw_lw_s$s.log \
         $P/paircount_photgal_mqcsfdlw_s4.${s}_qso.npz "shard $s/4: fg"
   done
-  for s in 0 1 2 3 4 5; do
-    one bgs 6 $s $L/igmdust_bqw_lw_s$s.log \
-        $P/paircount_bgs_mqcsfdlw_s6.${s}_qso.npz "shard $s/6: fg"
-  done
+  # BGS shards run on astrofs4 (16_slurm_bqw_lw.sbatch, user-submitted)
+  # since 2026-11-11 ~12:45 — do NOT launch them here (double-run risk).
   one lrg 1 0 $L/igmdust_lqw_lw.log \
       $P/paircount_lrg_mqcsfdlw_qso.npz "jackknife regions"
   sleep 300
