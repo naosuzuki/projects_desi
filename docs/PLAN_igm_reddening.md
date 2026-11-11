@@ -440,6 +440,34 @@ bqw + lqw (CSFD, anchor 15 Mpc, cov-ML, 45 Mpc) finished in ~7 h wall (6 BGS sha
   02b_merge_shards --name bgslrgcrayon). Every future crayon run (wide-anchor
   reruns, Backgrounds v2, HSC generalization) should use 4–6 shards.
 
+### lw upgrade: quasar locus residuals + ivar weights — implemented, recount launched (2026-11-11)
+- Decision (Nao): implement now rather than wait for Backgrounds v2. This is the §"Power budget
+  revisited" fix: 02_paircount gains `--qweight` (requires --qso-cat) — (a) **z-locus residual
+  colors**: subtract the running median color in 64 equal-count z bins, interpolated to each
+  quasar's z; deterministic in z so it cancels exactly in the fg−random difference (removes the
+  color–redshift trend the raw estimator mixes into noise); (b) **per-QSO per-color weights**
+  w = 1/(σ_int² + σ_phot²), σ_phot from the sweep flux ivars (σ_m = 1.0857/(f√ivar), MW
+  transmission cancels), σ_int = 1.4826×MAD of the bright-half residuals. Output tag gains
+  `lw` → `paircount_<fg>_mqcsfdlw*_qso.npz`; no record file can be overwritten. accumulate()
+  now takes float weights (bool validity still works — 07/08 untouched). Selftest PASS.
+- **Faint-cut question (Nao: "drop faint quasars? find the optimal cut")** — measured on the
+  merged catalog (15_fcut_opt.py, astro4). Verdict: **with ivar weights, no cut** — E(B−V)
+  error is minimal with no cut and rises monotonically (r<23: ×1.006, r<22: ×1.095,
+  r<21: ×1.33); r>22 quasars still carry 15–18% of the weight. For the *unweighted* estimator
+  the best cut (r<23) helps only 0.3% combined (z−W1 alone would want r<21.5, −12%). The gain
+  is the weighting itself: ×1.56 smaller E(B−V) error vs unweighted at fixed residual colors;
+  vs the raw-color record estimator, per-color σ_eff gains 0.216/0.134 = 1.61 (g−r),
+  1.60 (r−z), 1.36 (g−z), 0.694/0.378 = 1.84 (z−W1). Measured locus widths σ_int:
+  0.129 / 0.152 / 0.221 / 0.369 — the g−r floor matches the SDSS-equal 0.124 fixed-z bright
+  scatter from the §"Power budget" decomposition.
+- Recount wave launched on astro4 (nohup, nice 19, staggered): replica 4 shards
+  (igmdust_pgw_lw_s0..3.log), BGS wide 6 shards (igmdust_bqw_lw_s0..5.log), LRG wide single
+  (igmdust_lqw_lw.log); all `--qso-cat qso_merged_dr11.fits --mwcorr --qweight --rp-min 0.01
+  --rp-max 45`. Old gauge logs archived to ~/slurmlogs/archive/; gauge cards now track the lw
+  recount. Merge after finish: 02b --name {photgal,bgs}_mqcsfdlw, then 10_ml_legacy (anchored +
+  --null star-null check per sample). Expectation: 1.6–2× smaller errors; replica 23 kpc bin at
+  4–5σ. ETA: BGS/LRG hours, replica ~21–30 h (Nov 12 afternoon).
+
 ## 11. Backgrounds v2 (Nao, 2026-11-08): multi-survey quasar photometry + DR2 spec-z
 
 Nao's direction: integrate SDSS + Pan-STARRS + Legacy photometry, DESI DR2 for quasar spec-z. Division of labor

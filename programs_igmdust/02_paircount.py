@@ -151,26 +151,32 @@ def load_qso_merged(path):
         sel = (np.asarray(d["MATCHED"], bool)
                & (np.char.strip(d["LS_TYPE"].astype(str)) == "PSF")
                & np.isfinite(z) & (z > 0.3) & (z < 4.0))
-        mags = {}
+        mags, merr = {}, {}
         for b in ("G", "R", "Z", "W1"):
             flux = np.asarray(d[f"FLUX_{b}"], float)
             ivar = np.asarray(d[f"IVAR_{b}"], float)
             mwt = np.asarray(d[f"MWT_{b}"], float)
-            with np.errstate(invalid="ignore", divide="ignore"):
-                flux = flux / mwt
             ok = (np.isfinite(flux) & (flux > 0)
                   & np.isfinite(ivar) & (ivar > 0))
+            snr = np.where(ok, flux * np.sqrt(ivar), 0.0)   # mwt cancels
+            with np.errstate(invalid="ignore", divide="ignore"):
+                flux = flux / mwt
             m = np.full(len(flux), np.nan)
             m[ok] = 22.5 - 2.5 * np.log10(flux[ok])
-            mags[b if b == "W1" else b.lower()] = m
+            e = np.full(len(flux), np.inf)
+            e[ok] = 2.5 / np.log(10) / snr[ok]
+            k = b if b == "W1" else b.lower()
+            mags[k], merr[k] = m, e
     colors = np.column_stack([mags[a] - mags[b] for a, b in COLORS])
+    cerr = np.sqrt(np.column_stack(
+        [merr[a] ** 2 + merr[b] ** 2 for a, b in COLORS]))
     valid = np.isfinite(colors)
     colors = np.where(valid, colors, 0.0)
     cnt = np.bincount(src[sel], minlength=3)
     print(f"  merged QSO: {sel.sum():,} / {len(ra):,} after cuts "
           f"(DESI {cnt[0]:,}, SDSS {cnt[1]:,}, Quaia {cnt[2]:,}); "
           f"validity {valid[sel].mean(0).round(3)}")
-    return ra[sel], dec[sel], z[sel], colors[sel], valid[sel]
+    return ra[sel], dec[sel], z[sel], colors[sel], valid[sel], cerr[sel]
 
 
 def load_qso(base):
@@ -213,6 +219,44 @@ def load_qso(base):
     return ra[sel], dec[sel], z[sel], colors[sel], valid[sel]
 
 
+def locus_weight(z, colors, valid, cerr, nz=64):
+    """Quasar z-locus residual colors + per-QSO per-color ivar weights.
+
+    colors -> colors - median_locus(z), a deterministic function of z that
+    cancels exactly in the fg-minus-random difference (pure variance cut:
+    removes the color-redshift trend the raw estimator mixes into noise).
+    weight = 1/(sigma_int^2 + sigma_phot^2) per color, zero where invalid;
+    sigma_int = 1.4826*MAD of the locus residuals of the bright half
+    (sigma_phot below its median), so faint objects are downweighted
+    smoothly instead of cut (2026-11-11 power-budget audit)."""
+    colors = colors.copy()
+    wt = np.zeros_like(colors)
+    zb = np.quantile(z, np.linspace(0, 1, nz + 1))   # equal-count z bins
+    iz = np.clip(np.searchsorted(zb, z, "right") - 1, 0, nz - 1)
+    for c in range(colors.shape[1]):
+        v = valid[:, c]
+        med, zc = np.zeros(nz), np.zeros(nz)
+        for k in range(nz):
+            m = v & (iz == k)
+            if m.any():
+                med[k] = np.median(colors[m, c])
+                zc[k] = np.median(z[m])
+            else:
+                med[k] = med[k - 1] if k else 0.0
+                zc[k] = 0.5 * (zb[k] + zb[k + 1])
+        colors[:, c] = np.where(v, colors[:, c] - np.interp(z, zc, med), 0.0)
+        e = cerr[:, c]
+        bright = v & (e < np.median(e[v]))
+        res = colors[bright, c]
+        sig_int = 1.4826 * np.median(np.abs(res - np.median(res)))
+        wt[v, c] = 1.0 / (sig_int ** 2 + e[v] ** 2)
+        eff = 1.0 / np.sqrt(np.mean(wt[v, c]))
+        a_, b_ = COLORS[c]
+        print(f"  locus/wt {a_}-{b_}: sig_int {sig_int:.3f}  "
+              f"med sig_phot {np.median(e[v]):.3f}  eff sigma {eff:.3f}")
+    return colors, wt
+
+
 # -------------------------------------------------------------- estimator ---
 def rp_bins():
     nb = int(np.ceil(NBIN_PER_DEX * np.log10(RP_MAX / RP_MIN)))
@@ -222,7 +266,9 @@ def rp_bins():
 
 def accumulate(fg_ra, fg_dec, fg_z, fg_w, fg_reg, bg_tree, bg_vec, bg_z,
                colors, valid, edges, nreg, reg_index, label=""):
-    """Stack sum(w) and sum(w*c) per (jackknife region, r_p bin, color)."""
+    """Stack sum(w) and sum(w*c) per (jackknife region, r_p bin, color).
+    `valid` is the per-bg per-color weight: bool (0/1 validity, legacy)
+    or float (ivar weights from locus_weight); pair weight = fg_w * it."""
     ncol, nbin = colors.shape[1], len(edges) - 1
     sumw = np.zeros((ncol, nreg * nbin))
     sumwc = np.zeros((ncol, nreg * nbin))
@@ -332,7 +378,7 @@ def csfd_recorrect(qra, qdec, qcol, qval):
 
 def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
         mwcorr=False, nshard=1, shard=0, fg_cat=None, fg_ran=None,
-        zeff=0.30):
+        zeff=0.30, qweight=False):
     edges, rp_mid = rp_bins()
     print(f"== foregrounds: {fg_sample}")
     if fg_sample == "photgal":
@@ -345,13 +391,20 @@ def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
         rra, rdec, rz, rw = load_lss(base, fg_sample, "ran", nran=nran)
     print("== backgrounds: QSO")
     if qso_cat:
-        qra, qdec, qz, qcol, qval = load_qso_merged(qso_cat)
+        qra, qdec, qz, qcol, qval, qcerr = load_qso_merged(qso_cat)
     else:
         qra, qdec, qz, qcol, qval = load_qso(base)
+        qcerr = None
     if mwcorr:
         qcol = csfd_recorrect(qra, qdec, qcol, qval)
+    if qweight:
+        if qcerr is None:
+            raise SystemExit("--qweight needs --qso-cat (per-band ivars)")
+        qcol, qwt = locus_weight(qz, qcol, qval, qcerr)
+    else:
+        qwt = qval
     return run_arrays(fg_sample, (fra, fdec, fz, fw), (rra, rdec, rz, rw),
-                      (qra, qdec, qz, qcol, qval), edges, rp_mid,
+                      (qra, qdec, qz, qcol, qwt), edges, rp_mid,
                       out, max_fg, tag, nshard=nshard, shard=shard)
 
 
@@ -536,6 +589,10 @@ if __name__ == "__main__":
     ap.add_argument("--mwcorr", action="store_true",
                     help="CSFD re-correction of the SFD-dereddened sweep "
                          "colors (tag gains csfd)")
+    ap.add_argument("--qweight", action="store_true",
+                    help="z-locus residual colors + per-QSO per-color "
+                         "inverse-variance weights (tag gains lw; needs "
+                         "--qso-cat)")
     ap.add_argument("--nshard", type=int, default=1,
                     help="split fg+randoms into N interleaved shards")
     ap.add_argument("--shard", type=int, default=0,
@@ -551,8 +608,9 @@ if __name__ == "__main__":
     run(a.fg, a.base, a.out, a.max_fg, a.nran,
         tag=("_mq" if a.qso_cat else "")
             + ("csfd" if a.mwcorr else "")
+            + ("lw" if a.qweight else "")
             + (f"_sub{a.max_fg}" if a.max_fg else "")
             + (f"_s{a.nshard}.{a.shard}" if a.nshard > 1 else ""),
-        qso_cat=a.qso_cat, mwcorr=a.mwcorr,
+        qso_cat=a.qso_cat, mwcorr=a.mwcorr, qweight=a.qweight,
         nshard=a.nshard, shard=a.shard,
         fg_cat=a.fg_cat, fg_ran=a.fg_ran, zeff=a.zeff)
