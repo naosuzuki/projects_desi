@@ -489,6 +489,17 @@ bqw + lqw (CSFD, anchor 15 Mpc, cov-ML, 45 Mpc) finished in ~7 h wall (6 BGS sha
   lw implementation (σ_int/eff-σ/×1.56, no-faint-cut verdict), "In execution" lists the lw
   re-count + HSC star-null landing (Overleaf re-upload pending, with the two legacy figures).
   Figures regenerate only after merge + 10_ml_legacy of the lw counts.
+- **Second OOM incident + babysitter v5 (2026-11-12 ~13:30)**: chunked BGS lw shards grow to
+  **~20 GB steady** (the 9 GB reading was early in the run); three of them hold 60 GB, so a
+  replica shard (40 GB steady, 30–55 GB load peak) launched through the single 45 GB gate dies
+  once everything grows. Kernel OOM took the replica-s1 rerun twice (12:17, 13:31); bgs s0/s1/s4
+  died of ArrayMemoryError in the crunches. bgs s2/s3/s5 survived (data passes complete, deep in
+  randoms). Fix (b9eceb8, babysitter v5, live 13:39): **per-foreground RAM gates** — photgal
+  needs 80 GB free at launch (peak 55 + margin) and simply waits for the BGS queue to drain;
+  BGS loop ordered before photgal; 6 passes through the night. Memory rule of thumb for astro4:
+  at most 5 chunked-BGS-equivalents (~20 GB each) OR 3 BGS + nothing else; one replica shard
+  needs the box at ≤2 BGS. Expected sequence: bgs s0 (relaunched 13:39) + s1 + s4 join the
+  three survivors, replicas s1/s3 refill as BGS shards finish, likely overnight Nov 12→13.
 - **HSC wave 1 (2026-11-12)**: star null DONE (paircount_hscbgsstarscsfd_qso.npz, 20:54 Nov 11).
   Job 87 then ran both crayon shards in ONE 18G cgroup → s0 OOM-killed in load; s1 alone runs
   fine (randoms ~13% at 11:40, ETA ~Nov 14). s0 rerun submitted as job 98 (05_slurm_hcr_s0.sbatch
