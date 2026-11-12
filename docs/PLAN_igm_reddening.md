@@ -489,6 +489,13 @@ bqw + lqw (CSFD, anchor 15 Mpc, cov-ML, 45 Mpc) finished in ~7 h wall (6 BGS sha
   lw implementation (σ_int/eff-σ/×1.56, no-faint-cut verdict), "In execution" lists the lw
   re-count + HSC star-null landing (Overleaf re-upload pending, with the two legacy figures).
   Figures regenerate only after merge + 10_ml_legacy of the lw counts.
+- **HSC wave 1 (2026-11-12)**: star null DONE (paircount_hscbgsstarscsfd_qso.npz, 20:54 Nov 11).
+  Job 87 then ran both crayon shards in ONE 18G cgroup → s0 OOM-killed in load; s1 alone runs
+  fine (randoms ~13% at 11:40, ETA ~Nov 14). s0 rerun submitted as job 98 (05_slurm_hcr_s0.sbatch
+  in projects_hsc, commit e6083968 on shared home, unpushed — astro4 has no GitHub creds),
+  started 11:45, past load, data pass; ETA ~Nov 15. Job 87's built-in merge will fail (s0 was
+  missing) — merge by hand when both npz exist: 02b_merge_shards --name hscbgscsfd --nshard 2.
+  On the hcr logs, check quiescent-cut kept fractions (<~2% or >~80% ⇒ Mizuki sSFR cut misfired).
 
 ## 11. Backgrounds v2 (Nao, 2026-11-08): multi-survey quasar photometry + DR2 spec-z
 
