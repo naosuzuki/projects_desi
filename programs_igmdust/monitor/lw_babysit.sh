@@ -11,6 +11,9 @@ P=~/data/igmdust/paircount
 
 one () {  # fg nshard shard log npz pastpeak_regex
   local fg=$1 ns=$2 sh=$3 log=$4 npz=$5 peak=$6
+  # BGS MUST run chunked: unchunked, its low-z 45 Mpc apertures build
+  # ~80M-pair temp arrays per fg batch (118 GB RSS seen 2026-11-12).
+  local X=""; [ "$fg" = bgs ] && X="--chunk 2000"
   [ -f "$npz" ] && { echo "SKIP $fg s$sh: npz exists"; return; }
   pgrep -f "02_paircount.py --fg $fg .*--nshard $ns --shard $sh\$" \
       >/dev/null && { echo "SKIP $fg s$sh: running"; return; }
@@ -32,7 +35,7 @@ one () {  # fg nshard shard log npz pastpeak_regex
       --mwcorr --qweight --rp-min 0.01 --rp-max 45 > $log 2>&1 &
   else
     nohup nice -n 19 python3 02_paircount.py --fg $fg --qso-cat $QSO \
-      --mwcorr --qweight --rp-min 0.01 --rp-max 45 \
+      --mwcorr --qweight --rp-min 0.01 --rp-max 45 $X \
       --nshard $ns --shard $sh > $log 2>&1 &
   fi
   local pid=$! j=0
