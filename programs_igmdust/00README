@@ -1,1 +1,8 @@
 This directory is for the IGM Reddening Measurements using DESI data
+
+2026-11-12: ALL igmdust scripts live under this directory (Nao).
+  des/  DES-project scripts (moved from projects_des/programs_igmdust)
+  hsc/  HSC-project scripts (moved from projects_hsc/programs_igmdust)
+Figure versions: --v1 original; v2 n(z) as inset, no sign coding;
+v3 profile without inset + standalone *_nz figure (20_, 21_ scripts).
+Laptop mirror of the paircount npz: ~/data/igmdust/paircount/.

@@ -7,7 +7,7 @@
 #   nohup bash astro4_offload3.sh > ~/astro4_offload3.log 2>&1 &
 set -u
 PY=/home/suzuki/miniconda3/bin/python3
-DES=/home/suzuki/github/projects_des/programs_igmdust
+DES=/home/suzuki/github/projects_desi/programs_igmdust/des
 PCDIR=/home/suzuki/data/igmdust/paircount
 mkdir -p ~/slurmlogs
 cd /home/suzuki/github/projects_desi/programs_igmdust || exit 1

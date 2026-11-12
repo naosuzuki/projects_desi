@@ -42,24 +42,24 @@ case "$ARG" in
   selftest)  exec $PY 02_paircount.py --selftest ;;
   bgs|lrg)   exec $PY 02_paircount.py --fg "$ARG" ;;
   descrayon) exec $PY \
-    /home/suzuki/github/projects_des/programs_igmdust/01_crayon_paircount.py ;;
+    /home/suzuki/github/projects_desi/programs_igmdust/des/01_crayon_paircount.py ;;
   speczcalib) exec $PY \
-    /home/suzuki/github/projects_des/programs_igmdust/02_speczcalib.py ;;
+    /home/suzuki/github/projects_desi/programs_igmdust/des/02_speczcalib.py ;;
   qsodes) exec $PY \
-    /home/suzuki/github/projects_des/programs_igmdust/03_qso_desoverlap.py ;;
+    /home/suzuki/github/projects_desi/programs_igmdust/des/03_qso_desoverlap.py ;;
   lrgcrayon) exec $PY \
-    /home/suzuki/github/projects_des/programs_igmdust/01_crayon_paircount.py \
+    /home/suzuki/github/projects_desi/programs_igmdust/des/01_crayon_paircount.py \
     --fg lrg ;;
   rmgcrayon) exec $PY \
-    /home/suzuki/github/projects_des/programs_igmdust/01_crayon_paircount.py \
+    /home/suzuki/github/projects_desi/programs_igmdust/des/01_crayon_paircount.py \
     --fg redmagic --crayon-zmin 0.65 --rp-min 0.01 --rp-max 45 ;;
   rmgcsfd) exec $PY \
-    /home/suzuki/github/projects_des/programs_igmdust/01_crayon_paircount.py \
+    /home/suzuki/github/projects_desi/programs_igmdust/des/01_crayon_paircount.py \
     --fg redmagic --crayon-zmin 0.65 --rp-min 0.01 --rp-max 45 --mwcorr ;;
   assess) exec $PY \
-    /home/suzuki/github/projects_des/programs_igmdust/07_assess_mccleary.py ;;
+    /home/suzuki/github/projects_desi/programs_igmdust/des/07_assess_mccleary.py ;;
   menarddes) exec $PY \
-    /home/suzuki/github/projects_des/programs_igmdust/05_qso_menard_des.py ;;
+    /home/suzuki/github/projects_desi/programs_igmdust/des/05_qso_menard_des.py ;;
   lrgmatch)
     EXT=/data/astrofs2_1/suzuki/data/DESI/catalog/qso_ext
     $PY 07_crayon_legacy.py --make-input $EXT/lrg_positions.fits || exit 1
@@ -77,7 +77,7 @@ case "$ARG" in
   legacycrayon) exec $PY 07_crayon_legacy.py ;;
   sweepmatch) exec $PY 06_sweepmatch.py ;;
   redmapper) shift; exec $PY \
-    /home/suzuki/github/projects_des/programs_igmdust/04_redmapper_crayons.py \
+    /home/suzuki/github/projects_desi/programs_igmdust/des/04_redmapper_crayons.py \
     "$@" ;;
   bgsmerged)
     QCAT=/data/astrofs2_1/suzuki/data/DESI/catalog/qso_ext/qso_merged_dr11.fits

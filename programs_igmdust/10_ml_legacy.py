@@ -2,7 +2,7 @@
 """
 10_ml_legacy.py — igmdust: covariance-weighted ML E(B-V) for Legacy runs.
 
-The third DES ingredient (projects_des 08_ml_estimator.py), adapted to
+The third DES ingredient (programs_igmdust/des 08_ml_estimator.py), adapted to
 the Legacy QSO-color npz.  Per radial bin,
 
     E = dR^T C^-1 delta / dR^T C^-1 dR

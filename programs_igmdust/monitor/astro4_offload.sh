@@ -16,7 +16,7 @@
 #                 astrofs4 is redundant; its rerun is harmless).
 set -u
 PY=/home/suzuki/miniconda3/bin/python3
-DES=/home/suzuki/github/projects_des/programs_igmdust
+DES=/home/suzuki/github/projects_desi/programs_igmdust/des
 NC=$(( $(nproc) - 2 )); [ $NC -lt 4 ] && NC=4   # leave cores for updater
 export OMP_NUM_THREADS=$NC OPENBLAS_NUM_THREADS=$NC
 mkdir -p ~/slurmlogs

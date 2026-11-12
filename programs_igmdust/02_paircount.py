@@ -362,10 +362,10 @@ def solve_ebv(delta, sig):
 # ------------------------------------------------------------------ driver ---
 def csfd_recorrect(qra, qdec, qcol, qval):
     """Re-express the SFD-dereddened sweep colors in the CSFD convention
-    (the DES iteration-2 ingredient; see projects_des 06_csfd.py).
+    (the DES iteration-2 ingredient; see programs_igmdust/des 06_csfd.py).
     colors += (E_SFD - E_CSFD) * dR with the Legacy R coefficients."""
     path = os.path.expanduser(
-        "~/github/projects_des/programs_igmdust/06_csfd.py")
+        "~/github/projects_desi/programs_igmdust/des/06_csfd.py")
     spec = importlib.util.spec_from_file_location("csfd06", path)
     c6 = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(c6)
