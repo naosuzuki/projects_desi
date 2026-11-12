@@ -476,6 +476,19 @@ bqw + lqw (CSFD, anchor 15 Mpc, cov-ML, 45 Mpc) finished in ~7 h wall (6 BGS sha
   shards strictly one at a time, each gated on ≥45 GB available AND loadavg<48, waiting for the
   newcomer's post-peak log line; 3 passes). lqw unharmed (33% at 12:26, ETA ~14:40). Faint-cut
   verdict unaffected. Replica ETA slips ~2 h (Nov 12 afternoon).
+- **Wave status (2026-11-12 morning)**: **lqw DONE** (paircount_lrg_mqcsfdlw_qso.npz, 14:56 Nov 11).
+  Replica: s0 + s2 done overnight (00:38, 01:09); s1 + s3 died of MemoryErrors in evening
+  contention, rerunning under babysitter v3 (relaunched 10:08/10:16 on the empty box).
+  **astrofs4 BGS attempt abandoned**: the 20 GB/job cgroup cap OOM-killed the load phase twice
+  (array 90 at 12G, array 97 at 20G, both rc=137 ~90 s in) — the pre-shard full-catalog phase
+  needs >20 GB regardless of shard count, so 16_slurm_bqw_lw.sbatch is a dead end on that node;
+  the 6 BGS shards are back in lw_babysit.sh on astro4 (cf06b4b), queued behind the replica
+  refills. Gauge upgraded (same commit): newest-mtime log drives card state (a dead shard's
+  stale traceback had masked the running shard all night), saved npz shards are the progress
+  ground truth for sharded cards. ms.tex updated: noise-audit forecast ¶ converted to measured
+  lw implementation (σ_int/eff-σ/×1.56, no-faint-cut verdict), "In execution" lists the lw
+  re-count + HSC star-null landing (Overleaf re-upload pending, with the two legacy figures).
+  Figures regenerate only after merge + 10_ml_legacy of the lw counts.
 
 ## 11. Backgrounds v2 (Nao, 2026-11-08): multi-survey quasar photometry + DR2 spec-z
 
