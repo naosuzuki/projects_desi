@@ -181,7 +181,10 @@ for pat, label, det in (
          "higher-z fg slice (0.4–1.1), i<24, 45 Mpc, CSFD"),
         ("igmdust_hls_*.log", "HSC: LRG star null",
          "i<22.5 point sources × LRG — systematics template")):
-    files = sorted(_g.glob(f"{LOGS}/{pat}"))
+    # newest log drives the card: a dead shard's lexically-last log must
+    # not mask the shard actually running (2026-11-11 night: s3's stale
+    # MemoryError hid s1's rerun all night)
+    files = sorted(_g.glob(f"{LOGS}/{pat}"), key=os.path.getmtime)
     txt = read(files[-1]) if files else ""
     p, s = pairstage(txt, w_data=10, w_ran=85)
     st = state_of(txt, p)
@@ -196,6 +199,20 @@ for pat, label, det in (
         if jf and mtime(jf[-1]) >= (mtime(files[-1]) if files else 0) \
                 and re.search(r"oom_kill|Killed", read(jf[-1])):
             st, s = "fail", "OOM-killed — needs resubmit"
+    # sharded lw recounts: saved npz shards are ground truth for progress
+    # (each shard log only knows itself)
+    PCDIR = "/home/suzuki/data/igmdust/paircount"
+    shn = {"igmdust_bqw_*.log":
+           (f"{PCDIR}/paircount_bgs_mqcsfdlw_s6.*_qso.npz", 6),
+           "igmdust_pgw_*.log":
+           (f"{PCDIR}/paircount_photgal_mqcsfdlw_s4.*_qso.npz", 4)}.get(pat)
+    if shn:
+        nd = len(_g.glob(shn[0]))
+        if nd >= shn[1]:
+            st, p, s = "done", 100.0, f"all {shn[1]} shards saved — merge next"
+        elif nd:
+            p = (100.0 * nd + min(p, 99.0)) / shn[1]
+            s = f"{nd}/{shn[1]} shards saved; current: {s}"
     ti = runtimes(pair_elapsed(txt), mtime(files[-1]) if files else 0,
                   st == "done")
     gauges.append(dict(name=label, state=st, pct=p,
