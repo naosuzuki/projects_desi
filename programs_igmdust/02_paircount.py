@@ -385,9 +385,16 @@ def csfd_recorrect(qra, qdec, qcol, qval):
     return np.where(qval, qcol + dE[:, None] * dRc[None, :], 0.0)
 
 
+def weighted_quantiles(x, w, qs):
+    """Weighted quantiles of x (for equal-count z-bin edges)."""
+    o = np.argsort(x)
+    cw = np.cumsum(w[o])
+    return np.interp(np.asarray(qs) * cw[-1], cw, x[o])
+
+
 def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
         mwcorr=False, nshard=1, shard=0, fg_cat=None, fg_ran=None,
-        zeff=0.30, qweight=False, fg_split=None):
+        zeff=0.30, qweight=False, fg_split=None, zbin=None, nzbin=0):
     edges, rp_mid = rp_bins()
     print(f"== foregrounds: {fg_sample}")
     if fg_sample == "photgal":
@@ -409,10 +416,33 @@ def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
             print(f"  --fg-split {fg_split}: median r = {rmed:.3f}, "
                   f"keeping {keep.sum():,} of {len(r):,}")
             fra, fdec, fz, fw = fra[keep], fdec[keep], fz[keep], fw[keep]
-            fg_sample = f"{fg_sample}{fg_split}"
+        if nzbin:
+            # redshift-evolution bins: equal weighted fg counts inside
+            # the parent z range; FG_ZRANGE gains the bin's own range so
+            # run_arrays cuts fg AND randoms to it (rp binning at z_fg
+            # and the random z reference both follow the bin).
+            zlo0, zhi0 = FG_ZRANGE[fg_sample]
+            m = (fz >= zlo0) & (fz <= zhi0)
+            edges_z = weighted_quantiles(fz[m], fw[m],
+                                         np.linspace(0, 1, nzbin + 1))
+            edges_z[0], edges_z[-1] = zlo0, zhi0
+            lo, hi = edges_z[zbin], edges_z[zbin + 1]
+            print(f"  --zbin {zbin}/{nzbin}: z = [{lo:.3f}, {hi:.3f}]")
+            name_zb = f"z{zbin}"
+        else:
+            lo = hi = None
+            name_zb = ""
+        fg_sample = f"{fg_sample}{fg_split or ''}{name_zb}"
+        if nzbin:
+            FG_ZRANGE[fg_sample] = (lo, hi)
+        elif fg_sample not in FG_ZRANGE and fg_split:
+            FG_ZRANGE[fg_sample] = FG_ZRANGE[
+                fg_sample.replace(fg_split, "")]
         print("== randoms")
-        rra, rdec, rz, rw = load_lss(base, fg_sample.replace(fg_split or "", ""),
-                                     "ran", nran=nran)
+        rra, rdec, rz, rw = load_lss(
+            base,
+            fg_sample.replace(fg_split or "", "").replace(name_zb, ""),
+            "ran", nran=nran)
     print("== backgrounds: QSO")
     if qso_cat:
         qra, qdec, qz, qcol, qval, qcerr = load_qso_merged(qso_cat)
@@ -625,10 +655,19 @@ if __name__ == "__main__":
                     help="LSS foregrounds only: keep the half brighter "
                          "(fainter) than the weighted-median observed r "
                          "(flux_r_dered); output name gains bright/faint")
+    ap.add_argument("--nzbin", type=int, default=0,
+                    help="redshift-evolution mode: split the LSS "
+                         "foreground z range into this many equal "
+                         "weighted-count bins")
+    ap.add_argument("--zbin", type=int, default=0,
+                    help="which z bin to run (0..nzbin-1); output name "
+                         "gains z<i>")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
-    if a.fg_split and a.fg == "photgal":
-        ap.error("--fg-split needs an LSS foreground (bgs or lrg)")
+    if (a.fg_split or a.nzbin) and a.fg == "photgal":
+        ap.error("--fg-split/--nzbin need an LSS foreground (bgs or lrg)")
+    if a.nzbin and not (0 <= a.zbin < a.nzbin):
+        ap.error("--zbin must be in [0, nzbin)")
     CHUNK = a.chunk
     RP_MIN, RP_MAX = a.rp_min, a.rp_max
     if a.selftest:
@@ -644,4 +683,4 @@ if __name__ == "__main__":
         qso_cat=a.qso_cat, mwcorr=a.mwcorr, qweight=a.qweight,
         nshard=a.nshard, shard=a.shard,
         fg_cat=a.fg_cat, fg_ran=a.fg_ran, zeff=a.zeff,
-        fg_split=a.fg_split)
+        fg_split=a.fg_split, zbin=a.zbin, nzbin=a.nzbin)
