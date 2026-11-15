@@ -5,22 +5,25 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-# NOTE 2026-11-11: scratchpad was wiped overnight; the npz inputs must be
-# re-fetched from astro4:~/data/igmdust/paircount/ (scp via cm-astro4gw)
-# into $SC and $SC/fixwave before running.
+# 2026-11-14: Legacy inputs switched to the lw recounts (locus residuals
+# + ivar weights, 02b-merged, 10_ml cov-ML with the 10 Mpc anchor):
+# bgs_mqcsfdlwml, lrg_mqcsfdlwml, photgal_mqcsfdlwml.  Default SC is the
+# laptop mirror ~/data/igmdust/paircount (master on astro4); the DES npz
+# and fgz_stats.json live there too.
 import sys
-SC = sys.argv[1] if len(sys.argv) > 1 else os.path.dirname(os.path.abspath(__file__))
+SC = (sys.argv[1] if len(sys.argv) > 1
+      else os.path.expanduser("~/data/igmdust/paircount"))
 OUT = "/Users/suzuki/github/papers/26_igmreddening_study/figures"
 os.makedirs(OUT, exist_ok=True)
 F_ABS = 0.806                      # speczcalib absorption factor (crayons)
 RV = 3.1                           # A_V = R_V * E(B-V)
 YMIN, YMAX = 0.01, 100.0           # A_V [1e-3 mag]; McCleary-wide ranges
 
-# fix wave 2026-11-08: CSFD + 15 Mpc anchor + covariance-ML, 45 Mpc
-bgs = np.load(f"{SC}/fixwave/paircount_bgs_mqcsfdml_qso.npz")
-lrg = np.load(f"{SC}/fixwave/paircount_lrg_mqcsfdml_qso.npz")
-# Menard replica 2026-11-10: 135.9M r<21 phot. galaxies x QSOs, 4 shards
-pg = np.load(f"{SC}/fixwave/paircount_photgal_mqcsfdml_qso.npz")
+# lw recounts 2026-11-14: locus+ivar weights, CSFD, cov-ML, 10 Mpc anchor
+bgs = np.load(f"{SC}/paircount_bgs_mqcsfdlwml_qso.npz")
+lrg = np.load(f"{SC}/paircount_lrg_mqcsfdlwml_qso.npz")
+# Menard replica (lw): 135.9M r<21 phot. galaxies x QSOs, 4 shards
+pg = np.load(f"{SC}/paircount_photgal_mqcsfdlwml_qso.npz")
 mqd = np.load(f"{SC}/paircount_menarddes_qso.npz")  # redMaGiC x QSO colors
 cr = np.load(f"{SC}/paircount_descrayon_qso.npz")
 mc = np.load(f"{SC}/paircount_rmgmofcsfdml_qso.npz")   # reproduction (PASS)
@@ -75,7 +78,7 @@ plot_profile(axL, lrg["rp_mid"][g] * 1e3, RV * lrg["ebv"][g] * 1e3,
              "LRG $\\times$ QSO colors ($r_p>0.5$ Mpc, CSFD, cov-ML)",
              xoff=1.07)
 axL.set_title("DESI $\\times$ Legacy Surveys imaging "
-              "(15 Mpc anchor, 45 Mpc reach)", fontsize=11)
+              "(lw recount, 10 Mpc anchor, 45 Mpc reach)", fontsize=11)
 
 # ---- right: DES imaging (redMaGiC standard crayons) ----------------------
 menard(axR)
