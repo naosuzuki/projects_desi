@@ -12,6 +12,11 @@ under the unsharded name.
     python3 02b_merge_shards.py --name bgs_mqcsfd --nshard 6
 reads  paircount_<name>_sN.i_qso.npz  (i = 0..N-1)
 writes paircount_<name>_qso.npz
+
+--hsc: merge shards written by hsc/02_hsc_paircount.py — patches the
+02 module's R_COEF/COLORS to the HSC grizy values (as that script does
+at run time) so solve_ebv uses the right color responses.  Without it
+an HSC merge silently solves with the Legacy coefficients.
 """
 import argparse
 import importlib.util
@@ -33,7 +38,18 @@ def main():
     ap.add_argument("--name", required=True, help="e.g. bgs_mqcsfd")
     ap.add_argument("--nshard", type=int, required=True)
     ap.add_argument("--out", default=pc.OUT_DEFAULT)
+    ap.add_argument("--hsc", action="store_true",
+                    help="shards are from hsc/02_hsc_paircount.py: "
+                         "solve with the HSC grizy color responses")
     a = ap.parse_args()
+
+    if a.hsc:
+        spec_h = importlib.util.spec_from_file_location(
+            "hscpc", os.path.join(_here, "hsc", "02_hsc_paircount.py"))
+        hscpc = importlib.util.module_from_spec(spec_h)
+        spec_h.loader.exec_module(hscpc)
+        pc.R_COEF = hscpc.R_HSC
+        pc.COLORS = hscpc.COLORS_HSC
 
     acc = {}
     edges = rp_mid = colors = None
