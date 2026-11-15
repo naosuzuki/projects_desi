@@ -46,7 +46,10 @@ OUT_DEFAULT = os.path.expanduser("~/data/igmdust/paircount")
 
 RP_MIN, RP_MAX, NBIN_PER_DEX = 0.02, 10.0, 4          # Mpc (physical)
 Z_BUFFER = 0.2                                        # z_bg > z_fg + buffer
-FG_ZRANGE = {"bgs": (0.05, 0.45), "lrg": (0.40, 1.10)}
+FG_ZRANGE = {"bgs": (0.05, 0.45), "lrg": (0.40, 1.10),
+             # brightness-split halves (--fg-split) keep the parent range
+             "bgsbright": (0.05, 0.45), "bgsfaint": (0.05, 0.45),
+             "lrgbright": (0.40, 1.10), "lrgfaint": (0.40, 1.10)}
 ZSLICE = 0.025                                        # fg z-slice for tree queries
 CHUNK = 50_000                                        # fg per tree query chunk
 
@@ -94,8 +97,10 @@ def getcol(hdu, *names):
 
 
 # ------------------------------------------------------------ data loading ---
-def load_lss(base, sample, kind="dat", nran=2):
-    """Concatenate NGC+SGC clustering catalogs (data or randoms)."""
+def load_lss(base, sample, kind="dat", nran=2, want_mag=False):
+    """Concatenate NGC+SGC clustering catalogs (data or randoms).
+    want_mag additionally returns observed dereddened r [mag] from
+    flux_r_dered (data files only), for the --fg-split halves."""
     stem = {"bgs": "BGS_ANY", "lrg": "LRG"}[sample]
     files = []
     for cap in ("NGC", "SGC"):
@@ -104,7 +109,7 @@ def load_lss(base, sample, kind="dat", nran=2):
         else:
             files += [f"{base}/{stem}_{cap}_{i}_clustering.ran.fits"
                       for i in range(nran)]
-    ra, dec, z, w = [], [], [], []
+    ra, dec, z, w, mag = [], [], [], [], []
     for f in files:
         with fits.open(f) as h:
             d = h[1]
@@ -115,9 +120,13 @@ def load_lss(base, sample, kind="dat", nran=2):
                 w.append(getcol(d, "WEIGHT"))
             except KeyError:
                 w.append(np.ones(len(ra[-1])))
+            if want_mag:
+                fx = np.asarray(getcol(d, "flux_r_dered"), float)
+                mag.append(22.5 - 2.5 * np.log10(np.clip(fx, 1e-6, None)))
         print(f"  {os.path.basename(f)}: {len(ra[-1]):,} rows")
-    return (np.concatenate(ra), np.concatenate(dec),
-            np.concatenate(z), np.concatenate(w))
+    out = (np.concatenate(ra), np.concatenate(dec),
+           np.concatenate(z), np.concatenate(w))
+    return out + (np.concatenate(mag),) if want_mag else out
 
 
 def load_photcat(path, zeff, label):
@@ -378,7 +387,7 @@ def csfd_recorrect(qra, qdec, qcol, qval):
 
 def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
         mwcorr=False, nshard=1, shard=0, fg_cat=None, fg_ran=None,
-        zeff=0.30, qweight=False):
+        zeff=0.30, qweight=False, fg_split=None):
     edges, rp_mid = rp_bins()
     print(f"== foregrounds: {fg_sample}")
     if fg_sample == "photgal":
@@ -386,9 +395,24 @@ def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
         print("== randoms")
         rra, rdec, rz, rw = load_photcat(fg_ran, zeff, "photran")
     else:
-        fra, fdec, fz, fw = load_lss(base, fg_sample, "dat")
+        fra, fdec, fz, fw, *fm = load_lss(base, fg_sample, "dat",
+                                          want_mag=bool(fg_split))
+        if fg_split:
+            # 125 kpc contamination discriminator: halves split at the
+            # weighted median observed r; both share the full-sample
+            # randoms (footprint + z reference are unchanged).
+            r = fm[0]
+            order = np.argsort(r)
+            cw = np.cumsum(fw[order])
+            rmed = r[order][np.searchsorted(cw, 0.5 * cw[-1])]
+            keep = (r <= rmed) if fg_split == "bright" else (r > rmed)
+            print(f"  --fg-split {fg_split}: median r = {rmed:.3f}, "
+                  f"keeping {keep.sum():,} of {len(r):,}")
+            fra, fdec, fz, fw = fra[keep], fdec[keep], fz[keep], fw[keep]
+            fg_sample = f"{fg_sample}{fg_split}"
         print("== randoms")
-        rra, rdec, rz, rw = load_lss(base, fg_sample, "ran", nran=nran)
+        rra, rdec, rz, rw = load_lss(base, fg_sample.replace(fg_split or "", ""),
+                                     "ran", nran=nran)
     print("== backgrounds: QSO")
     if qso_cat:
         qra, qdec, qz, qcol, qval, qcerr = load_qso_merged(qso_cat)
@@ -597,8 +621,14 @@ if __name__ == "__main__":
                     help="split fg+randoms into N interleaved shards")
     ap.add_argument("--shard", type=int, default=0,
                     help="which shard to run (0..nshard-1)")
+    ap.add_argument("--fg-split", choices=["bright", "faint"], default=None,
+                    help="LSS foregrounds only: keep the half brighter "
+                         "(fainter) than the weighted-median observed r "
+                         "(flux_r_dered); output name gains bright/faint")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
+    if a.fg_split and a.fg == "photgal":
+        ap.error("--fg-split needs an LSS foreground (bgs or lrg)")
     CHUNK = a.chunk
     RP_MIN, RP_MAX = a.rp_min, a.rp_max
     if a.selftest:
@@ -613,4 +643,5 @@ if __name__ == "__main__":
             + (f"_s{a.nshard}.{a.shard}" if a.nshard > 1 else ""),
         qso_cat=a.qso_cat, mwcorr=a.mwcorr, qweight=a.qweight,
         nshard=a.nshard, shard=a.shard,
-        fg_cat=a.fg_cat, fg_ran=a.fg_ran, zeff=a.zeff)
+        fg_cat=a.fg_cat, fg_ran=a.fg_ran, zeff=a.zeff,
+        fg_split=a.fg_split)
