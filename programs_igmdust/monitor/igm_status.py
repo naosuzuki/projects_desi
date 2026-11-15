@@ -269,6 +269,40 @@ for pat, label, what, obj in (
                        unit="of files", detail=dl + (f"; {ti}" if ti else ""),
                        ts=mtime(files[-1]) if files else 0))
 
+# astrofs4 SLURM queue (astrofs4_stat.sh's squeue snapshot in the
+# shared home, "%A %j %T %C %M" rows; shown while fresh < 10 min).
+# A pending array prints one row "102_[2-17]" for all its tasks.
+SQF = os.path.expanduser("~/.igmstats/astrofs4.squeue")
+if time.time() - mtime(SQF) < 600:
+    PCD = "/home/suzuki/data/igmdust/paircount"
+
+    def _ntasks(jid):
+        m = re.search(r"\[(\d+)-(\d+)", jid)
+        return int(m.group(2)) - int(m.group(1)) + 1 if m else 1
+
+    byname = {}
+    for r in (l.split() for l in read(SQF).splitlines() if l.strip()):
+        d = byname.setdefault(r[1], dict(R=0, PD=0, cores=0, t=""))
+        if r[2] == "RUNNING":
+            d["R"] += 1
+            d["cores"] += int(r[3])
+            d["t"] = r[4]
+        else:
+            d["PD"] += _ntasks(r[0])
+    for nm, d in sorted(byname.items()):
+        ndone = (len(_g.glob(f"{PCD}/paircount_bgsm*_mqcsfdlw_s6.*_qso.npz"))
+                 if nm.startswith("igmdust_massbin") else 0)
+        tot = max(ndone + d["R"] + d["PD"], 1)
+        gauges.append(dict(
+            name=f"astrofs4 SLURM: {nm}",
+            state="run" if d["R"] else "wait",
+            pct=100.0 * (ndone + 0.5 * d["R"]) / tot,
+            unit=f"{d['R']} running / {d['PD']} pending",
+            detail=(f"{d['R']} tasks running ({d['cores']} cores, "
+                    f"elapsed {d['t']}), {d['PD']} pending, "
+                    f"{ndone} finished of {tot}"),
+            ts=mtime(SQF)))
+
 # HSC catalog downloads (3 CAS jobs; .part suffix = still streaming)
 hsc_dir = "/home/suzuki/data/HSC/catalog"
 jobs_hsc = ["669956", "669957", "669937"]

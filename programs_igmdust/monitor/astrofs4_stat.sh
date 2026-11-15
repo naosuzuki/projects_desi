@@ -12,6 +12,10 @@ for i in $(seq 1 1000); do                      # ~33 h, relaunchable
     squeue -h -o %C -t R 2>/dev/null | awk '{s+=$1} END {print "ALLOC", s+0}'; \
   } > "$OUT/astrofs4.stat.tmp" 2>/dev/null
   mv "$OUT/astrofs4.stat.tmp" "$OUT/astrofs4.stat"
+  # queue snapshot for the per-job SLURM activity card (igm_status.py)
+  squeue -h -u "$USER" -o "%A %j %T %C %M" \
+    > "$OUT/astrofs4.squeue.tmp" 2>/dev/null \
+    && mv "$OUT/astrofs4.squeue.tmp" "$OUT/astrofs4.squeue"
   sleep 120
 done
 echo "ASTROFS4_STAT_ENDED $(date)"
