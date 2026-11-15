@@ -130,11 +130,21 @@ def load_lss(base, sample, kind="dat", nran=2, want_mag=False,
             except KeyError:
                 w.append(np.ones(len(ra[-1])))
             if want_mag:
-                fx = np.asarray(getcol(d, f"flux_{mag_band}_dered"), float)
-                mag.append(np.where(fx > 0,
-                                    22.5 - 2.5 * np.log10(np.clip(fx, 1e-9,
-                                                                  None)),
-                                    np.nan))
+                if "-" in mag_band:            # a color, e.g. "g-r"
+                    b1, b2 = mag_band.split("-")
+                    f1 = np.asarray(getcol(d, f"flux_{b1}_dered"), float)
+                    f2 = np.asarray(getcol(d, f"flux_{b2}_dered"), float)
+                    ok = (f1 > 0) & (f2 > 0)
+                    mag.append(np.where(ok, -2.5 * np.log10(
+                        np.clip(f1, 1e-9, None) / np.clip(f2, 1e-9, None)),
+                        np.nan))
+                else:
+                    fx = np.asarray(getcol(d, f"flux_{mag_band}_dered"),
+                                    float)
+                    mag.append(np.where(fx > 0,
+                                        22.5 - 2.5 * np.log10(
+                                            np.clip(fx, 1e-9, None)),
+                                        np.nan))
         print(f"  {os.path.basename(f)}: {len(ra[-1]):,} rows")
     out = (np.concatenate(ra), np.concatenate(dec),
            np.concatenate(z), np.concatenate(w))
@@ -407,7 +417,7 @@ def weighted_quantiles(x, w, qs):
 def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
         mwcorr=False, nshard=1, shard=0, fg_cat=None, fg_ran=None,
         zeff=0.30, qweight=False, fg_split=None, zbin=None, nzbin=0,
-        massbin=None, nmassbin=0, mass_band="w1"):
+        massbin=None, nmassbin=0, mass_band="w1", fg_csplit=None):
     edges, rp_mid = rp_bins()
     print(f"== foregrounds: {fg_sample}")
     if fg_sample == "photgal":
@@ -418,8 +428,9 @@ def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
         parent = fg_sample
         fra, fdec, fz, fw, *fm = load_lss(
             base, fg_sample, "dat",
-            want_mag=bool(fg_split or nmassbin),
-            mag_band="r" if fg_split else mass_band)
+            want_mag=bool(fg_split or nmassbin or fg_csplit),
+            mag_band=("r" if fg_split
+                      else "g-r" if fg_csplit else mass_band))
         if fg_split:
             # 125 kpc contamination discriminator: halves split at the
             # weighted median observed r; both share the full-sample
@@ -431,6 +442,32 @@ def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
             keep = (r <= rmed) if fg_split == "bright" else (r > rmed)
             print(f"  --fg-split {fg_split}: median r = {rmed:.3f}, "
                   f"keeping {keep.sum():,} of {len(r):,}")
+            fra, fdec, fz, fw = fra[keep], fdec[keep], fz[keep], fw[keep]
+        if fg_csplit:
+            # star-formation split: at each redshift, the half redder
+            # than the weighted-median observed g-r is "passive" (red
+            # sequence), the bluer half "sf" (blue cloud).  Splitting
+            # at the median PER z-slice preserves each half's n(z), so
+            # both halves share the parent randoms unchanged.
+            gr = fm[0]
+            nzsl = 25
+            zlo0, zhi0 = FG_ZRANGE[fg_sample]
+            inz = (fz >= zlo0) & (fz <= zhi0) & np.isfinite(gr)
+            zed = weighted_quantiles(fz[inz], fw[inz],
+                                     np.linspace(0, 1, nzsl + 1))
+            isl = np.clip(np.searchsorted(zed, fz) - 1, 0, nzsl - 1)
+            red = np.zeros(len(fz), bool)
+            for i in range(nzsl):
+                m = inz & (isl == i)
+                if not m.any():
+                    continue
+                med = weighted_quantiles(gr[m], fw[m], [0.5])[0]
+                red[m] = gr[m] >= med
+            keep = inz & (red if fg_csplit == "passive" else ~red)
+            print(f"  --fg-csplit {fg_csplit}: z-conditional median "
+                  f"g-r split ({nzsl} slices), keeping {keep.sum():,} "
+                  f"of {inz.sum():,}, median z = "
+                  f"{np.median(fz[keep]):.3f}")
             fra, fdec, fz, fw = fra[keep], fdec[keep], fz[keep], fw[keep]
         if nmassbin:
             # luminosity bins (stellar-mass proxy) at all z: absolute
@@ -473,7 +510,8 @@ def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
         else:
             lo = hi = None
             name_zb = ""
-        fg_sample = f"{fg_sample}{fg_split or ''}{name_mb}{name_zb}"
+        fg_sample = (f"{fg_sample}{fg_split or ''}{fg_csplit or ''}"
+                     f"{name_mb}{name_zb}")
         if nzbin:
             FG_ZRANGE[fg_sample] = (lo, hi)
         elif fg_sample not in FG_ZRANGE:
@@ -718,6 +756,11 @@ if __name__ == "__main__":
     ap.add_argument("--mass-band", choices=["r", "z", "w1"], default="w1",
                     help="band for the absolute-magnitude mass proxy "
                          "(default w1, closest to stellar mass)")
+    ap.add_argument("--fg-csplit", choices=["sf", "passive"], default=None,
+                    help="star-formation split: keep the half bluer "
+                         "(sf) or redder (passive) than the "
+                         "z-conditional weighted-median g-r; output "
+                         "name gains sf/passive")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
     if (a.fg_split or a.nzbin or a.nmassbin) and a.fg == "photgal":
@@ -732,6 +775,14 @@ if __name__ == "__main__":
                      "catalog carries no fluxes)")
         if not (0 <= a.massbin < a.nmassbin):
             ap.error("--massbin must be in [0, nmassbin)")
+    if a.fg_csplit:
+        if a.fg_split or a.nzbin or a.nmassbin:
+            ap.error("--fg-csplit cannot combine with "
+                     "--fg-split/--nzbin/--nmassbin")
+        if a.fg != "bgs":
+            ap.error("--fg-csplit needs --fg bgs (the LRG clustering "
+                     "catalog carries no fluxes; LRG is the pure-"
+                     "passive reference as is)")
     CHUNK = a.chunk
     RP_MIN, RP_MAX = a.rp_min, a.rp_max
     if a.selftest:
@@ -748,4 +799,5 @@ if __name__ == "__main__":
         nshard=a.nshard, shard=a.shard,
         fg_cat=a.fg_cat, fg_ran=a.fg_ran, zeff=a.zeff,
         fg_split=a.fg_split, zbin=a.zbin, nzbin=a.nzbin,
-        massbin=a.massbin, nmassbin=a.nmassbin, mass_band=a.mass_band)
+        massbin=a.massbin, nmassbin=a.nmassbin, mass_band=a.mass_band,
+        fg_csplit=a.fg_csplit)
