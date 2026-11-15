@@ -76,6 +76,13 @@ def da_interp():
     return lambda z: np.interp(z, zg, dg)
 
 
+def dl_interp():
+    """Fast z -> luminosity distance [Mpc] interpolator."""
+    zg = np.linspace(1e-3, 4.0, 800)
+    dg = cosmo.luminosity_distance(zg).value
+    return lambda z: np.interp(z, zg, dg)
+
+
 def assign_regions(ra, dec):
     """Jackknife region label per object (healpy pixel or coarse grid)."""
     try:
@@ -97,10 +104,12 @@ def getcol(hdu, *names):
 
 
 # ------------------------------------------------------------ data loading ---
-def load_lss(base, sample, kind="dat", nran=2, want_mag=False):
+def load_lss(base, sample, kind="dat", nran=2, want_mag=False,
+             mag_band="r"):
     """Concatenate NGC+SGC clustering catalogs (data or randoms).
-    want_mag additionally returns observed dereddened r [mag] from
-    flux_r_dered (data files only), for the --fg-split halves."""
+    want_mag additionally returns observed dereddened mag_band [mag]
+    from flux_<band>_dered (data files only), for --fg-split (r) and
+    the --nmassbin luminosity bins (default w1)."""
     stem = {"bgs": "BGS_ANY", "lrg": "LRG"}[sample]
     files = []
     for cap in ("NGC", "SGC"):
@@ -121,8 +130,11 @@ def load_lss(base, sample, kind="dat", nran=2, want_mag=False):
             except KeyError:
                 w.append(np.ones(len(ra[-1])))
             if want_mag:
-                fx = np.asarray(getcol(d, "flux_r_dered"), float)
-                mag.append(22.5 - 2.5 * np.log10(np.clip(fx, 1e-6, None)))
+                fx = np.asarray(getcol(d, f"flux_{mag_band}_dered"), float)
+                mag.append(np.where(fx > 0,
+                                    22.5 - 2.5 * np.log10(np.clip(fx, 1e-9,
+                                                                  None)),
+                                    np.nan))
         print(f"  {os.path.basename(f)}: {len(ra[-1]):,} rows")
     out = (np.concatenate(ra), np.concatenate(dec),
            np.concatenate(z), np.concatenate(w))
@@ -394,7 +406,8 @@ def weighted_quantiles(x, w, qs):
 
 def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
         mwcorr=False, nshard=1, shard=0, fg_cat=None, fg_ran=None,
-        zeff=0.30, qweight=False, fg_split=None, zbin=None, nzbin=0):
+        zeff=0.30, qweight=False, fg_split=None, zbin=None, nzbin=0,
+        massbin=None, nmassbin=0, mass_band="w1"):
     edges, rp_mid = rp_bins()
     print(f"== foregrounds: {fg_sample}")
     if fg_sample == "photgal":
@@ -402,8 +415,11 @@ def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
         print("== randoms")
         rra, rdec, rz, rw = load_photcat(fg_ran, zeff, "photran")
     else:
-        fra, fdec, fz, fw, *fm = load_lss(base, fg_sample, "dat",
-                                          want_mag=bool(fg_split))
+        parent = fg_sample
+        fra, fdec, fz, fw, *fm = load_lss(
+            base, fg_sample, "dat",
+            want_mag=bool(fg_split or nmassbin),
+            mag_band="r" if fg_split else mass_band)
         if fg_split:
             # 125 kpc contamination discriminator: halves split at the
             # weighted median observed r; both share the full-sample
@@ -416,6 +432,31 @@ def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
             print(f"  --fg-split {fg_split}: median r = {rmed:.3f}, "
                   f"keeping {keep.sum():,} of {len(r):,}")
             fra, fdec, fz, fw = fra[keep], fdec[keep], fz[keep], fw[keep]
+        if nmassbin:
+            # luminosity bins (stellar-mass proxy) at all z: absolute
+            # magnitude in mass_band with the bandpass-only K term --
+            # the few 0.1 mag of SED-dependent K scatter is small vs
+            # the ~mag-wide bins.  Edges = equal weighted fg counts
+            # inside the parent z range; bin 0 = most luminous/massive.
+            zlo0, zhi0 = FG_ZRANGE[fg_sample]
+            dl = dl_interp()
+            M = (fm[0] - 25.0
+                 - 5.0 * np.log10(np.clip(dl(fz), 1e-3, None))
+                 + 2.5 * np.log10(1.0 + fz))
+            inz = (fz >= zlo0) & (fz <= zhi0) & np.isfinite(M)
+            edges_m = weighted_quantiles(M[inz], fw[inz],
+                                         np.linspace(0, 1, nmassbin + 1))
+            mlo, mhi = edges_m[massbin], edges_m[massbin + 1]
+            hi_ok = (M <= mhi) if massbin == nmassbin - 1 else (M < mhi)
+            keep = inz & (M >= mlo) & hi_ok
+            print(f"  --massbin {massbin}/{nmassbin} ({mass_band}): "
+                  f"M = [{mlo:.3f}, {mhi:.3f}], keeping {keep.sum():,} "
+                  f"of {inz.sum():,}, median z = "
+                  f"{np.median(fz[keep]):.3f}")
+            fra, fdec, fz, fw = fra[keep], fdec[keep], fz[keep], fw[keep]
+            name_mb = f"m{massbin}"
+        else:
+            name_mb = ""
         if nzbin:
             # redshift-evolution bins: equal weighted fg counts inside
             # the parent z range; FG_ZRANGE gains the bin's own range so
@@ -432,17 +473,21 @@ def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
         else:
             lo = hi = None
             name_zb = ""
-        fg_sample = f"{fg_sample}{fg_split or ''}{name_zb}"
+        fg_sample = f"{fg_sample}{fg_split or ''}{name_mb}{name_zb}"
         if nzbin:
             FG_ZRANGE[fg_sample] = (lo, hi)
-        elif fg_sample not in FG_ZRANGE and fg_split:
-            FG_ZRANGE[fg_sample] = FG_ZRANGE[
-                fg_sample.replace(fg_split, "")]
+        elif fg_sample not in FG_ZRANGE:
+            FG_ZRANGE[fg_sample] = FG_ZRANGE[parent]
         print("== randoms")
-        rra, rdec, rz, rw = load_lss(
-            base,
-            fg_sample.replace(fg_split or "", "").replace(name_zb, ""),
-            "ran", nran=nran)
+        rra, rdec, rz, rw = load_lss(base, parent, "ran", nran=nran)
+        if nmassbin:
+            # randoms cannot be cut by mass; re-draw their (z, weight)
+            # pairs jointly from the bin's foregrounds so the randoms'
+            # n(z) follows the bin (a luminosity bin of a flux-limited
+            # sample has a very different n(z) than the parent)
+            rngr = np.random.default_rng(20261115 + massbin)
+            jj = rngr.integers(0, len(fz), size=len(rz))
+            rz, rw = fz[jj], fw[jj]
     print("== backgrounds: QSO")
     if qso_cat:
         qra, qdec, qz, qcol, qval, qcerr = load_qso_merged(qso_cat)
@@ -662,12 +707,31 @@ if __name__ == "__main__":
     ap.add_argument("--zbin", type=int, default=0,
                     help="which z bin to run (0..nzbin-1); output name "
                          "gains z<i>")
+    ap.add_argument("--nmassbin", type=int, default=0,
+                    help="mass-evolution mode: split the foregrounds "
+                         "into this many equal weighted-count absolute-"
+                         "magnitude (luminosity) bins over the full z "
+                         "range; randoms get the bin's n(z)")
+    ap.add_argument("--massbin", type=int, default=0,
+                    help="which mass bin to run (0 = most luminous/"
+                         "massive); output name gains m<i>")
+    ap.add_argument("--mass-band", choices=["r", "z", "w1"], default="w1",
+                    help="band for the absolute-magnitude mass proxy "
+                         "(default w1, closest to stellar mass)")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
-    if (a.fg_split or a.nzbin) and a.fg == "photgal":
-        ap.error("--fg-split/--nzbin need an LSS foreground (bgs or lrg)")
+    if (a.fg_split or a.nzbin or a.nmassbin) and a.fg == "photgal":
+        ap.error("--fg-split/--nzbin/--nmassbin need an LSS foreground")
     if a.nzbin and not (0 <= a.zbin < a.nzbin):
         ap.error("--zbin must be in [0, nzbin)")
+    if a.nmassbin:
+        if a.fg_split or a.nzbin:
+            ap.error("--nmassbin cannot combine with --fg-split/--nzbin")
+        if a.fg != "bgs":
+            ap.error("--nmassbin needs --fg bgs (the LRG clustering "
+                     "catalog carries no fluxes)")
+        if not (0 <= a.massbin < a.nmassbin):
+            ap.error("--massbin must be in [0, nmassbin)")
     CHUNK = a.chunk
     RP_MIN, RP_MAX = a.rp_min, a.rp_max
     if a.selftest:
@@ -683,4 +747,5 @@ if __name__ == "__main__":
         qso_cat=a.qso_cat, mwcorr=a.mwcorr, qweight=a.qweight,
         nshard=a.nshard, shard=a.shard,
         fg_cat=a.fg_cat, fg_ran=a.fg_ran, zeff=a.zeff,
-        fg_split=a.fg_split, zbin=a.zbin, nzbin=a.nzbin)
+        fg_split=a.fg_split, zbin=a.zbin, nzbin=a.nzbin,
+        massbin=a.massbin, nmassbin=a.nmassbin, mass_band=a.mass_band)

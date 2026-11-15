@@ -153,6 +153,19 @@ gauges.append(dict(name="Legacy: quasars (Ménard recipe) × BGS",
 
 import glob as _g
 for pat, label, det in (
+        ("igmdust_bsplit_bright_*.log",
+         "Legacy: BGS bright half × QSOs (125 kpc test)",
+         "brighter-than-median observed r, lw config, 3 shards"),
+        ("igmdust_bsplit_faint_*.log",
+         "Legacy: BGS faint half × QSOs (125 kpc test)",
+         "fainter half — the dip should track the bright half"),
+        ("igmdust_zbin_bgs*.log", "Legacy: BGS z-evolution (3 bins)",
+         "equal weighted-count z bins 0.05–0.45, lw, 2 shards each"),
+        ("igmdust_zbin_lrg*.log", "Legacy: LRG z-evolution (3 bins)",
+         "equal weighted-count z bins 0.40–1.10, lw, unsharded"),
+        ("igmdust_massbin_*.log",
+         "Legacy: BGS mass bins (W1 luminosity, 3)",
+         "absolute-W1 equal-count bins, all z; randoms follow bin n(z)"),
         ("igmdust_rmg_*.log", "DES: redMaGiC × crayons (wide)",
          "685k highdens fg × 0.65–0.90 crayons, 10 kpc–45 Mpc"),
         ("igmdust_rmw_*.log", "DES: redMaPPer × crayons (wide)",
@@ -205,7 +218,17 @@ for pat, label, det in (
     shn = {"igmdust_bqw_*.log":
            (f"{PCDIR}/paircount_bgs_mqcsfdlw_s6.*_qso.npz", 6),
            "igmdust_pgw_*.log":
-           (f"{PCDIR}/paircount_photgal_mqcsfdlw_s4.*_qso.npz", 4)}.get(pat)
+           (f"{PCDIR}/paircount_photgal_mqcsfdlw_s4.*_qso.npz", 4),
+           "igmdust_bsplit_bright_*.log":
+           (f"{PCDIR}/paircount_bgsbright_mqcsfdlw_s3.*_qso.npz", 3),
+           "igmdust_bsplit_faint_*.log":
+           (f"{PCDIR}/paircount_bgsfaint_mqcsfdlw_s3.*_qso.npz", 3),
+           "igmdust_zbin_bgs*.log":
+           (f"{PCDIR}/paircount_bgsz*_mqcsfdlw_s2.*_qso.npz", 6),
+           "igmdust_zbin_lrg*.log":
+           (f"{PCDIR}/paircount_lrgz*_mqcsfdlw_qso.npz", 3),
+           "igmdust_massbin_*.log":
+           (f"{PCDIR}/paircount_bgsm*_mqcsfdlw_s2.*_qso.npz", 6)}.get(pat)
     if shn:
         nd = len(_g.glob(shn[0]))
         if nd >= shn[1]:
@@ -285,20 +308,27 @@ else:
 
 results = [
     vres,
+    ["Legacy lw recount — photgal replica (Ménard analog)",
+     "clean profile 23 kpc – 45 Mpc; 0.66±0.09× the Ménard+10 "
+     "normalization over 23–383 kpc"],
+    ["Legacy lw recount — BGS × QSOs",
+     "E(B−V) = +4.5±1.8×10⁻³ at 23 kpc; 125 kpc −3σ bin diagnosed as "
+     "bright-foreground light contamination (split wave = discriminator)"],
+    ["Legacy lw recount — LRG × QSOs",
+     "+1.26±0.23×10⁻³ at 671 kpc (5.4σ); 1.2–19 Mpc combined 2.9σ; "
+     "671 kpc χ² excess resolved (40/1 → 1.7/1)"],
+    ["HSC first wave — BGS × quiescent crayons",
+     "positive +2.4±1.0 / +2.9±0.8×10⁻³ at 41/71 kpc (grizy cov-ML); "
+     "star null + photo-z absorption still to apply"],
     ["BGS × QSO colors (joint dust+μ fit)",
-     "E(B−V) = +5.7±2.3×10⁻³ at 27 kpc; "
-     "pure dust, δμ ≈ 0"],
+     "E(B−V) = +5.7±2.3×10⁻³ at 27 kpc; pure dust, δμ ≈ 0"],
     ["BGS × DES crayons",
      "null ≥ 82 kpc (−0.04±0.56×10⁻³); "
      "photo-z absorption f = 0.806 calibrated with DESI spec-z"],
-    ["LRG × QSO colors",
-     "foreground-light contamination inside 500 kpc "
-     "(neither dust nor magnification)"],
     ["redMaPPer λ>20 × crayons",
      "null 150–500 kpc; 787 kpc bin = R_λ selection artifact; "
      "A_V ≲ 10⁻⁴ beyond 10 Mpc"],
     ["QSO merge", "2,836,852 QSOs (DESI + SDSS DR16Q + Quaia, 1\" dedup)"],
-    ["DES crayon colors", "846,578/850,028 matched to Y3 Gold (99.6%)"],
 ]
 
 # order: failures first (need attention), then running, then queued,
