@@ -228,7 +228,7 @@ for pat, label, det in (
            "igmdust_zbin_lrg*.log":
            (f"{PCDIR}/paircount_lrgz*_mqcsfdlw_qso.npz", 3),
            "igmdust_massbin_*.log":
-           (f"{PCDIR}/paircount_bgsm*_mqcsfdlw_s3.*_qso.npz", 9)}.get(pat)
+           (f"{PCDIR}/paircount_bgsm*_mqcsfdlw_s6.*_qso.npz", 18)}.get(pat)
     if shn:
         nd = len(_g.glob(shn[0]))
         if nd >= shn[1]:
