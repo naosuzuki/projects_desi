@@ -22,8 +22,14 @@ which downweights the spatially correlated g-band directions a diagonal
 
     python3 10_ml_legacy.py --npz $OUT/paircount_bgs_mqcsfd_qso.npz
 writes paircount_<name>ml_qso.npz (ebv/ebv_err replaced; same schema).
+
+--hsc: the npz is from hsc/02_hsc_paircount.py — solve with the HSC
+grizy responses and all four {g-r, r-i, i-z, z-y} colors (independent:
+no sum degeneracy, no WISE bin cut).  Without it only g-r would match
+COLS_USE and it would carry the Legacy coefficient.
 """
 import argparse
+import importlib.util
 import json
 import os
 
@@ -67,7 +73,20 @@ def main():
     ap.add_argument("--null", default=None,
                     help="star-null paircount npz: subtract its per-color "
                          "profile instead of anchoring constants")
+    ap.add_argument("--hsc", action="store_true",
+                    help="npz from hsc/02_hsc_paircount.py: HSC grizy "
+                         "responses, all four colors")
     a = ap.parse_args()
+
+    global R_COEF, COLS_USE
+    if a.hsc:
+        spec_h = importlib.util.spec_from_file_location(
+            "hscpc", os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                  "hsc", "02_hsc_paircount.py"))
+        hscpc = importlib.util.module_from_spec(spec_h)
+        spec_h.loader.exec_module(hscpc)
+        R_COEF = hscpc.R_HSC
+        COLS_USE = ["-".join(c) for c in hscpc.COLORS_HSC]
 
     d = np.load(a.npz, allow_pickle=True)
     rp = np.asarray(d["rp_mid"], float)
