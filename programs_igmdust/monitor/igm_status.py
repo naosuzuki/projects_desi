@@ -172,6 +172,9 @@ for pat, label, det in (
         ("igmdust_sfr_sf_*.log",
          "Legacy: BGS star-forming half × QSOs (SFR split)",
          "bluer than the z-conditional median g-r (blue cloud)"),
+        ("igmdust_desbin_*.log",
+         "DES: BGS × crayons in z and mass bins (2+2)",
+         "MOF+CSFD, 45 Mpc; 2 z bins + 2 W1-luminosity bins"),
         ("igmdust_rmg_*.log", "DES: redMaGiC × crayons (wide)",
          "685k highdens fg × 0.65–0.90 crayons, 10 kpc–45 Mpc"),
         ("igmdust_rmw_*.log", "DES: redMaPPer × crayons (wide)",
@@ -238,7 +241,10 @@ for pat, label, det in (
            "igmdust_sfr_passive_*.log":
            (f"{PCDIR}/paircount_bgspassive_mqcsfdlw_s3.*_qso.npz", 3),
            "igmdust_sfr_sf_*.log":
-           (f"{PCDIR}/paircount_bgssf_mqcsfdlw_s3.*_qso.npz", 3)}.get(pat)
+           (f"{PCDIR}/paircount_bgssf_mqcsfdlw_s3.*_qso.npz", 3),
+           "igmdust_desbin_*.log":
+           (f"{PCDIR}/paircount_descrayon[zm][01]mofcsfd_qso.npz",
+            4)}.get(pat)
     if shn:
         nd = len(_g.glob(shn[0]))
         if nd >= shn[1]:

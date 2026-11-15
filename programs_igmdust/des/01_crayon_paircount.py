@@ -239,8 +239,16 @@ def main(a):
     # configuration matching McCleary et al. (highdens 0.15<z<0.45
     # foregrounds x highlum_highz 0.65<z<0.90 crayons; --rp-max 45
     # reaches their 30 h^-1 Mpc comoving outer fit radius).
+    if (a.nzbin or a.nmassbin) and a.fg != "bgs":
+        sys.exit("--nzbin/--nmassbin need --fg bgs (redMaGiC carries "
+                 "no fluxes and a narrow z range; it is also passive "
+                 "by construction, so no SFR split either)")
+    if a.nzbin and a.nmassbin:
+        sys.exit("--nzbin and --nmassbin do not combine")
+    binsuf = (f"z{a.zbin}" if a.nzbin else
+              f"m{a.massbin}" if a.nmassbin else "")
     name = ({"bgs": "descrayon", "lrg": "descrayonlrg",
-             "redmagic": "rmg"}[a.fg]
+             "redmagic": "rmg"}[a.fg] + binsuf
             + ("mof" if a.mof else "") + ("csfd" if a.mwcorr else ""))
     pc.FG_ZRANGE[name] = ((0.15, 0.45) if a.fg == "redmagic"
                           else pc.FG_ZRANGE[a.fg])
@@ -262,15 +270,57 @@ def main(a):
     else:
         good = load_footprint(a.des_dir)
         print(f"== foregrounds: DESI DR1 {a.fg.upper()}")
-        fra, fdec, fz, fw = pc.load_lss(a.base, a.fg, "dat")
+        fra, fdec, fz, fw, *fm = pc.load_lss(
+            a.base, a.fg, "dat", want_mag=bool(a.nmassbin),
+            mag_band=a.mass_band)
         m = in_footprint(good, fra, fdec, a.fg.upper())
         if m.sum() == 0:
             sys.exit("no foregrounds in the DES footprint — check mask")
-        fg = (fra[m], fdec[m], fz[m], fw[m])
+        fra, fdec, fz, fw = fra[m], fdec[m], fz[m], fw[m]
+        if a.nzbin:
+            # equal weighted-count z-bin edges from the footprint-cut
+            # sample; run_arrays cuts fg AND randoms via FG_ZRANGE
+            zlo0, zhi0 = pc.FG_ZRANGE[a.fg]
+            inz = (fz >= zlo0) & (fz <= zhi0)
+            ez = pc.weighted_quantiles(fz[inz], fw[inz],
+                                       np.linspace(0, 1, a.nzbin + 1))
+            ez[0], ez[-1] = zlo0, zhi0
+            pc.FG_ZRANGE[name] = (ez[a.zbin], ez[a.zbin + 1])
+            print(f"  --zbin {a.zbin}/{a.nzbin}: z = "
+                  f"[{ez[a.zbin]:.3f}, {ez[a.zbin + 1]:.3f}]")
+        if a.nmassbin:
+            # mirrors 02_paircount: absolute mag, bandpass-only K,
+            # bin 0 = most massive; randoms re-drawn below
+            Mg = fm[0][m]
+            zlo0, zhi0 = pc.FG_ZRANGE[a.fg]
+            dl = pc.dl_interp()
+            M = (Mg - 25.0 - 5.0 * np.log10(np.clip(dl(fz), 1e-3, None))
+                 + 2.5 * np.log10(1.0 + fz))
+            inz = (fz >= zlo0) & (fz <= zhi0) & np.isfinite(M)
+            em = pc.weighted_quantiles(M[inz], fw[inz],
+                                       np.linspace(0, 1, a.nmassbin + 1))
+            hi_ok = ((M <= em[a.massbin + 1])
+                     if a.massbin == a.nmassbin - 1
+                     else (M < em[a.massbin + 1]))
+            keep = inz & (M >= em[a.massbin]) & hi_ok
+            print(f"  --massbin {a.massbin}/{a.nmassbin} "
+                  f"({a.mass_band}): M = [{em[a.massbin]:.3f}, "
+                  f"{em[a.massbin + 1]:.3f}], keeping {keep.sum():,} "
+                  f"of {inz.sum():,}, median z = "
+                  f"{np.median(fz[keep]):.3f}")
+            fra, fdec, fz, fw = fra[keep], fdec[keep], fz[keep], fw[keep]
+        fg = (fra, fdec, fz, fw)
         print(f"== randoms: DESI DR1 {a.fg.upper()} LSS randoms")
         rra, rdec, rz, rw = pc.load_lss(a.base, a.fg, "ran", nran=a.nran)
         m = in_footprint(good, rra, rdec, "randoms")
-        ran = (rra[m], rdec[m], rz[m], rw[m])
+        rra, rdec, rz, rw = rra[m], rdec[m], rz[m], rw[m]
+        if a.nmassbin:
+            # randoms cannot be cut by mass: re-draw (z, weight)
+            # jointly from the bin's foregrounds (as 02_paircount)
+            rngr = np.random.default_rng(20261115 + a.massbin)
+            jj = rngr.integers(0, len(fz), size=len(rz))
+            rz, rw = fz[jj], fw[jj]
+        ran = (rra, rdec, rz, rw)
 
     pc.run_arrays(name, fg, ran, (cra, cdec, cz, cres, cval),
                   edges, rp_mid, a.out,
@@ -319,6 +369,22 @@ if __name__ == "__main__":
                     help="re-express SFD-corrected colors in CSFD")
     ap.add_argument("--crayon-zmin", type=float, default=None)
     ap.add_argument("--crayon-zmax", type=float, default=None)
+    ap.add_argument("--nzbin", type=int, default=0,
+                    help="split the BGS foregrounds into equal "
+                         "weighted-count z bins (edges from the "
+                         "footprint-cut sample); DES statistics want 2")
+    ap.add_argument("--zbin", type=int, default=0,
+                    help="which z bin (0..nzbin-1); name gains z<i>")
+    ap.add_argument("--nmassbin", type=int, default=0,
+                    help="equal weighted-count absolute-magnitude "
+                         "(luminosity) bins over the full z range, as "
+                         "02_paircount --nmassbin; randoms get the "
+                         "bin's n(z); DES statistics want 2")
+    ap.add_argument("--massbin", type=int, default=0,
+                    help="which mass bin (0 = most luminous/massive); "
+                         "name gains m<i>")
+    ap.add_argument("--mass-band", default="w1",
+                    choices=["r", "z", "w1"])
     ap.add_argument("--rp-min", type=float, default=0.02,
                     help="inner radius [Mpc]")
     ap.add_argument("--rp-max", type=float, default=10.0,
