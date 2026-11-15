@@ -13,7 +13,7 @@ for i in $(seq 1 1000); do                      # ~33 h, relaunchable
   } > "$OUT/astrofs4.stat.tmp" 2>/dev/null
   mv "$OUT/astrofs4.stat.tmp" "$OUT/astrofs4.stat"
   # queue snapshot for the per-job SLURM activity card (igm_status.py)
-  squeue -h -u "$USER" -o "%A %j %T %C %M" \
+  squeue -h -u "$USER" -o "%i %j %T %C %M" \
     > "$OUT/astrofs4.squeue.tmp" 2>/dev/null \
     && mv "$OUT/astrofs4.squeue.tmp" "$OUT/astrofs4.squeue"
   sleep 120

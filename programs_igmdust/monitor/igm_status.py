@@ -290,8 +290,13 @@ if time.time() - mtime(SQF) < 600:
         else:
             d["PD"] += _ntasks(r[0])
     for nm, d in sorted(byname.items()):
-        ndone = (len(_g.glob(f"{PCD}/paircount_bgsm*_mqcsfdlw_s6.*_qso.npz"))
-                 if nm.startswith("igmdust_massbin") else 0)
+        ndone = 0
+        if nm.startswith("igmdust_massbin"):
+            # npz ground truth; pending from the known 18 tasks (the
+            # %A snapshot format collapses a pending array to 1 row)
+            ndone = len(_g.glob(
+                f"{PCD}/paircount_bgsm*_mqcsfdlw_s6.*_qso.npz"))
+            d["PD"] = max(18 - ndone - d["R"], 0)
         tot = max(ndone + d["R"] + d["PD"], 1)
         gauges.append(dict(
             name=f"astrofs4 SLURM: {nm}",
