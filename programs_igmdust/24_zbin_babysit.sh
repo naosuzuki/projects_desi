@@ -14,10 +14,11 @@ P=~/data/igmdust/paircount
 NB=3
 mkdir -p "$L"
 
-# ---- hold until the split wave is done (marker, or all 6 split npz) ----
+# ---- hold until the split wave is done (all 6 split npz on disk) ----
+# the SPLIT_BABYSIT_DONE marker is NOT sufficient: it appears when the
+# launcher's passes end, while its jobs can still be running
 i=0
 while :; do
-  grep -q SPLIT_BABYSIT_DONE ~/split_babysit.log 2>/dev/null && break
   n=$(ls $P/paircount_bgs{bright,faint}_mqcsfdlw_s3.*_qso.npz 2>/dev/null | wc -l)
   [ "$n" -ge 6 ] && break
   i=$((i+1)); [ $i -gt 2880 ] && { echo "GIVEUP: split wave never finished"; exit 1; }
