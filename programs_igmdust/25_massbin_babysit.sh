@@ -1,11 +1,16 @@
 #!/bin/bash
-# 25_massbin_babysit.sh — mass-evolution wave: BGS foregrounds in 3
-# equal weighted-count absolute-W1-magnitude (luminosity ~ stellar
-# mass) bins over the full 0.05 < z < 0.45 range (02_paircount
-# --nmassbin 3 --massbin i), lw config, memory/load-gated, one job at
-# a time.  BGS only: the LRG clustering catalog carries no fluxes, and
-# LRGs span < 0.5 dex in M* anyway.  WAITS for the z-bin wave (24_) by
-# requiring all nine z-bin npz on disk, so the waves never contend.
+# 25_massbin_babysit.sh — mass-evolution wave, ASTRO4 FALLBACK: BGS
+# foregrounds in 3 equal weighted-count absolute-W1-magnitude
+# (luminosity ~ stellar mass) bins over the full 0.05 < z < 0.45
+# range (02_paircount --nmassbin 3 --massbin i), lw config,
+# memory/load-gated, one job at a time.  BGS only: the LRG clustering
+# catalog carries no fluxes, and LRGs span < 0.5 dex in M* anyway.
+# PREFERRED PATH: 26_massbin_fs4.sbatch on astrofs4, which runs in
+# parallel with astro4's waves (shared home: both write the same npz,
+# and the SKIP-if-npz-exists guard keeps them from colliding only if
+# the two are never launched together — run ONE of 25/26, not both).
+# This fallback WAITS for the z-bin wave (24_) by requiring all nine
+# z-bin npz on disk, so the astro4 waves never contend.
 #   on astro4:  nohup bash 25_massbin_babysit.sh > ~/massbin_babysit.log 2>&1 &
 # N.B. 3 bins is the DR1 S/N sweet spot; with DR2 statistics rerun
 # with NB=5 below.
@@ -30,7 +35,7 @@ done
 echo "ZBIN WAVE DONE -> mass-bin wave $(date '+%F %T')"
 
 one () {  # massbin shard
-  local mb=$1 sh=$2 ns=2
+  local mb=$1 sh=$2 ns=3
   local npz=$P/paircount_bgsm${mb}_mqcsfdlw_s${ns}.${sh}_qso.npz
   local log=$L/igmdust_massbin_m${mb}_s${sh}.log
   [ -s "$npz" ] && { echo "SKIP m$mb s$sh: npz exists"; return; }
@@ -60,12 +65,11 @@ one () {  # massbin shard
 for pass in 1 2 3 4; do
   echo "== pass $pass $(date '+%F %T')"
   for mb in 0 1 2; do
-    one $mb 0
-    one $mb 1
+    for s in 0 1 2; do one $mb $s; done
   done
 done
 echo "MASSBIN_BABYSIT_DONE $(date)"
-# afterwards, per bin: 02b_merge_shards.py --name bgsm<i>_mqcsfdlw --nshard 2
+# afterwards, per bin: 02b_merge_shards.py --name bgsm<i>_mqcsfdlw --nshard 3
 # then 10_ml_legacy.py per bin, then fit the Menard-template amplitude
 # A(M) per bin; bin 0 = most massive.  The three bins share the parent
 # n(z) only approximately (randoms follow each bin), so quote each
