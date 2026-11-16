@@ -16,6 +16,9 @@ stay unmatched and are flagged).
 
 WHERE TO RUN: astrofs4/SLURM (10 cores; I/O bound, ~2-5 h over NFS):
     sbatch -d afterok:<dl job>,singleton 03_slurm_paircount.sbatch sweepmatch
+On astro4 ALWAYS pass --mbps: unpaced readers (8, and 3 as well) saturate
+its link to astrofs2 and stall every login on the host (2026-11-16).
+A killed run resumes from <out>.ckpt.npz (written every 15 min).
 Output: $EXT/qso_merged_dr11.fits
 """
 import argparse
@@ -39,6 +42,7 @@ WAIT_MAX_S = 4 * 3600
 MATCH_ARCSEC = 1.0
 BANDS = ["G", "R", "I", "Z", "W1"]
 NPROC = 6
+CKPT_S = 900
 NAME_RE = re.compile(
     r"sweep-(\d{3})([mp])(\d{3})-(\d{3})([mp])(\d{3})\.fits$")
 
@@ -77,9 +81,37 @@ def wait_for_downloads():
 _qso = {}
 
 
-def _init(ra, dec):
+def _init(ra, dec, mbps=0.0):
     _qso["ra"], _qso["dec"] = ra, dec
     _qso["vec"] = unitvec(ra, dec)
+    _qso["mbps"] = mbps
+
+
+def paced_read(fname, mbps):
+    """Pull fname into the page cache at <= mbps MB/s.
+
+    The memmap pass in match_one faults in the whole file as fast as NFS
+    delivers it; a few such readers saturate the link to the file server
+    and every other NFS client operation on the host (home directories
+    included) queues behind them.  Reading in short paced bursts first
+    leaves gaps for everyone else; the memmap pass then hits the cache.
+    """
+    blk = 8 << 20
+    buf = bytearray(blk)
+    t0, n = time.time(), 0
+    with open(fname, "rb", buffering=0) as f:
+        while True:
+            k = f.readinto(buf)
+            if not k:
+                break
+            n += k
+            lag = n / (mbps * 1e6) - (time.time() - t0)
+            if lag > 0:
+                time.sleep(lag)
+
+
+def _job(fname):
+    return os.path.basename(fname), match_one(fname)
 
 
 def match_one(fname):
@@ -94,6 +126,8 @@ def match_one(fname):
         return None
     from scipy.spatial import cKDTree
     chord = 2 * np.sin(np.radians(MATCH_ARCSEC / 3600) / 2)
+    if _qso.get("mbps"):
+        paced_read(fname, _qso["mbps"])
     with fits.open(fname, memmap=True) as h:
         d = h[1].data
         names = {c.upper() for c in h[1].columns.names}
@@ -145,10 +179,32 @@ def run(a):
         for k in (f"flux_{b}", f"ivar_{b}", f"mwt_{b}"):
             res[k] = np.full(n, np.nan)
 
-    t0, nm = time.time(), 0
-    with Pool(a.nproc, initializer=_init, initargs=(ra, dec)) as pool:
-        for i, out in enumerate(pool.imap_unordered(match_one, sweeps,
-                                                    chunksize=2)):
+    fo = a.out or f"{a.ext}/qso_merged_dr11.fits"
+    ck = fo + ".ckpt.npz"
+    done = []
+    if os.path.exists(ck):
+        with np.load(ck) as z:
+            if int(z["n"]) == n:
+                for k in res:
+                    res[k] = z[k]
+                done = z["done"].tolist()
+                print(f"  resume: {len(done)} sweeps already done ({ck})",
+                      flush=True)
+            else:
+                print(f"  ignoring {ck}: made for a different input")
+    seen = set(done)
+    todo = [s for s in sweeps if os.path.basename(s) not in seen]
+
+    def checkpoint():
+        tmp = fo + ".ckpt.tmp.npz"
+        np.savez(tmp, n=n, done=np.array(done), **res)
+        os.replace(tmp, ck)
+
+    t0, tck = time.time(), time.time()
+    per = a.mbps / a.nproc if a.mbps else 0.0
+    with Pool(a.nproc, initializer=_init, initargs=(ra, dec, per)) as pool:
+        for name, out in pool.imap_unordered(
+                _job, todo, chunksize=1 if a.mbps else 2):
             if out is not None:
                 take = out["dist"] < res["dist"][out["idx"]]
                 ix = out["idx"][take]
@@ -156,11 +212,14 @@ def run(a):
                     if k != "dist":
                         res[k][ix] = out[k][take]
                 res["dist"][ix] = out["dist"][take]
-                nm += take.sum()
-            if (i + 1) % 100 == 0:
-                print(f"  [{i+1}/{len(sweeps)}] matched so far "
+            done.append(name)
+            if len(done) % 100 == 0:
+                print(f"  [{len(done)}/{len(sweeps)}] matched so far "
                       f"{(np.isfinite(res['dist'])).sum():,} "
                       f" {time.time()-t0:.0f}s", flush=True)
+            if time.time() - tck > CKPT_S:
+                checkpoint()
+                tck = time.time()
 
     matched = np.isfinite(res["dist"])
     print(f"  matched {matched.sum():,} / {n:,} "
@@ -169,9 +228,10 @@ def run(a):
     for k, v in res.items():
         q[k.upper() if k != "type" else "LS_TYPE"] = v
     q["MATCHED"] = matched
-    fo = a.out or f"{a.ext}/qso_merged_dr11.fits"
     q.write(fo, overwrite=True)
     print(f"saved -> {fo}")
+    if os.path.exists(ck):
+        os.remove(ck)
 
 
 def selftest():
@@ -216,6 +276,10 @@ if __name__ == "__main__":
     ap.add_argument("--out", default=None)
     ap.add_argument("--ls", default=LS_DEFAULT)
     ap.add_argument("--nproc", type=int, default=NPROC)
+    ap.add_argument("--mbps", type=float, default=0.0,
+                    help="total read-rate cap in MB/s (0 = unpaced); set "
+                         "it on a shared host whose NFS link the readers "
+                         "would otherwise saturate")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
     sys.exit(selftest() if a.selftest else run(a))
