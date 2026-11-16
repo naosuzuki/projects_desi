@@ -149,6 +149,54 @@ def load_crayons(des_dir, raw=False, mwcorr=False, phot="sof"):
     return ra[keep], dec[keep], z[keep], res, valid
 
 
+def load_crayons_dr11(path, mwcorr=False):
+    """Path A: the SAME highlum crayons, colors from DR11 (Tractor)
+    sweep photometry (32_rmg_dr11match output) — the third photometry
+    pipeline on the same galaxies, same griz color set as MOF (DR11
+    south carries DECam i).  CSFD re-correction via the DECam dR as
+    in load_crayons."""
+    with fits.open(path) as h:
+        d = h[1].data
+        ra = np.asarray(d["RA"], float)
+        dec = np.asarray(d["DEC"], float)
+        z = np.asarray(d["ZREDMAGIC"], float)
+        matched = np.asarray(d["MATCHED"], bool)
+        mag, err = {}, {}
+        for b in "griz":
+            fx = np.asarray(d[f"FLUX_{b.upper()}"], float)
+            iv = np.asarray(d[f"FLUX_IVAR_{b.upper()}"], float)
+            mwt = np.asarray(d[f"MW_TRANSMISSION_{b.upper()}"], float)
+            ok = matched & (fx > 0) & (iv > 0) & (mwt > 0)
+            snr = np.where(ok, fx * np.sqrt(np.clip(iv, 0, None)), 0.0)
+            fxd = np.where(ok, fx / np.clip(mwt, 1e-6, None), np.nan)
+            mag[b] = 22.5 - 2.5 * np.log10(np.clip(fxd, 1e-12, None))
+            err[b] = np.where(snr > 0, 2.5 / np.log(10) / snr, np.inf)
+    keep = (matched & (z >= CRAYON_ZRANGE[0]) & (z <= CRAYON_ZRANGE[1]))
+    print(f"  DR11 crayons: {keep.sum():,} / {len(ra):,} "
+          f"(matched + z in {CRAYON_ZRANGE})")
+    bandok = {b: (np.isfinite(mag[b][keep]) & (err[b][keep] < MAGERR_MAX))
+              for b in "griz"}
+    colors = np.column_stack([mag[x][keep] - mag[y][keep]
+                              for x, y in COLORS_DES])
+    valid = np.column_stack([bandok[x] & bandok[y] for x, y in COLORS_DES])
+    print(f"  color validity: {valid.mean(0).round(3)}")
+    if mwcorr:
+        spec6 = importlib.util.spec_from_file_location(
+            "csfd06", os.path.join(os.path.dirname(
+                os.path.abspath(__file__)), "06_csfd.py"))
+        c6 = importlib.util.module_from_spec(spec6)
+        spec6.loader.exec_module(c6)
+        dE = c6.delta_ebv(ra[keep], dec[keep])
+        dRc = np.array([c6.R_DES[x] - c6.R_DES[y] for x, y in COLORS_DES])
+        colors = colors + dE[:, None] * dRc[None, :]
+        print(f"  CSFD recorrection: E_SFD-E_CSFD mean {dE.mean():+.5f}, "
+              f"rms {dE.std():.5f} mag")
+    res = locus_residuals(z[keep], colors, valid)
+    valid &= np.isfinite(res)
+    res = np.where(valid, res, 0.0)
+    return ra[keep], dec[keep], z[keep], res, valid
+
+
 # -------------------------------------------------------------- footprint ---
 def ang2pix_ring(nside, ra_deg, dec_deg):
     """HEALPix RING ang2pix in pure numpy (healpy won't build on astro4;
@@ -245,10 +293,14 @@ def main(a):
                  "by construction, so no SFR split either)")
     if a.nzbin and a.nmassbin:
         sys.exit("--nzbin and --nmassbin do not combine")
+    if a.dr11_colors and a.fg != "redmagic":
+        sys.exit("--dr11-colors is the Path A (McCleary with Legacy "
+                 "photometry) mode: --fg redmagic")
     binsuf = (f"z{a.zbin}" if a.nzbin else
               f"m{a.massbin}" if a.nmassbin else "")
     name = ({"bgs": "descrayon", "lrg": "descrayonlrg",
              "redmagic": "rmg"}[a.fg] + binsuf
+            + ("dr11" if a.dr11_colors else "")
             + ("mof" if a.mof else "") + ("csfd" if a.mwcorr else ""))
     pc.FG_ZRANGE[name] = ((0.15, 0.45) if a.fg == "redmagic"
                           else pc.FG_ZRANGE[a.fg])
@@ -261,9 +313,14 @@ def main(a):
                            5_000 if a.rp_max > 10 else 10_000)
     edges, rp_mid = pc.rp_bins()
 
-    print("== crayons: DES redMaGiC highlum_highz + Y3 Gold colors")
-    cra, cdec, cz, cres, cval = load_crayons(
-        a.des_dir, mwcorr=a.mwcorr, phot="mof" if a.mof else "sof")
+    if a.dr11_colors:
+        print("== crayons: redMaGiC highlum_highz + DR11 sweep colors")
+        cra, cdec, cz, cres, cval = load_crayons_dr11(
+            a.dr11_colors, mwcorr=a.mwcorr)
+    else:
+        print("== crayons: DES redMaGiC highlum_highz + Y3 Gold colors")
+        cra, cdec, cz, cres, cval = load_crayons(
+            a.des_dir, mwcorr=a.mwcorr, phot="mof" if a.mof else "sof")
 
     if a.fg == "redmagic":
         print("== foregrounds: DES redMaGiC highdens (McCleary config)")
@@ -389,6 +446,11 @@ if __name__ == "__main__":
     ap.add_argument("--chunk", type=int, default=0,
                     help="override the rp_max-based fg chunk size "
                          "(smaller = less RAM; 400 fits 18G at 45 Mpc)")
+    ap.add_argument("--dr11-colors", default=None,
+                    help="Path A: crayon colors from this DR11 "
+                         "sweep-matched fits (32_rmg_dr11match.py) "
+                         "instead of Y3 Gold; --fg redmagic; name "
+                         "gains dr11")
     ap.add_argument("--rp-min", type=float, default=0.02,
                     help="inner radius [Mpc]")
     ap.add_argument("--rp-max", type=float, default=10.0,

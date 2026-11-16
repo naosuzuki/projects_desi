@@ -130,21 +130,27 @@ def load_lss(base, sample, kind="dat", nran=2, want_mag=False,
             except KeyError:
                 w.append(np.ones(len(ra[-1])))
             if want_mag:
-                if "-" in mag_band:            # a color, e.g. "g-r"
-                    b1, b2 = mag_band.split("-")
-                    f1 = np.asarray(getcol(d, f"flux_{b1}_dered"), float)
-                    f2 = np.asarray(getcol(d, f"flux_{b2}_dered"), float)
-                    ok = (f1 > 0) & (f2 > 0)
-                    mag.append(np.where(ok, -2.5 * np.log10(
-                        np.clip(f1, 1e-9, None) / np.clip(f2, 1e-9, None)),
-                        np.nan))
-                else:
-                    fx = np.asarray(getcol(d, f"flux_{mag_band}_dered"),
-                                    float)
-                    mag.append(np.where(fx > 0,
-                                        22.5 - 2.5 * np.log10(
-                                            np.clip(fx, 1e-9, None)),
-                                        np.nan))
+                vals = []
+                for tok in mag_band.split(","):   # "g-r,r" = color + mag
+                    if "-" in tok:
+                        b1, b2 = tok.split("-")
+                        f1 = np.asarray(getcol(d, f"flux_{b1}_dered"),
+                                        float)
+                        f2 = np.asarray(getcol(d, f"flux_{b2}_dered"),
+                                        float)
+                        ok = (f1 > 0) & (f2 > 0)
+                        vals.append(np.where(ok, -2.5 * np.log10(
+                            np.clip(f1, 1e-9, None)
+                            / np.clip(f2, 1e-9, None)), np.nan))
+                    else:
+                        fx = np.asarray(getcol(d, f"flux_{tok}_dered"),
+                                        float)
+                        vals.append(np.where(fx > 0,
+                                             22.5 - 2.5 * np.log10(
+                                                 np.clip(fx, 1e-9, None)),
+                                             np.nan))
+                mag.append(vals[0] if len(vals) == 1
+                           else np.column_stack(vals))
         print(f"  {os.path.basename(f)}: {len(ra[-1]):,} rows")
     out = (np.concatenate(ra), np.concatenate(dec),
            np.concatenate(z), np.concatenate(w))
@@ -417,7 +423,8 @@ def weighted_quantiles(x, w, qs):
 def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
         mwcorr=False, nshard=1, shard=0, fg_cat=None, fg_ran=None,
         zeff=0.30, qweight=False, fg_split=None, zbin=None, nzbin=0,
-        massbin=None, nmassbin=0, mass_band="w1", fg_csplit=None):
+        massbin=None, nmassbin=0, mass_band="w1", fg_csplit=None,
+        fg_mcc=False):
     edges, rp_mid = rp_bins()
     print(f"== foregrounds: {fg_sample}")
     if fg_sample == "photgal":
@@ -428,9 +435,41 @@ def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
         parent = fg_sample
         fra, fdec, fz, fw, *fm = load_lss(
             base, fg_sample, "dat",
-            want_mag=bool(fg_split or nmassbin or fg_csplit),
+            want_mag=bool(fg_split or nmassbin or fg_csplit or fg_mcc),
             mag_band=("r" if fg_split
+                      else "g-r,r" if fg_mcc
                       else "g-r" if fg_csplit else mass_band))
+        if fg_mcc:
+            # McCleary-analog foreground (Path B): the red (passive)
+            # half of BGS by the z-conditional median g-r, inside the
+            # redMaGiC highdens range 0.15<z<0.45, with M_r < -20.2
+            # (~0.5 L*) -- her selection's population, chosen with
+            # spectroscopic redshifts.  The luminosity cut reshapes
+            # n(z), so the randoms are re-drawn below (massbin-style).
+            gr, rmag = fm[0][:, 0], fm[0][:, 1]
+            zlo0, zhi0 = 0.15, 0.45
+            dl = dl_interp()
+            Mr = (rmag - 25.0
+                  - 5.0 * np.log10(np.clip(dl(fz), 1e-3, None))
+                  + 2.5 * np.log10(1.0 + fz))
+            inz = ((fz >= zlo0) & (fz <= zhi0) & np.isfinite(gr)
+                   & (Mr < -20.2))
+            nzsl = 25
+            zed = weighted_quantiles(fz[inz], fw[inz],
+                                     np.linspace(0, 1, nzsl + 1))
+            isl = np.clip(np.searchsorted(zed, fz) - 1, 0, nzsl - 1)
+            red = np.zeros(len(fz), bool)
+            for i in range(nzsl):
+                m = inz & (isl == i)
+                if m.any():
+                    red[m] = gr[m] >= weighted_quantiles(
+                        gr[m], fw[m], [0.5])[0]
+            keep = inz & red
+            print(f"  --fg-mcc: passive & 0.15<z<0.45 & M_r<-20.2, "
+                  f"keeping {keep.sum():,} of {len(fz):,}, median z = "
+                  f"{np.median(fz[keep]):.3f}")
+            fra, fdec, fz, fw = fra[keep], fdec[keep], fz[keep], fw[keep]
+            FG_ZRANGE[f"{fg_sample}mcc"] = (zlo0, zhi0)
         if fg_split:
             # 125 kpc contamination discriminator: halves split at the
             # weighted median observed r; both share the full-sample
@@ -510,7 +549,8 @@ def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
         else:
             lo = hi = None
             name_zb = ""
-        fg_sample = (f"{fg_sample}{fg_split or ''}{fg_csplit or ''}"
+        fg_sample = (f"{fg_sample}{fg_split or ''}"
+                     f"{'mcc' if fg_mcc else ''}{fg_csplit or ''}"
                      f"{name_mb}{name_zb}")
         if nzbin:
             FG_ZRANGE[fg_sample] = (lo, hi)
@@ -518,12 +558,12 @@ def run(fg_sample, base, out, max_fg, nran, tag="", qso_cat=None,
             FG_ZRANGE[fg_sample] = FG_ZRANGE[parent]
         print("== randoms")
         rra, rdec, rz, rw = load_lss(base, parent, "ran", nran=nran)
-        if nmassbin:
+        if nmassbin or fg_mcc:
             # randoms cannot be cut by mass; re-draw their (z, weight)
-            # pairs jointly from the bin's foregrounds so the randoms'
-            # n(z) follows the bin (a luminosity bin of a flux-limited
-            # sample has a very different n(z) than the parent)
-            rngr = np.random.default_rng(20261115 + massbin)
+            # pairs jointly from the kept foregrounds so the randoms'
+            # n(z) follows the selection (a luminosity cut on a
+            # flux-limited sample has a very different n(z))
+            rngr = np.random.default_rng(20261115 + (massbin or 0))
             jj = rngr.integers(0, len(fz), size=len(rz))
             rz, rw = fz[jj], fw[jj]
     print("== backgrounds: QSO")
@@ -761,6 +801,10 @@ if __name__ == "__main__":
                          "(sf) or redder (passive) than the "
                          "z-conditional weighted-median g-r; output "
                          "name gains sf/passive")
+    ap.add_argument("--fg-mcc", action="store_true",
+                    help="McCleary-analog foreground: passive half & "
+                         "0.15<z<0.45 & M_r<-20.2 (redMaGiC highdens "
+                         "population, spec-z); output name gains mcc")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
     if (a.fg_split or a.nzbin or a.nmassbin) and a.fg == "photgal":
@@ -783,6 +827,11 @@ if __name__ == "__main__":
             ap.error("--fg-csplit needs --fg bgs (the LRG clustering "
                      "catalog carries no fluxes; LRG is the pure-"
                      "passive reference as is)")
+    if a.fg_mcc:
+        if a.fg_split or a.nzbin or a.nmassbin or a.fg_csplit:
+            ap.error("--fg-mcc combines with no other foreground cut")
+        if a.fg != "bgs":
+            ap.error("--fg-mcc needs --fg bgs")
     CHUNK = a.chunk
     RP_MIN, RP_MAX = a.rp_min, a.rp_max
     if a.selftest:
@@ -800,4 +849,4 @@ if __name__ == "__main__":
         fg_cat=a.fg_cat, fg_ran=a.fg_ran, zeff=a.zeff,
         fg_split=a.fg_split, zbin=a.zbin, nzbin=a.nzbin,
         massbin=a.massbin, nmassbin=a.nmassbin, mass_band=a.mass_band,
-        fg_csplit=a.fg_csplit)
+        fg_csplit=a.fg_csplit, fg_mcc=a.fg_mcc)

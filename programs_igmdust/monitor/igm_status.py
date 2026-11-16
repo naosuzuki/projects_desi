@@ -175,6 +175,12 @@ for pat, label, det in (
         ("igmdust_desbin_*.log",
          "DES: BGS × crayons in z and mass bins (2+2)",
          "MOF+CSFD, 45 Mpc; 2 z bins + 2 W1-luminosity bins"),
+        ("igmdust_rdm_count*.log",
+         "McCleary Path A: redMaGiC × crayons, DR11 colors",
+         "her samples, Tractor photometry (griz), CSFD, 45 Mpc"),
+        ("igmdust_mccb_*.log",
+         "McCleary Path B: BGS passive (spec-z) × QSOs",
+         "passive & 0.15<z<0.45 & M_r<-20.2, lw, 3 shards"),
         ("igmdust_rmg_*.log", "DES: redMaGiC × crayons (wide)",
          "685k highdens fg × 0.65–0.90 crayons, 10 kpc–45 Mpc"),
         ("igmdust_rmw_*.log", "DES: redMaPPer × crayons (wide)",
@@ -243,8 +249,12 @@ for pat, label, det in (
            "igmdust_sfr_sf_*.log":
            (f"{PCDIR}/paircount_bgssf_mqcsfdlw_s3.*_qso.npz", 3),
            "igmdust_desbin_*.log":
-           (f"{PCDIR}/paircount_descrayon[zm][01]mofcsfd_qso.npz",
-            4)}.get(pat)
+           (f"{PCDIR}/paircount_descrayon[zm][01]mofcsfd_qso.npz", 4),
+           "igmdust_rdm_count*.log":
+           (f"{PCDIR}/paircount_rmgdr11csfd_qso.npz", 1),
+           "igmdust_mccb_*.log":
+           (f"{PCDIR}/paircount_bgsmcc_mqcsfdlw_s3.*_qso.npz",
+            3)}.get(pat)
     if shn:
         nd = len(_g.glob(shn[0]))
         if nd >= shn[1]:
@@ -261,6 +271,9 @@ for pat, label, det in (
 
 # sweep-match style gauges: "[i/N] matched so far X  Ts" progress lines
 for pat, label, what, obj in (
+        ("igmdust_rdm_match*.log",
+         "McCleary Path A: crayons × DR11 sweep match",
+         "rmg_crayons_dr11.fits written", "crayons"),
         ("igmdust_lmt_*.log", "Legacy: LRG × DR11 sweep match",
          "lrg_dr11.fits written", "LRGs"),
         ("igmdust_pgs_*.log", "Legacy: sweep scan — photometric foregrounds",
