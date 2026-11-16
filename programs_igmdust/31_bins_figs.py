@@ -3,8 +3,10 @@
 
 Reads bins_analysis.json (30_bins_analysis.py).  One plot per figure
 (Nao 2026-11-12): ebv_split_bgs, ebv_sfr_bgs, a_of_z, a_of_m.
-Profiles are drawn in LINEAR E(B-V) vs log r_p so the negative 125 kpc
-contamination bin is visible (a log |E| axis would hide the sign)."""
+Profiles follow the house style of 21_crayon_deficit_fig.py: log-log
+|E(B-V)|, filled symbols for >=1 sigma bins, 2 sigma upper-limit arrows
+otherwise, n(z) inset; signs go in the caption.  The two A-plots are
+linear and carry the DES 2+2 bins as the cross-survey check."""
 import json
 import os
 
@@ -112,19 +114,24 @@ for keys, color, marker, label in (
         (["bgsz0", "bgsz1", "bgsz2"], "C3", "o",
          "BGS $\\times$ QSOs (fit 20–450 kpc)"),
         (["lrgz0", "lrgz1", "lrgz2"], "C1", "D",
-         "LRG $\\times$ QSOs (fit 0.6–4 Mpc)")):
+         "LRG $\\times$ QSOs (fit 0.6–4 Mpc)"),
+        (["desz0", "desz1"], "C0", "s",
+         "DES: BGS $\\times$ redMaGiC crayons (fit 20–450 kpc)")):
     z = [R[k]["zmed"] for k in keys]
     A = [R[k]["A"] for k in keys]
     s = [R[k]["sA"] for k in keys]
-    ax.errorbar(z, A, yerr=s, fmt=marker + "-", color=color, ms=6,
-                capsize=3, lw=1.2, label=label)
+    des = keys[0].startswith("des")
+    ax.errorbar(z, A, yerr=s, fmt=marker + ("--" if des else "-"),
+                color=color, ms=6, capsize=3, lw=1.2, label=label,
+                mfc="w" if des else color)
 ax.axhline(1, color="k", ls="--", lw=0.9,
            label="Menard+10 amplitude ($A=1$)")
 ax.axhline(0, color="0.6", lw=0.8)
 ax.set_xlabel("foreground median redshift", fontsize=12)
 ax.set_ylabel("$A$  [$\\times$ Menard+10 template]", fontsize=12)
-ax.set_title("Reddening-template amplitude versus foreground redshift "
-             "(3 equal-count z bins per sample)", fontsize=10.5)
+ax.set_title("Template amplitude versus foreground redshift "
+             "(equal-count $z$ bins: 3 per Legacy sample, 2 for DES)",
+             fontsize=10.5)
 ax.legend(fontsize=9.5, frameon=False, loc="upper left")
 ax.tick_params(labelsize=11)
 fig.tight_layout()
@@ -144,17 +151,26 @@ for x, k in zip(Mmid, keys):
     ax.annotate(f"$\\tilde z={R[k]['zmed']:.2f}$",
                 xy=(x, R[k]["A"]), xytext=(x + 0.08, R[k]["A"] + 0.25),
                 fontsize=9)
+Mdes = [-22.7, -20.9]             # halves split at M_W1 = -21.889
+kdes = ["desm0", "desm1"]
+ax.errorbar(Mdes, [R[k]["A"] for k in kdes], yerr=[R[k]["sA"] for k in kdes],
+            fmt="s--", color="C0", mfc="w", ms=6, capsize=3, lw=1.2,
+            label="DES: BGS $\\times$ redMaGiC crayons (2 bins)")
+for x, k in zip(Mdes, kdes):
+    ax.annotate(f"$\\tilde z={R[k]['zmed']:.2f}$",
+                xy=(x, R[k]["A"]), xytext=(x + 0.08, R[k]["A"] - 0.42),
+                fontsize=9, color="C0")
 ax.axhline(1, color="k", ls="--", lw=0.9,
            label="Menard+10 amplitude ($A=1$)")
 ax.axhline(0, color="0.6", lw=0.8)
-ax.invert_xaxis()                  # massive on the left
+ax.invert_xaxis()                  # luminous (massive) on the right
 ax.set_xlabel("absolute $W1$ magnitude (stellar-mass proxy; "
-              "massive $\\rightarrow$ left)", fontsize=12)
+              "massive $\\rightarrow$ right)", fontsize=12)
 ax.set_ylabel("$A$  [$\\times$ Menard+10 template]", fontsize=12)
-ax.set_title("Reddening-template amplitude versus foreground luminosity "
-             "(3 equal-count $M_{W1}$ bins, all $0.05<z<0.45$)",
+ax.set_title("Template amplitude versus foreground luminosity "
+             "(equal-count $M_{W1}$ bins, $0.05<z<0.45$)",
              fontsize=10.5)
-ax.legend(fontsize=9.5, frameon=False, loc="upper right")
+ax.legend(fontsize=9.5, frameon=False, loc="upper left")
 ax.tick_params(labelsize=11)
 fig.tight_layout()
 fig.savefig(f"{OUT}/a_of_m.pdf")

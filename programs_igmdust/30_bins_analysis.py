@@ -4,7 +4,10 @@
 Loads the cov-ML npz of the five binned studies (brightness split, SFR
 split, BGS/LRG z bins, W1-luminosity mass bins), prints profiles, fits
 a Menard-template amplitude per sample over its clean radial range, and
-writes bins_analysis.json for the figure scripts.
+writes bins_analysis.json for the figure scripts.  The DES 2+2 bins
+(BGS in the DES footprint x redMaGiC crayons, des/08 cov-ML) are fitted
+the same way as the cross-survey check; their 125 kpc bin is kept (the
+contamination there is a Legacy-photometry effect).
 
 A is defined by E(rp) = A * T(rp), T = 3.7e-3 (rp/0.027 Mpc)^-0.86
 (the Menard+10 extrapolation), inverse-variance weighted over the fit
@@ -36,7 +39,19 @@ META = {  # name -> (label, fit range Mpc, median z, extra)
     "bgsm0": ("BGS M_W1<-22.4 (massive)", (0.02, 0.45), 0.325, "massbin"),
     "bgsm1": ("BGS -22.4<M_W1<-21.2", (0.02, 0.45), 0.238, "massbin"),
     "bgsm2": ("BGS M_W1>-21.2 (low mass)", (0.02, 0.45), 0.149, "massbin"),
+    # DES cross-survey check: BGS inside the DES footprint (350k) x
+    # redMaGiC crayons, MOF colors, 2 bins each (des/01 --nzbin/--nmassbin)
+    "desz0": ("DES: BGS 0.05<z<0.23", (0.02, 0.45), 0.159, "deszbin"),
+    "desz1": ("DES: BGS 0.23<z<0.45", (0.02, 0.45), 0.298, "deszbin"),
+    "desm0": ("DES: BGS M_W1<-21.9 (massive)", (0.02, 0.45), 0.297,
+              "desmassbin"),
+    "desm1": ("DES: BGS M_W1>-21.9 (low mass)", (0.02, 0.45), 0.176,
+              "desmassbin"),
 }
+# npz stem per sample; the DES counts carry their own naming
+STEM = {k: f"{k}_mqcsfdlwml" for k in META if not k.startswith("des")}
+STEM.update({f"des{b}": f"descrayon{b}mofcsfdml"
+             for b in ("z0", "z1", "m0", "m1")})
 # the 125 kpc bin is the diagnosed bright-foreground light-contamination
 # bin at BGS brightness (confirmed by the split: -3.6 sigma bright half,
 # +0.1 faint) -- excluded from every BGS-type fit
@@ -49,7 +64,7 @@ def template(rp):
 
 res = {}
 for name, (label, (rlo, rhi), zmed, kind) in META.items():
-    d = np.load(f"{SC}/paircount_{name}_mqcsfdlwml_qso.npz")
+    d = np.load(f"{SC}/paircount_{STEM[name]}_qso.npz")
     rp, e, s = d["rp_mid"], d["ebv"], d["ebv_err"]
     m = (rp >= rlo) & (rp <= rhi) & (s > 0)
     if name in EXCL_125:
