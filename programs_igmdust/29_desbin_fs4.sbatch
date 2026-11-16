@@ -41,5 +41,7 @@ npz=$P/paircount_${NPZ}_qso.npz
 [ -s "$npz" ] && { echo "SKIP task $SLURM_ARRAY_TASK_ID: npz exists"; exit 0; }
 cd "$PROG" || exit 1
 echo "DES bin task $SLURM_ARRAY_TASK_ID ($ARGS) -> $npz"
+# --chunk 400: tasks 1-3 of the 2026-11-15 run were OOM-killed at the
+# auto chunk (3000) inside the 18G cap; task 0 (z0) squeaked through
 exec $PY 01_crayon_paircount.py --fg bgs --mof --mwcorr \
-  --rp-min 0.01 --rp-max 45 $ARGS
+  --rp-min 0.01 --rp-max 45 --chunk 400 $ARGS

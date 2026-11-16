@@ -255,9 +255,10 @@ def main(a):
     pc.RP_MIN = a.rp_min
     pc.RP_MAX = a.rp_max
     # crayons are ~200/deg2 and low-z slices sweep wide radii: 50k-fg
-    # chunks OOM-killed the 20G SLURM job on the randoms pass.
-    pc.CHUNK = (3_000 if a.rp_max > 30 else
-                5_000 if a.rp_max > 10 else 10_000)
+    # chunks OOM-killed the 20G SLURM job on the randoms pass, and the
+    # binned 18G tasks OOMed at 3000 (2026-11-15) -- hence --chunk.
+    pc.CHUNK = a.chunk or (3_000 if a.rp_max > 30 else
+                           5_000 if a.rp_max > 10 else 10_000)
     edges, rp_mid = pc.rp_bins()
 
     print("== crayons: DES redMaGiC highlum_highz + Y3 Gold colors")
@@ -385,6 +386,9 @@ if __name__ == "__main__":
                          "name gains m<i>")
     ap.add_argument("--mass-band", default="w1",
                     choices=["r", "z", "w1"])
+    ap.add_argument("--chunk", type=int, default=0,
+                    help="override the rp_max-based fg chunk size "
+                         "(smaller = less RAM; 400 fits 18G at 45 Mpc)")
     ap.add_argument("--rp-min", type=float, default=0.02,
                     help="inner radius [Mpc]")
     ap.add_argument("--rp-max", type=float, default=10.0,
