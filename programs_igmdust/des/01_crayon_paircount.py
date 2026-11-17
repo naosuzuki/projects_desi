@@ -164,8 +164,8 @@ def load_crayons_dr11(path, mwcorr=False):
         mag, err = {}, {}
         for b in "griz":
             fx = np.asarray(d[f"FLUX_{b.upper()}"], float)
-            iv = np.asarray(d[f"FLUX_IVAR_{b.upper()}"], float)
-            mwt = np.asarray(d[f"MW_TRANSMISSION_{b.upper()}"], float)
+            iv = np.asarray(d[f"IVAR_{b.upper()}"], float)
+            mwt = np.asarray(d[f"MWT_{b.upper()}"], float)
             ok = matched & (fx > 0) & (iv > 0) & (mwt > 0)
             snr = np.where(ok, fx * np.sqrt(np.clip(iv, 0, None)), 0.0)
             fxd = np.where(ok, fx / np.clip(mwt, 1e-6, None), np.nan)

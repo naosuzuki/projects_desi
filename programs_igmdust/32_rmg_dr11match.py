@@ -3,8 +3,8 @@
 
 Reads the DES Y3 redMaGiC highlum_highz crayon catalog, writes an
 uppercase RA/DEC table, and hands it to 06_sweepmatch.py, which walks
-the DR11 sweeps and attaches FLUX_{G,R,I,Z,W1} + ivars + MW
-transmissions within 1".  The output feeds des/01_crayon_paircount.py
+the DR11 sweeps and attaches FLUX_/IVAR_/MWT_{G,R,I,Z,W1} (flux, ivar, MW
+transmission) within 1".  The output feeds des/01_crayon_paircount.py
 --dr11-colors: the SAME crayons and foregrounds as the completed DES
 reproduction, but with their colors measured by the Legacy (Tractor)
 reduction instead of DES MOF — the third photometry pipeline on the
