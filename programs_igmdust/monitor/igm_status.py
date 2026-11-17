@@ -380,6 +380,12 @@ else:
             "waiting for CSFD pair counts (iteration 2)"]
 
 results = [
+    ["McCleary Path B — BGS passive (her selection, spec-z) × QSOs",
+     "0.98±0.23× her law over 219 kpc – 6.3 Mpc (4.3σ), all 7 bins "
+     "within 1.1σ; no DES data involved"],
+    ["McCleary Path A — her galaxies, Legacy (Tractor) colors",
+     "NOT reproduced: −0.08±0.18× her law vs +1.03±0.16 with DES MOF "
+     "colors on the same pairs (both anchored ≥10 Mpc)"],
     vres,
     ["Legacy lw recount — photgal replica (Ménard analog)",
      "clean profile 23 kpc – 45 Mpc; 0.66±0.09× the Ménard+10 "

@@ -7,6 +7,11 @@ and figures for Paths A and B (33_pathab_babysit.sh).
           reproduction on the SAME galaxies (paircount_rmgmofcsfdml).
           A_V = 3.1 E / f_abs, f_abs = 0.806 (the photo-z absorption
           belongs to the redMaGiC redshifts, not to the photometry).
+          Both are ALSO re-solved here with the per-color constants
+          anchored at >= 10 Mpc (keys mof10, dr1110) from the raw
+          jackknife npz: with DR11 colors the fg-minus-random colors
+          carry a coherent negative constant out to 34 Mpc, and the
+          anchored solve is the like-for-like test of the profile.
   PATH B  her selection, DESI spectroscopy: BGS passive & 0.15<z<0.45
           & M_r<-20.2 x merged QSOs, lw config, cov-ML
           (paircount_bgsmcc_mqcsfdlwml).  f = 1 (spectroscopic QSOs).
@@ -17,7 +22,7 @@ Each profile is compared with her LRG law over r >= 150 kpc exactly as
 des/07_assess_mccleary.py does (mid 0.15-1.5 Mpc, tail beyond), plus a
 one-parameter amplitude C_fit / 4.6e-3 of the law.  Figures follow
 20_mccrepro_fig.py v2 (one plot per figure, n(z) inset):
-    mccleary_legacy_a.pdf   MOF vs DR11 colors, same galaxies
+    mccleary_legacy_a.pdf   MOF vs DR11 colors, same galaxies, anchored
     mccleary_legacy_b.pdf   BGS-selected analog x QSOs
 
     python3 34_mccleary_legacy.py [NPZDIR]
@@ -83,10 +88,68 @@ def assess(key, s):
               f"{(p**2).mean():.2f} over {m.sum()} bins")
     print(f"  amplitude: {C:.2f} +- {sC:.2f} x her law "
           f"(C = {C*4.6:.2f} +- {sC*4.6:.2f} e-3)")
+    out["chi2_zero"] = float(np.sum((av / err) ** 2))
+    out["chi2_law"] = float(np.sum(pull ** 2))
+    out["nbin"] = int(k.sum())
+    print(f"  chi2 vs zero {out['chi2_zero']:.1f}, vs law "
+          f"{out['chi2_law']:.1f}, {out['nbin']} bins")
+    if key in ANCHORED:
+        # an anchored profile is (true profile - its anchor-zone mean):
+        # fit the law minus the law's own anchor-zone mean
+        an = s["rp"] >= 1.0e4
+        wa = 1.0 / s["err"][an] ** 2
+        La = L - np.sum(law_av(s["rp"][an]) * wa) / wa.sum()
+        Ca = np.sum(av * La / err ** 2) / np.sum(La ** 2 / err ** 2)
+        sa = 1.0 / np.sqrt(np.sum(La ** 2 / err ** 2))
+        out.update(C_anch=float(Ca), sC_anch=float(sa))
+        print(f"  amplitude vs (law - its anchor mean): "
+              f"{Ca:.2f} +- {sa:.2f}")
     return out
 
 
-S = {k: load(k) for k in SAMPLES}
+def load_anchored(key, stem, f, label, anchor=10.0):
+    """cov-ML (des/08) on the raw jackknife npz after subtracting, per
+    color, the inverse-variance mean of delta over rp >= anchor Mpc --
+    from the data vector and from every leave-one-out vector."""
+    fn = f"{SP}/paircount_{stem}_qso.npz"
+    if not os.path.exists(fn):
+        return None
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "ml08", f"{HERE}/des/08_ml_estimator.py")
+    ml = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ml)
+    d = np.load(fn, allow_pickle=True)
+    names = [str(c) for c in d["colors"]]
+    dR = np.array([ml.R_DES[a] - ml.R_DES[b]
+                   for a, b in (n.split("-") for n in names)])
+    rp = d["rp_mid"]
+    an = rp >= anchor
+    w = 1.0 / d["sigma"][:, an] ** 2
+    delta = d["delta"] - ((d["delta"][:, an] * w).sum(1) / w.sum(1))[:, None]
+    dk = ml.loo_deltas(d)
+    dk = dk - ((dk[:, :, an] * w[None]).sum(2) / w.sum(1)[None])[:, :, None]
+    K, nc, nb = dk.shape
+    E, Eerr = np.zeros(nb), np.zeros(nb)
+    for i in range(nb):
+        x = dk[:, :, i]
+        m = x.mean(0)
+        Ci = ((K - nc - 2) / (K - 1)
+              * np.linalg.pinv((K - 1) / K * (x - m).T @ (x - m)))
+        den = dR @ Ci @ dR
+        E[i], Eerr[i] = dR @ Ci @ delta[:, i] / den, 1.0 / np.sqrt(den)
+    SAMPLES[key] = (stem + " [10 Mpc anchor]", f, anchor * 1e3, label)
+    rp = rp * 1e3
+    return dict(rp=rp, av=RV * E / f, err=RV * Eerr / f,
+                keep=(rp >= RMIN) & (rp <= anchor * 1e3), label=label, f=f)
+
+
+S = {k: load(k) for k in list(SAMPLES)}
+S["mof10"] = load_anchored("mof10", "rmgmofcsfd", 0.806,
+                           "DES MOF colors, anchored")
+S["dr1110"] = load_anchored("dr1110", "rmgdr11csfd", 0.806,
+                            "Legacy DR11 colors, anchored")
+ANCHORED = ("mof10", "dr1110", "bgsmcc")
 RES = {k: assess(k, s) for k, s in S.items() if s is not None}
 if S["dr11"] is not None:
     a, b = S["dr11"], S["mof"]
@@ -187,16 +250,35 @@ def save(fig, name):
     plt.close(fig)
 
 
-if S["dr11"] is not None:
+def amp_line(tag, key):
+    r, r0 = RES[key], RES[key[:-2]]
+    return (f"{tag} ${r['C_anch']:+.2f}\\pm{r['sC_anch']:.2f}$ anchored "
+            f"($\\chi^2$ vs. zero {r['chi2_zero']:.0f}/{r['nbin']}),  "
+            f"${r0['C']:+.2f}\\pm{r0['sC']:.2f}$ as counted")
+
+
+def shade_anchor(ax):
+    ax.axvspan(1.0e4, 45000, color="0.93", zorder=0)
+    ax.text(2.1e4, 2.2e-3, "anchor zone\n($\\geq$10 Mpc)", ha="center",
+            va="top", fontsize=8.5, color="0.35")
+
+
+if S["dr1110"] is not None:
+    # like-for-like: same galaxies, pairs, estimator and anchor; only
+    # the photometry differs
     fig, ax = plt.subplots(figsize=(10.0, 5.6))
     frame(ax)
-    points(ax, S["mof"], "C3", "o", 1.0,
-           r"redMaGiC $\times$ DES crayons, DES MOF colors "
-           "(the reproduction)")
-    points(ax, S["dr11"], "C0", "s", 1.07,
-           "same galaxies, Legacy DR11 (Tractor) colors")
+    points(ax, S["mof10"], "C3", "o", 1.0,
+           r"redMaGiC $\times$ DES crayons, DES MOF colors")
+    points(ax, S["dr1110"], "C0", "s", 1.07,
+           "same galaxies and pairs, Legacy DR11 (Tractor) colors")
+    shade_anchor(ax)
     ax.legend(loc="upper right", fontsize=9.5)
-    box(ax, [zone_text("mof", "MOF:  "), zone_text("dr11", "DR11:  ")])
+    ax.text(0.345, 0.08, "\n".join(
+        ["amplitude in units of her law:",
+         amp_line("MOF: ", "mof10"), amp_line("DR11:", "dr1110")]),
+        transform=ax.transAxes, fontsize=9.0, va="bottom",
+        bbox=dict(fc="white", ec="0.6", alpha=0.9))
     inset(ax, ((FGZ["redmagic"], "C4", "fg: redMaGiC highdens"),
                (BGZ["descrayon"], "C0", "bg: highlum crayons")), 1.0)
     save(fig, "mccleary_legacy_a")
@@ -206,9 +288,7 @@ frame(ax)
 points(ax, S["bgsmcc"], "C2", "D", 1.0,
        r"DESI BGS passive, $M_r<-20.2$, $0.15<z<0.45$ $\times$ "
        r"spectroscopic QSOs ($f\equiv1$)")
-ax.axvspan(1.0e4, 45000, color="0.93", zorder=0)
-ax.text(2.1e4, 2.2e-3, "anchor zone\n($\\geq$10 Mpc)", ha="center",
-        va="top", fontsize=8.5, color="0.35")
+shade_anchor(ax)
 ax.legend(loc="upper right", fontsize=9.5)
 box(ax, [zone_text("bgsmcc")])
 inset(ax, ((FGZ["bgsmcc"], "C2", "fg: BGS passive, $M_r<-20.2$"),
