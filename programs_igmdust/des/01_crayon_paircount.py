@@ -87,7 +87,7 @@ def locus_residuals(z, colors, valid):
     return res
 
 
-def load_crayons(des_dir, raw=False, mwcorr=False, phot="sof"):
+def load_crayons(des_dir, raw=False, mwcorr=False, phot="sof", extra=False):
     """redMaGiC crayons joined to Y3 Gold colors; locus residuals + valid.
 
     raw=True returns the observed colors instead of the locus residuals
@@ -146,10 +146,15 @@ def load_crayons(des_dir, raw=False, mwcorr=False, phot="sof"):
     res = locus_residuals(z[keep], colors, valid)
     valid &= np.isfinite(res)
     res = np.where(valid, res, 0.0)
+    if extra:      # per-object identity and magnitudes, for --diff-colors
+        return (ra[keep], dec[keep], z[keep], res, valid,
+                dict(id=cid[keep],
+                     mag=np.column_stack([mag[b][idx] for b in "griz"]),
+                     ok=np.column_stack([bandok[b] for b in "griz"])))
     return ra[keep], dec[keep], z[keep], res, valid
 
 
-def load_crayons_dr11(path, mwcorr=False):
+def load_crayons_dr11(path, mwcorr=False, extra=False):
     """Path A: the SAME highlum crayons, colors from DR11 (Tractor)
     sweep photometry (32_rmg_dr11match output) — the third photometry
     pipeline on the same galaxies, same griz color set as MOF (DR11
@@ -160,6 +165,7 @@ def load_crayons_dr11(path, mwcorr=False):
         ra = np.asarray(d["RA"], float)
         dec = np.asarray(d["DEC"], float)
         z = np.asarray(d["ZREDMAGIC"], float)
+        cid = np.asarray(d["COADD_OBJECT_ID"], np.int64)
         matched = np.asarray(d["MATCHED"], bool)
         mag, err = {}, {}
         for b in "griz":
@@ -194,7 +200,50 @@ def load_crayons_dr11(path, mwcorr=False):
     res = locus_residuals(z[keep], colors, valid)
     valid &= np.isfinite(res)
     res = np.where(valid, res, 0.0)
+    if extra:
+        return (ra[keep], dec[keep], z[keep], res, valid,
+                dict(id=cid[keep],
+                     mag=np.column_stack([mag[b][keep] for b in "griz"]),
+                     ok=np.column_stack([bandok[b] for b in "griz"])))
     return ra[keep], dec[keep], z[keep], res, valid
+
+
+DIFF_COLS = COLORS_DES + [(b, "0") for b in "griz"]   # "b-0" = magnitude
+
+
+def load_crayons_diff(des_dir, path, mwcorr=False):
+    """Differential test of Path A: per-crayon (DES MOF minus Legacy
+    DR11 Tractor) for the SAME objects, so the intrinsic color scatter
+    that dominates both stacks cancels.  Eight columns: the four locus
+    residual differences (exactly the difference of the two runs' data
+    vectors on the common objects) and the four dereddened magnitude
+    differences g, r, i, z with their redshift-median removed (which
+    band parts company).  No clipping: a clipped mean would no longer
+    be the difference of the two measurements."""
+    ra, dec, z, rm, vm, em = load_crayons(des_dir, mwcorr=mwcorr,
+                                          phot="mof", extra=True)
+    _, _, _, rd, vd, ed = load_crayons_dr11(path, mwcorr=mwcorr, extra=True)
+    _, i, j = np.intersect1d(em["id"], ed["id"], return_indices=True)
+    ra, dec, z = ra[i], dec[i], z[i]
+    dcol, vcol = rm[i] - rd[j], vm[i] & vd[j]
+    dmag, vmag = em["mag"][i] - ed["mag"][j], em["ok"][i] & ed["ok"][j]
+    zc, med = locus_table(z, dmag, vmag)
+    for c in range(4):
+        ok = np.isfinite(med[:, c])
+        dmag[:, c] -= np.interp(z, zc[ok], med[ok, c])
+    vmag &= np.isfinite(dmag)
+    res = np.column_stack([dcol, dmag])
+    valid = np.column_stack([vcol, vmag])
+    res = np.where(valid, res, 0.0)
+    print(f"  common crayons: {len(z):,} (MOF {len(em['id']):,}, "
+          f"DR11 {len(ed['id']):,})")
+    for c, (a, b) in enumerate(DIFF_COLS):
+        r = res[valid[:, c], c]
+        sig = 1.4826 * np.median(np.abs(r - np.median(r)))
+        print(f"  MOF-DR11 {a + ('-' + b if b != '0' else ' mag'):>5s}: "
+              f"valid {valid[:, c].mean():.3f}, scatter {sig:.3f} mag "
+              f"(robust), rms {r.std():.3f}")
+    return ra, dec, z, res, valid
 
 
 # -------------------------------------------------------------- footprint ---
@@ -296,12 +345,19 @@ def main(a):
     if a.dr11_colors and a.fg != "redmagic":
         sys.exit("--dr11-colors is the Path A (McCleary with Legacy "
                  "photometry) mode: --fg redmagic")
+    if a.diff_colors and (a.fg != "redmagic" or a.dr11_colors):
+        sys.exit("--diff-colors is the MOF-minus-DR11 differential "
+                 "stack: --fg redmagic, without --dr11-colors")
     binsuf = (f"z{a.zbin}" if a.nzbin else
               f"m{a.massbin}" if a.nmassbin else "")
     name = ({"bgs": "descrayon", "lrg": "descrayonlrg",
              "redmagic": "rmg"}[a.fg] + binsuf
             + ("dr11" if a.dr11_colors else "")
             + ("mof" if a.mof else "") + ("csfd" if a.mwcorr else ""))
+    if a.diff_colors:
+        name = "rmgmofmdr11" + ("csfd" if a.mwcorr else "")
+        pc.COLORS = DIFF_COLS
+        pc.R_COEF["0"] = 0.0          # the E(B-V) column is meaningless
     pc.FG_ZRANGE[name] = ((0.15, 0.45) if a.fg == "redmagic"
                           else pc.FG_ZRANGE[a.fg])
     pc.RP_MIN = a.rp_min
@@ -313,7 +369,11 @@ def main(a):
                            5_000 if a.rp_max > 10 else 10_000)
     edges, rp_mid = pc.rp_bins()
 
-    if a.dr11_colors:
+    if a.diff_colors:
+        print("== crayons: per-object DES MOF minus DR11 Tractor")
+        cra, cdec, cz, cres, cval = load_crayons_diff(
+            a.des_dir, a.diff_colors, mwcorr=a.mwcorr)
+    elif a.dr11_colors:
         print("== crayons: redMaGiC highlum_highz + DR11 sweep colors")
         cra, cdec, cz, cres, cval = load_crayons_dr11(
             a.dr11_colors, mwcorr=a.mwcorr)
@@ -451,6 +511,11 @@ if __name__ == "__main__":
                          "sweep-matched fits (32_rmg_dr11match.py) "
                          "instead of Y3 Gold; --fg redmagic; name "
                          "gains dr11")
+    ap.add_argument("--diff-colors", default=None,
+                    help="differential test of Path A: stack the "
+                         "per-crayon (MOF minus DR11) color and magnitude "
+                         "differences from this sweep-matched fits; "
+                         "--fg redmagic; name rmgmofmdr11")
     ap.add_argument("--rp-min", type=float, default=0.02,
                     help="inner radius [Mpc]")
     ap.add_argument("--rp-max", type=float, default=10.0,
