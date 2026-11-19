@@ -410,6 +410,34 @@ results = [
     ["QSO merge", "2,836,852 QSOs (DESI + SDSS DR16Q + Quaia, 1\" dedup)"],
 ]
 
+# Finished gauges are frozen in a small history file, so the page does
+# not depend on old job logs staying on disk (the logs were cleared on
+# 2026-11-19).  A gauge that is done is recorded; one that later reads
+# as merely queued (its logs are gone) is served from the record.  A
+# live run or a failure always wins, so reruns show normally.
+HIST = os.path.expanduser("~/.igmstats/gauge_history.json")
+try:
+    with open(HIST) as fh:
+        hist = json.load(fh)
+except (OSError, ValueError):
+    hist = {}
+changed = False
+for i, g in enumerate(gauges):
+    if g["state"] == "done":
+        if hist.get(g["name"]) != g:
+            hist[g["name"]] = dict(g)
+            changed = True
+    elif g["state"] == "wait" and g["name"] in hist:
+        gauges[i] = dict(hist[g["name"]])
+if changed:
+    try:
+        os.makedirs(os.path.dirname(HIST), exist_ok=True)
+        with open(HIST + ".tmp", "w") as fh:
+            json.dump(hist, fh)
+        os.replace(HIST + ".tmp", HIST)
+    except OSError:
+        pass
+
 # order: failures first (need attention), then running, then queued,
 # then done — done sorted newest-finished first, oldest at the bottom
 _rank = {"fail": 0, "run": 1, "wait": 2, "done": 3}
