@@ -59,8 +59,9 @@ def plot_profile(ax, x, av, s, color, marker, label, xoff=1.0):
 
 def menard(ax, rmax=2.0):
     rr = np.logspace(np.log10(0.02), np.log10(rmax), 100)
-    ax.plot(rr * 1e3, RV * 3.7 * (rr / 0.027) ** -0.86, "k--", lw=1,
-            label="Menard+10 extrapolation")
+    # Menard+10 Eq. 29, h = 0.7, physical radii (A_V in 1e-3 mag)
+    ax.plot(rr * 1e3, 4.14 * (rr * 0.7 / 0.1) ** -0.84, "k--", lw=1,
+            label="Menard+10 law")
 
 
 # ---- left: DESI spectroscopy x DESI Legacy Surveys imaging (QSO colors) --

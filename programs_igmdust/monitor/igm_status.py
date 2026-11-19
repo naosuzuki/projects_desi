@@ -388,8 +388,8 @@ results = [
      "colors on the same pairs (both anchored ≥10 Mpc)"],
     vres,
     ["Legacy lw recount — photgal replica (Ménard analog)",
-     "clean profile 23 kpc – 45 Mpc; 0.66±0.09× the Ménard+10 "
-     "normalization over 23–383 kpc"],
+     "clean profile 23 kpc – 45 Mpc; 0.44±0.06× the published "
+     "Ménard+10 law over 23–383 kpc"],
     ["Legacy lw recount — BGS × QSOs",
      "E(B−V) = +4.5±1.8×10⁻³ at 23 kpc; 125 kpc −3σ bin diagnosed as "
      "bright-foreground light contamination (split wave = discriminator)"],

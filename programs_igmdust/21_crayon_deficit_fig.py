@@ -107,8 +107,9 @@ def draw_crayon(ax, plot):
 
 def draw_qso(ax, plot):
     """Right recipe: merged-quasar colors, Menard+10 law as guide."""
-    ax.plot(rr * 1e3, 3.7 * (rr / 0.027) ** -0.86, "k--", lw=1.1,
-            label="Ménard+10 extrapolation")
+    # Menard+10 Eq. 29, h = 0.7, physical radii; E = A_V / 3.1 [1e-3]
+    ax.plot(rr * 1e3, 4.14 / 3.1 * (rr * 0.7 / 0.1) ** -0.84, "k--",
+            lw=1.1, label="Ménard+10 law")
     plot(ax, qs["rp_mid"] * 1e3, qs["ebv"] * 1e3, qs["ebv_err"] * 1e3,
          "C3", "o", "merged-quasar colors")
     ax.set_title("Merged-quasar colors (CSFD, cov-ML)", fontsize=10.5)

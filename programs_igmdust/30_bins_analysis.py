@@ -9,9 +9,12 @@ writes bins_analysis.json for the figure scripts.  The DES 2+2 bins
 the same way as the cross-survey check; their 125 kpc bin is kept (the
 contamination there is a Legacy-photometry effect).
 
-A is defined by E(rp) = A * T(rp), T = 3.7e-3 (rp/0.027 Mpc)^-0.86
-(the Menard+10 extrapolation), inverse-variance weighted over the fit
-bins; A = 1 means Menard-level reddening.  BGS-type samples fit over
+A is defined by E(rp) = A * T(rp) with T the PUBLISHED Menard+10 law,
+T = (4.14e-3 / 3.1) (rp / 143 kpc)^-0.84 (their Eq. 29 with h = 0.7,
+physical radii, R_V = 3.1), inverse-variance weighted over the fit
+bins; A = 1 means Menard+10-level reddening.  (Until 2026-11-19 the
+template was 3.7e-3 (rp/27 kpc)^-0.86, which is 0.66 of the published
+law: the h factor had been dropped.  Old A x ~0.67 = new A.)  BGS-type samples fit over
 23-383 kpc (the CGM range; the 125 kpc bin is EXCLUDED from split
 fits, it is the contamination discriminator), LRG z bins over
 0.67-3.6 Mpc (inside 500 kpc LRG is foreground-light dominated).
@@ -23,7 +26,9 @@ import numpy as np
 
 SC = os.path.expanduser("~/data/igmdust/paircount")
 OUT = os.path.join(SC, "bins_analysis.json")
-T0, RP0, SLOPE = 3.7e-3, 0.027, -0.86
+# Menard+10 Eq. 29: <A_V> = 4.14e-3 (r_p / 100 h^-1 kpc)^-0.84, observer
+# frame, read with h = 0.7 and physical radii; E(B-V) = A_V / 3.1
+T0, RP0, SLOPE = 4.14e-3 / 3.1, 0.1 / 0.7, -0.84
 
 META = {  # name -> (label, fit range Mpc, median z, extra)
     "bgsbright":  ("BGS bright half (r<19.12)", (0.02, 0.45), 0.22, ""),

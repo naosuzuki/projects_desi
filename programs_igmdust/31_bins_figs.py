@@ -19,7 +19,9 @@ SC = os.path.expanduser("~/data/igmdust/paircount")
 OUT = "/Users/suzuki/github/papers/26_igmreddening_study/figures"
 os.makedirs(OUT, exist_ok=True)
 R = json.load(open(f"{SC}/bins_analysis.json"))
-T0, RP0, SLOPE = 3.7e-3, 0.027, -0.86
+# Menard+10 Eq. 29: <A_V> = 4.14e-3 (r_p / 100 h^-1 kpc)^-0.84, observer
+# frame, read with h = 0.7 and physical radii; E(B-V) = A_V / 3.1
+T0, RP0, SLOPE = 4.14e-3 / 3.1, 0.1 / 0.7, -0.84
 
 
 YMIN, YMAX = 8e-3, 40.0            # |E(B-V)| in 1e-3 mag (21_ house style)
@@ -74,7 +76,7 @@ def profile_fig(pairs, fname, title):
     fig, ax = plt.subplots(figsize=(6.2, 4.9))
     rr = np.logspace(np.log10(0.012), np.log10(40.0), 150)
     ax.plot(rr * 1e3, T0 * (rr / RP0) ** SLOPE * 1e3, "k--", lw=1,
-            label="Ménard+10 extrapolation")
+            label="Ménard+10 law")
     for name, color, marker, xoff in pairs:
         d = R[name]
         rp = np.asarray(d["rp"]) * 1e3 * xoff
@@ -128,7 +130,7 @@ ax.axhline(1, color="k", ls="--", lw=0.9,
            label="Menard+10 amplitude ($A=1$)")
 ax.axhline(0, color="0.6", lw=0.8)
 ax.set_xlabel("foreground median redshift", fontsize=12)
-ax.set_ylabel("$A$  [$\\times$ Menard+10 template]", fontsize=12)
+ax.set_ylabel("$A$  [$\\times$ Menard+10 law]", fontsize=12)
 ax.set_title("Template amplitude versus foreground redshift "
              "(equal-count $z$ bins: 3 per Legacy sample, 2 for DES)",
              fontsize=10.5)
@@ -166,7 +168,7 @@ ax.axhline(0, color="0.6", lw=0.8)
 ax.invert_xaxis()                  # luminous (massive) on the right
 ax.set_xlabel("absolute $W1$ magnitude (stellar-mass proxy; "
               "massive $\\rightarrow$ right)", fontsize=12)
-ax.set_ylabel("$A$  [$\\times$ Menard+10 template]", fontsize=12)
+ax.set_ylabel("$A$  [$\\times$ Menard+10 law]", fontsize=12)
 ax.set_title("Template amplitude versus foreground luminosity "
              "(equal-count $M_{W1}$ bins, $0.05<z<0.45$)",
              fontsize=10.5)
