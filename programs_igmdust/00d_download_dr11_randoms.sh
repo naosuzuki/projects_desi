@@ -6,7 +6,7 @@
 # galaxy sample does not have).
 #
 # WHERE TO RUN: astro4 (direct internet, mounts the volume):
-#   ( nohup bash 00d_download_dr11_randoms.sh > ~/igmdust_ranload.log 2>&1 & )
+#   ( nohup bash 00d_download_dr11_randoms.sh > ~/slurmlogs/igmdust_ranload.log 2>&1 & )
 # Writes a .downloaded marker that 13_slurm_menard.sbatch (randoms job)
 # waits for.
 set -u

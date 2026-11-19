@@ -7,7 +7,7 @@
 #              legacycrayon(here, gated on job 72's lrg_dr11.fits)
 #   astrofs4 : job 60 + 72 scans (NFS-bound, must stay), then SLURM 61
 #              (bgsmerged, afterok:60) and 73 (star null, afterok:72)
-# Run ON astro4:  nohup bash astro4_offload2.sh > ~/astro4_offload2.log 2>&1 &
+# Run ON astro4:  nohup bash astro4_offload2.sh > ~/slurmlogs/astro4_offload2.log 2>&1 &
 set -u
 PY=/home/suzuki/miniconda3/bin/python3
 EXT=/data/astrofs2_1/suzuki/data/DESI/catalog/qso_ext

@@ -3,7 +3,7 @@
 # estimator (the final ladder rung).  Reruns the MOF+CSFD pair count with
 # per-region accumulations saved, re-solves E with the full color-color
 # jackknife covariance (08), and re-assesses (07) -> verdict on the page.
-#   nohup bash astro4_offload4.sh > ~/astro4_offload4.log 2>&1 &
+#   nohup bash astro4_offload4.sh > ~/slurmlogs/astro4_offload4.log 2>&1 &
 set -u
 PY=/home/suzuki/miniconda3/bin/python3
 DES=/home/suzuki/github/projects_desi/programs_igmdust/des

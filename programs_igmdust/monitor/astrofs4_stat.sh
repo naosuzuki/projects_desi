@@ -3,7 +3,7 @@
 # Runs ON astrofs4 under nohup; writes CPU load / memory / SLURM-allocated
 # cores into the shared home every 2 min, where astro4's igm_updater.sh
 # merges it into status.json.  No network, no credentials.
-#   nohup bash astrofs4_stat.sh > ~/astrofs4_stat.log 2>&1 &
+#   nohup bash astrofs4_stat.sh > ~/slurmlogs/astrofs4_stat.log 2>&1 &
 set -u
 OUT=~/.igmstats
 mkdir -p "$OUT"

@@ -8,7 +8,7 @@
 #
 # WHERE TO RUN: astro4, and (since the 2026-11-06 admin fix) astrofs4 via
 #   a small SLURM job. Two hosts run DISJOINT shards of the same list:
-#     astro4  : nohup bash 00b_download_dr11_sweeps.sh 1 2 > ~/dr11_dl.log &
+#     astro4  : nohup bash 00b_download_dr11_sweeps.sh 1 2 > ~/slurmlogs/dr11_dl.log &
 #     astrofs4: sbatch (2 cores) -> bash 00b_download_dr11_sweeps.sh 2 2
 #   Args: SHARD NSHARD (default 1 1 = everything). Sharding is by line
 #   number of the sorted url list, so shards never overlap; wget -c skips

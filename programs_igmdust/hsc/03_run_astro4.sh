@@ -4,7 +4,7 @@
 #   B) quiescent crayons x BGS in 2 shards -> merge
 # Run ON astro4:
 #   ( nohup bash ~/github/projects_desi/programs_igmdust/hsc/03_run_astro4.sh \
-#       > ~/hsc_wave1.log 2>&1 & )
+#       > ~/slurmlogs/hsc_wave1.log 2>&1 & )
 # Cov-ML re-solve with HSC R coefficients follows once 10_ml grows a
 # --rcoef option (jk accumulations are saved by 02 regardless).
 set -u

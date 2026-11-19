@@ -15,7 +15,7 @@
 #
 # The match starts at once in the background; Path B's shards run
 # meanwhile (gated, one at a time); Path A's count waits for the match.
-#   on astro4:  nohup bash 33_pathab_babysit.sh > ~/pathab_babysit.log 2>&1 &
+#   on astro4:  nohup bash 33_pathab_babysit.sh > ~/slurmlogs/pathab_babysit.log 2>&1 &
 cd ~/github/projects_desi/programs_igmdust || exit 1
 QSO=/data/astrofs2_1/suzuki/data/DESI/catalog/qso_ext/qso_merged_dr11.fits
 DES=/home/suzuki/data/DES/catalog/redmagic

@@ -4,7 +4,7 @@
 #   A) LRG wide (10 kpc - 45 Mpc) CSFD rerun -> 04 (anchor 15 Mpc) -> cov-ML
 #   B) BGS wide CSFD rerun in 6 parallel shards -> merge -> 04 -> cov-ML,
 #      plus a star-null-subtracted ML solve if the null profile has landed.
-# Run ON astro4:  nohup bash astro4_offload5.sh > ~/astro4_offload5.log 2>&1 &
+# Run ON astro4:  nohup bash astro4_offload5.sh > ~/slurmlogs/astro4_offload5.log 2>&1 &
 set -u
 PY=/home/suzuki/miniconda3/bin/python3
 EXT=/data/astrofs2_1/suzuki/data/DESI/catalog/qso_ext

@@ -11,7 +11,7 @@
 # the two are never launched together — run ONE of 25/26, not both).
 # This fallback WAITS for the z-bin wave (24_) by requiring all nine
 # z-bin npz on disk, so the astro4 waves never contend.
-#   on astro4:  nohup bash 25_massbin_babysit.sh > ~/massbin_babysit.log 2>&1 &
+#   on astro4:  nohup bash 25_massbin_babysit.sh > ~/slurmlogs/massbin_babysit.log 2>&1 &
 # N.B. 3 bins is the DR1 S/N sweet spot; with DR2 statistics rerun
 # with NB=5 below.
 cd ~/github/projects_desi/programs_igmdust || exit 1

@@ -4,7 +4,7 @@
 # lw config, memory/load-gated, one job at a time.  Six A(z) points over
 # 0.05 < z_fg < 1.1.  WAITS for the brightness-split wave (23_) to
 # finish before launching anything, so the two waves never contend.
-#   on astro4:  nohup bash 24_zbin_babysit.sh > ~/zbin_babysit.log 2>&1 &
+#   on astro4:  nohup bash 24_zbin_babysit.sh > ~/slurmlogs/zbin_babysit.log 2>&1 &
 # N.B. 3 bins is the DR1 S/N sweet spot; with DR2 statistics rerun with
 # NB=5 below.
 cd ~/github/projects_desi/programs_igmdust || exit 1

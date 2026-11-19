@@ -9,10 +9,10 @@ to sweep sources within 1", and records FLUX_{G,R,I,Z,W1}, FLUX_IVAR_*,
 MW_TRANSMISSION_* and TYPE.  Every QSO thus gets photometry from ONE
 uniform imaging reduction, whichever catalog it came from.
 
-Startup gate: waits (up to WAIT_MAX_S) for the DR11_SWEEPS_DONE markers
-of both download shards (00b on astro4 + 03b SLURM job), then proceeds —
-with a warning if a marker never appeared (QSOs on missing sweeps simply
-stay unmatched and are flagged).
+With --wait-downloads it first waits (up to WAIT_MAX_S) for the
+DR11_SWEEPS_DONE markers of the download jobs in ~/slurmlogs, then
+proceeds — with a warning if a marker never appeared (QSOs on missing
+sweeps simply stay unmatched and are flagged).
 
 WHERE TO RUN: astrofs4/SLURM (10 cores; I/O bound, ~2-5 h over NFS):
     sbatch -d afterok:<dl job>,singleton 03_slurm_paircount.sbatch sweepmatch
@@ -35,9 +35,8 @@ from astropy.table import Table
 
 EXT_DEFAULT = "/data/astrofs2_1/suzuki/data/DESI/catalog/qso_ext"
 LS_DEFAULT = "/data/astrofs2_1/suzuki/data/DESI/catalog/ls/dr11"
-MARKERS = [os.path.expanduser("~/dr11_dl_shard1.log"),
-           *sorted(glob.glob(os.path.expanduser(
-               "~/slurmlogs/igmdust_dl_*.log")))]
+MARKERS = sorted(glob.glob(os.path.expanduser(
+    "~/slurmlogs/igmdust_dl_*.log")))
 WAIT_MAX_S = 4 * 3600
 MATCH_ARCSEC = 1.0
 BANDS = ["G", "R", "I", "Z", "W1"]
@@ -158,7 +157,8 @@ def match_one(fname):
 
 
 def run(a):
-    wait_for_downloads()
+    if a.wait_downloads:
+        wait_for_downloads()
     inp = a.inp or f"{a.ext}/qso_merged.fits"
     t0 = time.time()
     while not os.path.exists(inp) and time.time() - t0 < 7200:
@@ -280,6 +280,11 @@ if __name__ == "__main__":
                     help="total read-rate cap in MB/s (0 = unpaced); set "
                          "it on a shared host whose NFS link the readers "
                          "would otherwise saturate")
+    ap.add_argument("--wait-downloads", action="store_true",
+                    help="hold for the DR11_SWEEPS_DONE markers of the "
+                         "download jobs (only while the sweeps are still "
+                         "arriving; they were complete and sha256-verified "
+                         "on 2026-11-07)")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args()
     sys.exit(selftest() if a.selftest else run(a))

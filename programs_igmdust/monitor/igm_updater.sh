@@ -3,7 +3,7 @@
 # nohup, so the igmprogress page keeps updating even when every laptop
 # connection is gone. Uploads via curl sftp with ~/.netrc credentials
 # (verified host key in ~/.ssh/known_hosts; no password appears here).
-#   nohup bash igm_updater.sh > ~/igm_updater.log 2>&1 &
+#   nohup bash igm_updater.sh > ~/slurmlogs/igm_updater.log 2>&1 &
 set -u
 M=~/github/projects_desi/programs_igmdust/monitor
 SC=/tmp/igmstatus

@@ -9,7 +9,7 @@
 # so the RAM gate is raised to 50G and --chunk 1000 shrinks the
 # transient pair-index gathers (the bright-s0 OOM was a 2.7 GB gather
 # at chunk 2000 with six jobs peaking together).
-#   on astro4:  nohup bash 28_sfr_babysit.sh > ~/sfr_babysit.log 2>&1 &
+#   on astro4:  nohup bash 28_sfr_babysit.sh > ~/slurmlogs/sfr_babysit.log 2>&1 &
 cd ~/github/projects_desi/programs_igmdust || exit 1
 QSO=/data/astrofs2_1/suzuki/data/DESI/catalog/qso_ext/qso_merged_dr11.fits
 L=~/slurmlogs

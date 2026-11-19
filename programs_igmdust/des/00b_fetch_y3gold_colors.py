@@ -12,7 +12,7 @@ the standard Y3 choice) from des_dr1.y3_gold (850,028 rows -> ~100 MB).
 
 WHERE TO RUN: astro4 (direct internet; this is a network job, NOT a cluster
 job). From ~/github/projects_desi/programs_igmdust/des:
-    nohup nice -n 19 python3 00b_fetch_y3gold_colors.py > ~/des_y3gold_colors.log 2>&1 &
+    nohup nice -n 19 python3 00b_fetch_y3gold_colors.py > ~/slurmlogs/des_y3gold_colors.log 2>&1 &
 
 Chunked (5,000 ids per query, 4 parallel workers, 3 retries each); CSV part
 files land in $DEST/parts_dr2colors/ (the Data Lab sync TAP does not serve

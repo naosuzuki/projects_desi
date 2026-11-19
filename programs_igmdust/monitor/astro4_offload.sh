@@ -1,7 +1,7 @@
 #!/bin/bash
 # astro4_offload.sh — run CPU-bound igmdust jobs on astro4 (which is idle)
 # instead of waiting for astrofs4 cores.  Run ON astro4 under nohup:
-#   nohup bash astro4_offload.sh > ~/astro4_offload.log 2>&1 &
+#   nohup bash astro4_offload.sh > ~/slurmlogs/astro4_offload.log 2>&1 &
 #
 # Stage 1 (now):  CSFD iteration-2 crayon run + McCleary assessment.
 #                 No dependencies; inputs (DES crayons, CSFD maps) already

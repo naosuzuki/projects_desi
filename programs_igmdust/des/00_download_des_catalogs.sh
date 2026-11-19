@@ -12,7 +12,7 @@
 #   total ~3.0 GB
 #
 # WHERE TO RUN: astro4 (direct internet, no SLURM; never astrofs4 jobs).
-#   nohup bash 00_download_des_catalogs.sh > ~/des_dl.log 2>&1 &
+#   nohup bash 00_download_des_catalogs.sh > ~/slurmlogs/des_dl.log 2>&1 &
 # DEST per Nao (2026-11-06): /home/suzuki/data/DES/catalog
 #
 # The DES DR2 coadd pull (des_dr2.main via Data Lab TAP: star null test +

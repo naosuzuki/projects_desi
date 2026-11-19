@@ -5,7 +5,7 @@
 #   Gaia-unWISE Quaia G<20.5 (~1 GB)  — all-sky spectrophotometric QSOs
 #
 # WHERE TO RUN: astro4 (direct internet).
-#   nohup bash 00c_download_qso_catalogs.sh > ~/qso_ext_dl.log 2>&1 &
+#   nohup bash 00c_download_qso_catalogs.sh > ~/slurmlogs/qso_ext_dl.log 2>&1 &
 # Idempotent: wget -c resumes.
 set -u
 DEST=/data/astrofs2_1/suzuki/data/DESI/catalog/qso_ext

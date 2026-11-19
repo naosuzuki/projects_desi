@@ -8,7 +8,7 @@
 #
 # Auth: ~/.netrc entry for hscdata.mtk.nao.ac.jp (curl -n; no password
 # in command lines or logs). WHERE TO RUN: astro4.
-#   nohup bash 01_download_hsc_catalog.sh > ~/hsc_dl.log 2>&1 &
+#   nohup bash 01_download_hsc_catalog.sh > ~/slurmlogs/hsc_dl.log 2>&1 &
 # Idempotent: curl -C - resumes partial files.
 set -u
 DEST=/home/suzuki/data/HSC/catalog

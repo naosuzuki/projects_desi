@@ -5,7 +5,7 @@
 # full lw config, 3 shards each, memory- and load-gated, one shard at a
 # time (lw_babysit.sh v5 pattern).  If the dip is bright-foreground
 # light contamination it should track the bright half.
-#   on astro4:  nohup bash 23_split_babysit.sh > ~/split_babysit.log 2>&1 &
+#   on astro4:  nohup bash 23_split_babysit.sh > ~/slurmlogs/split_babysit.log 2>&1 &
 cd ~/github/projects_desi/programs_igmdust || exit 1
 QSO=/data/astrofs2_1/suzuki/data/DESI/catalog/qso_ext/qso_merged_dr11.fits
 L=~/slurmlogs
