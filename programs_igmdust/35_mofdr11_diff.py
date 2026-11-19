@@ -16,7 +16,10 @@ Outputs
     amplitude in units of her law.
   * per-color and per-band differential profiles with jackknife errors
     (which band, which radii), anchored.
-  * figures/mccleary_legacy_diff.pdf (20_mccrepro_fig v2 style).
+  * her-law amplitude of each run solved one color at a time (a dust
+    signal gives the same amplitude in every color).
+  * figures/mccleary_legacy_diff.pdf: the per-band magnitude difference
+    versus r_p (20_mccrepro_fig v2 style).
 
     python3 35_mofdr11_diff.py [NPZDIR]
 """
@@ -125,50 +128,93 @@ for i, r in enumerate(rp):
             for c in range(8)))
 print("   anchor constants [1e-4 mag]: " + "  ".join(
     f"{n} {c*1e4:+.2f}" for n, c in zip(NAMES, RES["columns"]["const"])))
+
+
+# ---- single-color solves of the two runs themselves -------------------
+# dust reddens every color by the same E(B-V); a photometric term does
+# not.  Solve each run color by color (anchored, f_abs applied) and fit
+# her law: where do the two reductions agree?
+def run_color(stem, cols):
+    r_ = np.load(f"{SP}/paircount_{stem}_qso.npz", allow_pickle=True)
+    names = [str(c) for c in r_["colors"]]
+    ix = [names.index(c) for c in cols]
+    dR = np.array([ml.R_DES[a] - ml.R_DES[b]
+                   for a, b in (c.split("-") for c in cols)])
+    w_ = 1.0 / r_["sigma"][ix][:, an] ** 2
+
+    def anch(x):
+        return x - ((x[..., an] * w_).sum(-1) / w_.sum(-1))[..., None]
+    delta = anch(r_["delta"][ix])
+    dk = anch(ml.loo_deltas(r_)[:, ix, :])
+    Kc, nc, nb = dk.shape
+    E, S = np.zeros(nb), np.zeros(nb)
+    for i in range(nb):
+        x = dk[:, :, i]
+        m = x.mean(0)
+        Ci = ((Kc - nc - 2) / (Kc - 1) * np.linalg.pinv(
+            np.atleast_2d((Kc - 1) / Kc * (x - m).T @ (x - m))))
+        den = dR @ Ci @ dR
+        E[i], S[i] = dR @ Ci @ delta[:, i] / den, 1.0 / np.sqrt(den)
+    return amplitude(RV * E / F_ABS, RV * S / F_ABS, ANCHOR * 1e3, True)
+
+
+RES["single_color"] = {}
+print("\n== her-law amplitude color by color (anchored, 219 kpc - 6.3 Mpc)")
+print("   colors             DES MOF            Legacy DR11")
+for cols in (["i-z"], ["r-i"], ["g-r"], ["g-r", "r-i", "i-z", "g-i"]):
+    a = run_color("rmgmofcsfd", cols)
+    b = run_color("rmgdr11csfd", cols)
+    RES["single_color"]["+".join(cols)] = dict(mof=a[:2], dr11=b[:2])
+    print(f"   {'+'.join(cols):16s} {a[0]:+6.2f} +- {a[1]:.2f}     "
+          f"{b[0]:+6.2f} +- {b[1]:.2f}")
+
 with open(f"{SP}/mofdr11_diff.json", "w") as fh:
     json.dump(RES, fh)
 
 # ------------------------------------------------------------- figure ---
-YMIN, YMAX = 2e-5, 2e-2
-r = RES["anchored"]
-av, err = np.array(r["av"]), np.array(r["err"])
+# per-band magnitude difference: which band, which radii.  Beyond 71 kpc
+# every bin short of the anchor zone is positive (MOF fainter than
+# Tractor near foregrounds), so the house log-log |.| axes lose nothing.
+YMIN, YMAX = 0.01, 60.0                          # mmag
 k = (rp >= RMIN) & (rp <= ANCHOR * 1e3)
 fig, ax = plt.subplots(figsize=(10.0, 5.6))
 rr = np.logspace(np.log10(140), np.log10(40000), 200)
-ax.plot(rr, law_av(rr), "k--", lw=1.6, zorder=3,
-        label=r"McCleary et al. (2026) LRG law:"
-              r" $A_V = 4.6\times10^{-3}\,(r/100\,h^{-1}{\rm kpc})^{-0.77}$")
-ax.fill_between(rr, law_av(rr) * 3.1 / 4.6, law_av(rr), color="0.82",
-                zorder=1, label=r"their redMaGiC range $C=(3.1$--$4.6)"
-                                r"\times10^{-3}$")
-det = np.abs(av[k]) > err[k]
-y = np.abs(av[k][det])
-lo = np.clip(np.minimum(err[k][det], y - YMIN * 1.05), 0, None)
-ax.errorbar(rp[k][det], y, yerr=[lo, err[k][det]], fmt="D", ms=7,
-            color="C4", capsize=3, zorder=4,
-            label=r"$\Delta A_V$: DES MOF minus Legacy DR11 (Tractor), "
-                  "per crayon, same pairs")
-ul = np.abs(av[k][~det]) + 2 * err[k][~det]
-ax.errorbar(rp[k][~det], ul, yerr=ul * 0.25, uplims=True, fmt="D", ms=4,
-            mfc="none", color="C4", lw=1, alpha=0.7, zorder=4)
+ax.plot(rr, law_av(rr) * 1e3, "k--", lw=1.6, zorder=3,
+        label=r"for scale: the McCleary et al. (2026) LRG law, $A_V(r_p)$")
+for c, band, color, marker, xoff in ((4, "g", "C2", "o", 0.94),
+                                     (5, "r", "C3", "s", 0.98),
+                                     (6, "i", "C1", "D", 1.02),
+                                     (7, "z", "C5", "^", 1.06)):
+    y, e = da[c][k] * 1e3, ea[c][k] * 1e3
+    det = np.abs(y) > e
+    lo = np.clip(np.minimum(e[det], np.abs(y[det]) - YMIN * 1.05), 0, None)
+    ax.errorbar(rp[k][det] * xoff, np.abs(y[det]), yerr=[lo, e[det]],
+                fmt=marker, ms=6.5, color=color, capsize=3, zorder=4,
+                label=f"${band}$ band")
+    ul = np.abs(y[~det]) + 2 * e[~det]
+    ax.errorbar(rp[k][~det] * xoff, ul, yerr=ul * 0.25, uplims=True,
+                fmt=marker, ms=4, mfc="none", color=color, lw=1, alpha=0.7)
 ax.axvspan(ANCHOR * 1e3, 45000, color="0.93", zorder=0)
-ax.text(2.1e4, 2.2e-3, "anchor zone\n($\\geq$10 Mpc)", ha="center",
+ax.text(2.1e4, 2.0, "anchor zone\n($\\geq$10 Mpc)", ha="center",
         va="top", fontsize=8.5, color="0.35")
 ax.set_xscale("log")
 ax.set_yscale("log")
 ax.set_xlim(140, 45000)
 ax.set_ylim(YMIN, YMAX)
 ax.set_xlabel(r"$r_p$ [physical kpc]", fontsize=13)
-ax.set_ylabel(r"$|\Delta A_V|$ [mag]", fontsize=13)
+ax.set_ylabel(r"$|\Delta m|$ around foregrounds minus around randoms "
+              "[mmag]", fontsize=12)
 ax.tick_params(labelsize=11)
-ax.legend(loc="upper right", fontsize=9.5)
-r0 = RES["as counted"]
-ax.text(0.04, 0.08,
-        "amplitude of the difference, in units of her law:\n"
-        f"${r['C']:+.2f}\\pm{r['sC']:.2f}$ anchored "
-        f"($\\chi^2$ vs. zero {r['chi2_zero']:.0f}/{r['nbin']}),  "
-        f"${r0['C']:+.2f}\\pm{r0['sC']:.2f}$ as counted",
-        transform=ax.transAxes, fontsize=9.6, va="bottom",
+ax.legend(loc="upper right", fontsize=9.5,
+          title="DES MOF minus Legacy DR11 (Tractor) magnitude of the "
+                "same crayons", title_fontsize=9.5)
+sc = RES["single_color"]
+ax.text(0.04, 0.07,
+        "her-law amplitude from one color at a time (MOF | Tractor):\n"
+        + "\n".join(f"${c}$:  ${sc[c]['mof'][0]:+.2f}\\pm{sc[c]['mof'][1]:.2f}$"
+                    f"  |  ${sc[c]['dr11'][0]:+.2f}\\pm{sc[c]['dr11'][1]:.2f}$"
+                    for c in ("i-z", "r-i", "g-r")),
+        transform=ax.transAxes, fontsize=9.4, va="bottom",
         bbox=dict(fc="white", ec="0.6", alpha=0.9))
 fig.tight_layout()
 for ext in ("pdf", "png"):
